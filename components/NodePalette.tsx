@@ -85,7 +85,7 @@ export default function NodePalette() {
                 id: uuidv4(),
                 type: "prompt",
                 position: randomPosition(),
-                data: { message: "Welcome! Please enter your PIN." },
+                data: { message: "" },
               })
             }
           >
@@ -112,7 +112,37 @@ export default function NodePalette() {
                 id: uuidv4(),
                 type: "action",
                 position: randomPosition(),
-                data: { endpoint: "https://api.example.com/login" },
+                data: { endpoint: "" },
+              })
+            }
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between p-3 bg-blue-500 rounded-lg shadow hover:shadow-lg transform hover:-translate-y-0.5 transition">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-600 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-white font-semibold">Start Node</div>
+              <div className="text-blue-100 text-xs">
+                Entry point for the flow
+              </div>
+            </div>
+          </div>
+          <button
+            className="ml-4 bg-white/90 text-blue-600 font-medium rounded-md px-3 py-1 hover:bg-white"
+            onClick={() =>
+              addNode({
+                id: uuidv4(),
+                type: "start",
+                position: randomPosition(),
+                data: { flowName: "", entryNode: "" },
               })
             }
           >

@@ -15,7 +15,7 @@ interface FlowState {
   setSelectedNodeId: (id: string | null) => void;
   openInspector: (id: string) => void;
   closeInspector: () => void;
-  setInspectorPosition: (pos: { x: number; y: number } | null) => void;
+  setInspectorPosition: (pos: { x: number; y: number; placement: "above" | "below" | "center" } | null) => void;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 }
 
@@ -78,42 +78,7 @@ export const useFlowStore = create<FlowState>((set) => ({
       }
 
       // If this is an action node, ensure it has sensible default editable fields
-      set((state) => {
-        const node = state.nodes.find((n) => n.id === id);
-        if (node && (node as any).type === "action") {
-          const data: any = node.data || {};
-          const defaults = {
-            name: data.name ?? `${node.id}`,
-            endpoint:
-              data.endpoint ??
-              "https://devapisuperapp.cbe.com.et/api/v1/cbesuperapp/cbe_to_cbe/account_lookup",
-            method: data.method ?? "POST",
-            apiBody:
-              data.apiBody ?? { account_number: "{{vars.selectedAccount}}" },
-            headers:
-              data.headers ?? {
-                Authorization: "Bearer {{vars.authToken}}",
-                "Content-Type": "application/json",
-                "X-Source": "ussd",
-              },
-            responseMapping:
-              data.responseMapping ?? { balance: "{{response.data.data.balance}}" },
-            persistResponseMapping:
-              data.persistResponseMapping ?? true,
-            outputVar: data.outputVar ?? "accountBalanceInfo",
-            nextNode: data.nextNode ?? "displayBalance",
-          };
-
-          return {
-            nodes: state.nodes.map((n) => (n.id === id ? { ...n, data: { ...data, ...defaults } } : n)),
-            inspectorOpen: true,
-            selectedNodeId: id,
-            inspectorPosition: pos,
-          };
-        }
-
-        return { inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos };
-      });
+      set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos as any });
     } catch (e) {
       // fallback to opening without position
       set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: null });

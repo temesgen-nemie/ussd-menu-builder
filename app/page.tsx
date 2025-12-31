@@ -16,14 +16,7 @@ export default function Home() {
         <FlowCanvas />
 
         {/* inspector modal overlay positioned near clicked node */}
-        {useFlowStore((s) => s.inspectorOpen) && (
-          <div
-            className="fixed inset-0 z-50 pointer-events-auto bg-black/10"
-            onClick={() => useFlowStore.getState().closeInspector()}
-          >
-            <InspectorPanel />
-          </div>
-        )}
+        {useFlowStore((s) => s.inspectorOpen) && <InspectorPanel />}
       </div>
     </div>
   );

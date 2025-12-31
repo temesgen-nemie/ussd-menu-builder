@@ -24,10 +24,12 @@ import {
 import { useFlowStore } from "../store/flowStore";
 import PromptNode from "./nodes/PromptNode";
 import ActionNode from "./nodes/ActionNode";
+import StartNode from "./nodes/StartNode";
 
 const nodeTypes = {
   prompt: PromptNode,
   action: ActionNode,
+  start: StartNode,
 };
 
 export default function FlowCanvas() {
@@ -40,13 +42,88 @@ export default function FlowCanvas() {
     selectedNodeId,
     removeNode,
     openInspector,
+    updateNodeData,
     closeInspector,
+    inspectorOpen,
   } = useFlowStore();
 
   // add edge (uses current edges array)
   const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges(addEdge(params, edges)),
-    [edges, setEdges]
+    (params: Edge | Connection) => {
+      setEdges(addEdge(params, edges));
+
+      const sourceNode = nodes.find((n) => n.id === params.source);
+
+      // Visual Branching Logic:
+      // If connecting from a specific handle (option), update that option's nextNode
+      if (params.sourceHandle) {
+        if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
+          const handleId = params.sourceHandle;
+          const options = (sourceNode.data.options as any[]) || [];
+          const optionIndex = options.findIndex((o) => o.id === handleId);
+
+          if (optionIndex !== -1) {
+            // Update the specific option
+            const newOptions = [...options];
+            newOptions[optionIndex] = {
+              ...newOptions[optionIndex],
+              nextNode: params.target,
+            };
+            updateNodeData(sourceNode.id, { options: newOptions });
+          }
+        }
+      } else {
+        // If no specific handle ID is used, it's the default handle.
+        // This applies to Action nodes and Start nodes.
+
+        // Action Node Logic:
+        // If connecting from an action node, update its nextNode
+        if (sourceNode && sourceNode.type === "action") {
+          updateNodeData(sourceNode.id, { nextNode: params.target });
+        }
+        // Start Node Logic:
+        // If connecting from a "start" node, update the entryNode field.
+        else if (sourceNode && sourceNode.type === "start") {
+          updateNodeData(sourceNode.id, { entryNode: params.target });
+        }
+      }
+    },
+    [edges, setEdges, nodes, updateNodeData]
+  );
+  
+  // Handle edge deletion to clear the nextNode mapping
+  const onEdgesDelete = useCallback(
+    (deletedEdges: Edge[]) => {
+      deletedEdges.forEach((edge) => {
+        // ... (existing prompt logic) ...
+        if (edge.sourceHandle) {
+          const sourceNode = nodes.find((n) => n.id === edge.source);
+          if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
+             // ... existing logic ...
+            const options = (sourceNode.data.options as any[]) || [];
+            const optionIndex = options.findIndex((o) => o.id === edge.sourceHandle);
+
+            if (optionIndex !== -1) {
+              const newOptions = [...options];
+              newOptions[optionIndex] = { ...newOptions[optionIndex], nextNode: "" };
+              updateNodeData(sourceNode.id, { options: newOptions });
+            }
+          }
+        } else {
+          // If no specific handle ID is used, it might be the default handle (like on Start Node)
+          const sourceNode = nodes.find((n) => n.id === edge.source);
+          // Action Node Logic
+          if (sourceNode && sourceNode.type === "action") {
+            updateNodeData(sourceNode.id, { nextNode: "" });
+          }
+          // Start Node Logic
+          else if (sourceNode && sourceNode.type === "start") {
+             updateNodeData(sourceNode.id, { entryNode: "" });
+          }
+        }
+      });
+    },
+    [nodes, updateNodeData]
   );
 
   // node drag / move / selection: apply change objects to current `nodes`
@@ -107,6 +184,22 @@ export default function FlowCanvas() {
     },
     [openInspector]
   );
+  
+  // Update inspector position while dragging the selected node
+  const onNodeDrag = useCallback(
+    (_event: ReactMouseEvent, node: Node) => {
+      // Only update position if inspector is ALREADY open
+      if (node.id === selectedNodeId && inspectorOpen) {
+        openInspector(node.id);
+      }
+    },
+    [selectedNodeId, inspectorOpen, openInspector]
+  );
+
+  // Close inspector when clicking on the empty canvas pane
+  const onPaneClick = useCallback(() => {
+    closeInspector();
+  }, [closeInspector]);
 
   // delete selected node with Delete/Backspace key, close inspector with Escape
   useEffect(() => {
@@ -133,9 +226,12 @@ export default function FlowCanvas() {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onEdgesDelete={onEdgesDelete}
       onSelectionChange={onSelectionChange}
       onNodeClick={onNodeClick}
       onNodeDoubleClick={onNodeDoubleClick}
+      onNodeDrag={onNodeDrag}
+      onPaneClick={onPaneClick}
       onInit={(inst) => (rfInstanceRef.current = inst)}
       fitView
     >
