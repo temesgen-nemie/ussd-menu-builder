@@ -15,39 +15,59 @@ export default function PromptNode({ data, selected }: NodeProps) {
         {data.message || "No message"}
       </div>
 
-      {data.options && (data.options as any[]).length > 0 && (
+      {/* Menu Mode: Show Logic Rules (No Handles) */}
+      {(!data.routingMode || data.routingMode === "menu") && (
         <div className="mt-3 pt-2 border-t border-gray-100 space-y-1">
-          {(data.options as any[]).map((opt: any, idx: number) => (
-            <div key={idx} className="relative flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded group">
-              <div className="flex items-center gap-2">
-                <span className="font-mono bg-white px-1 border rounded text-gray-500">{opt.value}</span>
-                <span className="text-gray-700 truncate max-w-[120px]" title={opt.label}>{opt.label}</span>
-              </div>
-              {opt.nextNode && (
-                 <div className="flex items-center text-[10px] text-indigo-400 mr-2">
-                   <span className="mr-0.5">→</span>
-                   <span className="truncate max-w-[50px]">{opt.nextNode}</span>
+          {/* Check if nextNode has routes (Logic Mode) */}
+          {data.nextNode && typeof data.nextNode === 'object' && data.nextNode.routes && (
+             (data.nextNode.routes as any[]).map((route: any, idx: number) => {
+               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
+               const matchVal = route.when?.eq?.[1] || "?";
+               return (
+                 <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100">
+                   <div className="flex items-center gap-2">
+                     <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">{matchVal}</span>
+                     <span className="text-gray-400">→</span>
+                     <span className="text-gray-700 font-medium truncate max-w-[100px]" title={route.gotoFlow}>{route.gotoFlow}</span>
+                   </div>
                  </div>
-              )}
-              {/* Individual Source Handle for this option */}
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={opt.id}
-                className="!bg-indigo-400 !w-3 !h-3 !-right-2"
-                style={{ top: "50%", transform: "translateY(-50%)" }}
-              />
-            </div>
-          ))}
+               );
+             })
+          )}
+
+          {/* Fallback/Legacy: If no rules yet, show placeholder */}
+          {(!data.nextNode || typeof data.nextNode !== 'object' || !data.nextNode.routes || data.nextNode.routes.length === 0) && (
+             <div className="text-center text-[10px] text-gray-400 italic py-2">
+               No routing rules defined
+             </div>
+          )}
+          
+          {/* Default Route Indicator */}
+          {data.nextNode && typeof data.nextNode === 'object' && data.nextNode.default && (
+             <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 px-1">
+                <span>Default:</span>
+                <span className="font-medium text-gray-600">{data.nextNode.default}</span>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Linear Mode Indicator */}
+      {data.routingMode === "linear" && (
+        <div className="mt-3 text-center">
+            <div className="text-[10px] text-gray-400 mb-1">Input Collection Mode</div>
         </div>
       )}
 
       <Handle type="target" position={Position.Top} />
       
-      {/* Only show default bottom handle if no options are defined (or if you want a fallback flow) */}
-      {(!data.options || (data.options as any[]).length === 0) && (
+      {/* Linear Mode: Default Bottom Handle */}
+      {data.routingMode === "linear" && (
         <Handle type="source" position={Position.Bottom} />
       )}
+      
+      {/* Legacy/Fallback: Show bottom handle if menu mode but no options? (Optional, maybe keep it clean) */}
+      {/* For now, strict: If menu mode, no bottom handle. User must add options. */}
     </div>
   );
 }

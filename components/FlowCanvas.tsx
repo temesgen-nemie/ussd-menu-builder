@@ -55,15 +55,14 @@ export default function FlowCanvas() {
       const sourceNode = nodes.find((n) => n.id === params.source);
 
       // Visual Branching Logic:
-      // If connecting from a specific handle (option), update that option's nextNode
       if (params.sourceHandle) {
+        // 1. Prompt Options
         if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
           const handleId = params.sourceHandle;
           const options = (sourceNode.data.options as any[]) || [];
           const optionIndex = options.findIndex((o) => o.id === handleId);
 
           if (optionIndex !== -1) {
-            // Update the specific option
             const newOptions = [...options];
             newOptions[optionIndex] = {
               ...newOptions[optionIndex],
@@ -72,17 +71,39 @@ export default function FlowCanvas() {
             updateNodeData(sourceNode.id, { options: newOptions });
           }
         }
+        // 2. Action Routes
+        else if (sourceNode && sourceNode.type === "action") {
+          const handleId = params.sourceHandle;
+          // Check if it's the default handle
+          if (handleId === "default") {
+            updateNodeData(sourceNode.id, { nextNode: params.target });
+          } else {
+             // It's a conditional route
+             const routes = (sourceNode.data.routes as any[]) || [];
+             const routeIndex = routes.findIndex((r) => r.id === handleId);
+             
+             if (routeIndex !== -1) {
+               const newRoutes = [...routes];
+               newRoutes[routeIndex] = {
+                 ...newRoutes[routeIndex],
+                 nextNodeId: params.target,
+               };
+               updateNodeData(sourceNode.id, { routes: newRoutes });
+             }
+          }
+        }
       } else {
-        // If no specific handle ID is used, it's the default handle.
-        // This applies to Action nodes and Start nodes.
-
-        // Action Node Logic:
-        // If connecting from an action node, update its nextNode
-        if (sourceNode && sourceNode.type === "action") {
+        // If no specific handle ID is used (default/legacy handles)
+        
+        // Prompt Node Logic (Linear Mode/Default)
+        if (sourceNode && sourceNode.type === "prompt") {
+           updateNodeData(sourceNode.id, { nextNode: params.target });
+        }
+        // Action Node Logic (legacy fallback or default handle if no ID)
+        else if (sourceNode && sourceNode.type === "action") {
           updateNodeData(sourceNode.id, { nextNode: params.target });
         }
         // Start Node Logic:
-        // If connecting from a "start" node, update the entryNode field.
         else if (sourceNode && sourceNode.type === "start") {
           updateNodeData(sourceNode.id, { entryNode: params.target });
         }
@@ -95,11 +116,11 @@ export default function FlowCanvas() {
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
       deletedEdges.forEach((edge) => {
-        // ... (existing prompt logic) ...
         if (edge.sourceHandle) {
           const sourceNode = nodes.find((n) => n.id === edge.source);
+          
+          // 1. Prompt Options
           if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
-             // ... existing logic ...
             const options = (sourceNode.data.options as any[]) || [];
             const optionIndex = options.findIndex((o) => o.id === edge.sourceHandle);
 
@@ -109,16 +130,32 @@ export default function FlowCanvas() {
               updateNodeData(sourceNode.id, { options: newOptions });
             }
           }
-        } else {
-          // If no specific handle ID is used, it might be the default handle (like on Start Node)
-          const sourceNode = nodes.find((n) => n.id === edge.source);
-          // Action Node Logic
-          if (sourceNode && sourceNode.type === "action") {
-            updateNodeData(sourceNode.id, { nextNode: "" });
+          // 2. Action Routes
+          else if (sourceNode && sourceNode.type === "action") {
+             if (edge.sourceHandle === "default") {
+                updateNodeData(sourceNode.id, { nextNode: "" });
+             } else {
+                const routes = (sourceNode.data.routes as any[]) || [];
+                const routeIndex = routes.findIndex((r) => r.id === edge.sourceHandle);
+                if (routeIndex !== -1) {
+                   const newRoutes = [...routes];
+                   newRoutes[routeIndex] = { ...newRoutes[routeIndex], nextNodeId: "" };
+                   updateNodeData(sourceNode.id, { routes: newRoutes });
+                }
+             }
           }
-          // Start Node Logic
-          else if (sourceNode && sourceNode.type === "start") {
-             updateNodeData(sourceNode.id, { entryNode: "" });
+        } else {
+          // If no specific handle ID is used (legacy)
+          const sourceNode = nodes.find((n) => n.id === edge.source);
+          
+          if (sourceNode) {
+             if (sourceNode.type === "prompt") {
+                updateNodeData(sourceNode.id, { nextNode: "" });
+             } else if (sourceNode.type === "action") {
+                updateNodeData(sourceNode.id, { nextNode: "" });
+             } else if (sourceNode.type === "start") {
+                updateNodeData(sourceNode.id, { entryNode: "" });
+             }
           }
         }
       });

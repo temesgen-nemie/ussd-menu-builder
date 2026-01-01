@@ -19,7 +19,7 @@ interface FlowState {
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 }
 
-export const useFlowStore = create<FlowState>((set) => ({
+export const useFlowStore = create<FlowState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
@@ -45,6 +45,9 @@ export const useFlowStore = create<FlowState>((set) => ({
   // open the inspector and compute its approximate screen position based on the node element
   openInspector: (id) => {
     try {
+      const node = get().nodes.find((n) => n.id === id);
+      const isAction = node?.type === "action";
+
       const el = document.querySelector(
         `.react-flow__node[data-id="${id}"]`
       ) as HTMLElement | null;
@@ -52,15 +55,22 @@ export const useFlowStore = create<FlowState>((set) => ({
       let pos = null;
       if (el) {
         const rect = el.getBoundingClientRect();
+
+        // Dimensions based on node type
+        // Action node is w-[800px], others are w-96 (384px)
+        const modalWidth = isAction ? 800 : 384;
+        const modalHalf = modalWidth / 2;
+
+        // Height estimate (Action node is taller due to tabs/fields)
+        const modalHeightEstimate = isAction ? 600 : 360;
+
         // position centered horizontally and prefer above placement when there's space
-        const modalHalf = 192; // half of the modal width (w-96 == 384px)
         const xCenter = rect.left + rect.width / 2;
         const x = Math.min(
           Math.max(xCenter, modalHalf + 16),
           window.innerWidth - modalHalf - 16
         );
 
-        const modalHeightEstimate = 360; // approx height of the modal
         const margin = 12;
         const spaceAbove = rect.top;
         const spaceBelow = window.innerHeight - rect.bottom;
@@ -77,7 +87,6 @@ export const useFlowStore = create<FlowState>((set) => ({
         }
       }
 
-      // If this is an action node, ensure it has sensible default editable fields
       set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos as any });
     } catch (e) {
       // fallback to opening without position
