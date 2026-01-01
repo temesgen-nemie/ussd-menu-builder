@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Node, Edge } from "reactflow";
+import { Node, Edge, ReactFlowInstance } from "reactflow";
 
 interface FlowState {
   nodes: Node[];
@@ -14,9 +14,11 @@ interface FlowState {
   removeNode: (id: string) => void;
   setSelectedNodeId: (id: string | null) => void;
   openInspector: (id: string) => void;
-  closeInspector: () => void;
   setInspectorPosition: (pos: { x: number; y: number; placement: "above" | "below" | "center" } | null) => void;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
+
+  rfInstance: ReactFlowInstance | null;
+  setRfInstance: (instance: ReactFlowInstance) => void;
 }
 
 export const useFlowStore = create<FlowState>((set, get) => ({
@@ -29,6 +31,9 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
 
   setEdges: (edges) => set({ edges }),
+
+  rfInstance: null,
+  setRfInstance: (instance) => set({ rfInstance: instance }),
 
   addNode: (node) =>
     set((state) => ({ nodes: [...state.nodes, node] })),

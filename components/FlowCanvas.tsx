@@ -45,6 +45,7 @@ export default function FlowCanvas() {
     updateNodeData,
     closeInspector,
     inspectorOpen,
+    setRfInstance
   } = useFlowStore();
 
   // add edge (uses current edges array)
@@ -269,7 +270,10 @@ export default function FlowCanvas() {
       onNodeDoubleClick={onNodeDoubleClick}
       onNodeDrag={onNodeDrag}
       onPaneClick={onPaneClick}
-      onInit={(inst) => (rfInstanceRef.current = inst)}
+      onInit={(inst) => {
+        rfInstanceRef.current = inst;
+        setRfInstance(inst);
+      }}
       fitView
     >
       <Background />

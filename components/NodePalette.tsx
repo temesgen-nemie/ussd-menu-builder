@@ -42,13 +42,33 @@ function IconAction() {
 }
 
 export default function NodePalette() {
-  const addNode = useFlowStore((s) => s.addNode);
+  const { addNode, rfInstance } = useFlowStore();
 
-  // Return a random position centered around the viewport so nodes appear near the canvas
-  const randomPosition = () => {
-    // small random range to avoid nodes spawning too far off-screen
-    const x = Math.floor(Math.random() * 800) - 400; // -400 .. 400
-    const y = Math.floor(Math.random() * 600) - 300; // -300 .. 300
+  // Return a position centered in the current viewport
+  const getCenteredPosition = () => {
+    if (rfInstance) {
+        // Center of the flow canvas area on screen
+        // Sidebar is 256px wide (w-64)
+        // Canvas Center X = 256 + (window.innerWidth - 256) / 2
+        // Canvas Center Y = window.innerHeight / 2
+        const centerX = 256 + (window.innerWidth - 256) / 2;
+        const centerY = window.innerHeight / 2;
+
+        const position = rfInstance.project({ 
+            x: centerX, 
+            y: centerY 
+        });
+
+        // Add small random offset so multiple nodes don't stack exactly
+        return {
+            x: position.x + (Math.random() * 40 - 20),
+            y: position.y + (Math.random() * 40 - 20)
+        };
+    }
+
+    // Fallback: random range around origin
+    const x = Math.floor(Math.random() * 800) - 400; 
+    const y = Math.floor(Math.random() * 600) - 300; 
     return { x, y };
   };
 
@@ -84,7 +104,7 @@ export default function NodePalette() {
               addNode({
                 id: uuidv4(),
                 type: "prompt",
-                position: randomPosition(),
+                position: getCenteredPosition(),
                 data: { message: "" },
               })
             }
@@ -111,7 +131,7 @@ export default function NodePalette() {
               addNode({
                 id: uuidv4(),
                 type: "action",
-                position: randomPosition(),
+                position: getCenteredPosition(),
                 data: { endpoint: "" },
               })
             }
@@ -141,7 +161,7 @@ export default function NodePalette() {
               addNode({
                 id: uuidv4(),
                 type: "start",
-                position: randomPosition(),
+                position: getCenteredPosition(),
                 data: { flowName: "", entryNode: "" },
               })
             }
