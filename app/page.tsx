@@ -3,6 +3,7 @@
 import FlowCanvas from "../components/FlowCanvas";
 import NodePalette from "../components/NodePalette";
 import InspectorPanel from "../components/InspectorPanel";
+import TopBar from "../components/TopBar";
 import { useFlowStore } from "../store/flowStore";
 
 export default function Home() {
@@ -13,10 +14,13 @@ export default function Home() {
       </div>
 
       <div className="flex-1 relative">
+        {/* <TopBar /> */}
         <FlowCanvas />
 
         {/* inspector modal overlay positioned near clicked node */}
-        {useFlowStore((s) => s.inspectorOpen) && <InspectorPanel />}
+        {useFlowStore((s) => s.inspectorOpen) && (
+          <InspectorPanel key={useFlowStore.getState().selectedNodeId} />
+        )}
       </div>
     </div>
   );
