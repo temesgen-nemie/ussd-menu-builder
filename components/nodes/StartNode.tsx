@@ -1,6 +1,12 @@
 import { Handle, Position, NodeProps } from "reactflow";
 
-export default function StartNode({ data, selected }: NodeProps) {
+type StartNodeData = {
+  flowName?: string;
+};
+
+type StartNodeProps = NodeProps<StartNodeData>;
+
+export default function StartNode({ data, selected }: StartNodeProps) {
   return (
     <div
       className={`rounded-full w-24 h-24 flex flex-col items-center justify-center bg-white shadow-md border-2

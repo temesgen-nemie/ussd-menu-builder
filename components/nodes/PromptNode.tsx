@@ -1,6 +1,25 @@
 import { Handle, Position, NodeProps } from "reactflow";
 
-export default function PromptNode({ data, selected }: NodeProps) {
+type PromptRoute = {
+  when?: { eq?: string[] };
+  gotoFlow?: string;
+};
+
+type PromptNextNode = {
+  routes?: PromptRoute[];
+  default?: string;
+};
+
+type PromptNodeData = {
+  name?: string;
+  message?: string;
+  routingMode?: string;
+  nextNode?: PromptNextNode | string;
+};
+
+type PromptNodeProps = NodeProps<PromptNodeData>;
+
+export default function PromptNode({ data, selected }: PromptNodeProps) {
   return (
     <div
       className={`rounded-xl p-4 w-64 bg-white shadow-md border
@@ -19,8 +38,8 @@ export default function PromptNode({ data, selected }: NodeProps) {
       {(!data.routingMode || data.routingMode === "menu") && (
         <div className="mt-3 pt-2 border-t border-gray-100 space-y-1">
           {/* Check if nextNode has routes (Logic Mode) */}
-          {data.nextNode && typeof data.nextNode === 'object' && data.nextNode.routes && (
-             (data.nextNode.routes as any[]).map((route: any, idx: number) => {
+          {data.nextNode && typeof data.nextNode === "object" && data.nextNode.routes && (
+             data.nextNode.routes.map((route, idx: number) => {
                // Extract input value from condition: { "eq": ["{{input}}", "1"] }
                const matchVal = route.when?.eq?.[1] || "?";
                return (
@@ -28,7 +47,7 @@ export default function PromptNode({ data, selected }: NodeProps) {
                    <div className="flex items-center gap-2">
                      <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">{matchVal}</span>
                      <span className="text-gray-400">→</span>
-                     <span className="text-gray-700 font-medium truncate max-w-[100px]" title={route.gotoFlow}>{route.gotoFlow}</span>
+                     <span className="text-gray-700 font-medium truncate max-w-25" title={route.gotoFlow}>{route.gotoFlow}</span>
                    </div>
                  </div>
                );
