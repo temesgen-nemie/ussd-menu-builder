@@ -45,7 +45,7 @@ export default function FlowCanvas() {
     updateNodeData,
     closeInspector,
     inspectorOpen,
-    setRfInstance
+    setRfInstance,
   } = useFlowStore();
 
   // add edge (uses current edges array)
@@ -58,16 +58,24 @@ export default function FlowCanvas() {
       // Visual Branching Logic:
       if (params.sourceHandle) {
         // 1. Prompt Options
-        if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
+        if (
+          sourceNode &&
+          sourceNode.type === "prompt" &&
+          sourceNode.data.options
+        ) {
           const handleId = params.sourceHandle;
-          const options = (sourceNode.data.options as any[]) || [];
+          interface PromptOption {
+            id: string;
+            nextNode?: string;
+          }
+          const options = (sourceNode.data.options as PromptOption[]) || [];
           const optionIndex = options.findIndex((o) => o.id === handleId);
 
           if (optionIndex !== -1) {
             const newOptions = [...options];
             newOptions[optionIndex] = {
               ...newOptions[optionIndex],
-              nextNode: params.target,
+              nextNode: params.target || "",
             };
             updateNodeData(sourceNode.id, { options: newOptions });
           }
@@ -79,26 +87,30 @@ export default function FlowCanvas() {
           if (handleId === "default") {
             updateNodeData(sourceNode.id, { nextNode: params.target });
           } else {
-             // It's a conditional route
-             const routes = (sourceNode.data.routes as any[]) || [];
-             const routeIndex = routes.findIndex((r) => r.id === handleId);
-             
-             if (routeIndex !== -1) {
-               const newRoutes = [...routes];
-               newRoutes[routeIndex] = {
-                 ...newRoutes[routeIndex],
-                 nextNodeId: params.target,
-               };
-               updateNodeData(sourceNode.id, { routes: newRoutes });
-             }
+            // It's a conditional route
+            interface ActionRoute {
+              id: string;
+              nextNodeId?: string;
+            }
+            const routes = (sourceNode.data.routes as ActionRoute[]) || [];
+            const routeIndex = routes.findIndex((r) => r.id === handleId);
+
+            if (routeIndex !== -1) {
+              const newRoutes = [...routes];
+              newRoutes[routeIndex] = {
+                ...newRoutes[routeIndex],
+                nextNodeId: params.target || "",
+              };
+              updateNodeData(sourceNode.id, { routes: newRoutes });
+            }
           }
         }
       } else {
         // If no specific handle ID is used (default/legacy handles)
-        
+
         // Prompt Node Logic (Linear Mode/Default)
         if (sourceNode && sourceNode.type === "prompt") {
-           updateNodeData(sourceNode.id, { nextNode: params.target });
+          updateNodeData(sourceNode.id, { nextNode: params.target });
         }
         // Action Node Logic (legacy fallback or default handle if no ID)
         else if (sourceNode && sourceNode.type === "action") {
@@ -112,51 +124,73 @@ export default function FlowCanvas() {
     },
     [edges, setEdges, nodes, updateNodeData]
   );
-  
+
   // Handle edge deletion to clear the nextNode mapping
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
       deletedEdges.forEach((edge) => {
         if (edge.sourceHandle) {
           const sourceNode = nodes.find((n) => n.id === edge.source);
-          
+
           // 1. Prompt Options
-          if (sourceNode && sourceNode.type === "prompt" && sourceNode.data.options) {
-            const options = (sourceNode.data.options as any[]) || [];
-            const optionIndex = options.findIndex((o) => o.id === edge.sourceHandle);
+          if (
+            sourceNode &&
+            sourceNode.type === "prompt" &&
+            sourceNode.data.options
+          ) {
+            interface PromptOption {
+              id: string;
+              nextNode?: string;
+            }
+            const options = (sourceNode.data.options as PromptOption[]) || [];
+            const optionIndex = options.findIndex(
+              (o) => o.id === edge.sourceHandle
+            );
 
             if (optionIndex !== -1) {
               const newOptions = [...options];
-              newOptions[optionIndex] = { ...newOptions[optionIndex], nextNode: "" };
+              newOptions[optionIndex] = {
+                ...newOptions[optionIndex],
+                nextNode: "",
+              };
               updateNodeData(sourceNode.id, { options: newOptions });
             }
           }
           // 2. Action Routes
           else if (sourceNode && sourceNode.type === "action") {
-             if (edge.sourceHandle === "default") {
-                updateNodeData(sourceNode.id, { nextNode: "" });
-             } else {
-                const routes = (sourceNode.data.routes as any[]) || [];
-                const routeIndex = routes.findIndex((r) => r.id === edge.sourceHandle);
-                if (routeIndex !== -1) {
-                   const newRoutes = [...routes];
-                   newRoutes[routeIndex] = { ...newRoutes[routeIndex], nextNodeId: "" };
-                   updateNodeData(sourceNode.id, { routes: newRoutes });
-                }
-             }
+            if (edge.sourceHandle === "default") {
+              updateNodeData(sourceNode.id, { nextNode: "" });
+            } else {
+              interface ActionRoute {
+                id: string;
+                nextNodeId?: string;
+              }
+              const routes = (sourceNode.data.routes as ActionRoute[]) || [];
+              const routeIndex = routes.findIndex(
+                (r) => r.id === edge.sourceHandle
+              );
+              if (routeIndex !== -1) {
+                const newRoutes = [...routes];
+                newRoutes[routeIndex] = {
+                  ...newRoutes[routeIndex],
+                  nextNodeId: "",
+                };
+                updateNodeData(sourceNode.id, { routes: newRoutes });
+              }
+            }
           }
         } else {
           // If no specific handle ID is used (legacy)
           const sourceNode = nodes.find((n) => n.id === edge.source);
-          
+
           if (sourceNode) {
-             if (sourceNode.type === "prompt") {
-                updateNodeData(sourceNode.id, { nextNode: "" });
-             } else if (sourceNode.type === "action") {
-                updateNodeData(sourceNode.id, { nextNode: "" });
-             } else if (sourceNode.type === "start") {
-                updateNodeData(sourceNode.id, { entryNode: "" });
-             }
+            if (sourceNode.type === "prompt") {
+              updateNodeData(sourceNode.id, { nextNode: "" });
+            } else if (sourceNode.type === "action") {
+              updateNodeData(sourceNode.id, { nextNode: "" });
+            } else if (sourceNode.type === "start") {
+              updateNodeData(sourceNode.id, { entryNode: "" });
+            }
           }
         }
       });
@@ -222,7 +256,7 @@ export default function FlowCanvas() {
     },
     [openInspector]
   );
-  
+
   // Update inspector position while dragging the selected node
   const onNodeDrag = useCallback(
     (_event: ReactMouseEvent, node: Node) => {

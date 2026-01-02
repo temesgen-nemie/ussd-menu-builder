@@ -14,6 +14,7 @@ interface FlowState {
   removeNode: (id: string) => void;
   setSelectedNodeId: (id: string | null) => void;
   openInspector: (id: string) => void;
+  closeInspector: () => void;
   setInspectorPosition: (pos: { x: number; y: number; placement: "above" | "below" | "center" } | null) => void;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 
@@ -57,7 +58,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         `.react-flow__node[data-id="${id}"]`
       ) as HTMLElement | null;
 
-      let pos = null;
+      let pos: { x: number; y: number; placement: "above" | "below" | "center" } | null = null;
       if (el) {
         const rect = el.getBoundingClientRect();
 
@@ -92,7 +93,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         }
       }
 
-      set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos as any });
+      set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos });
     } catch (e) {
       // fallback to opening without position
       set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: null });

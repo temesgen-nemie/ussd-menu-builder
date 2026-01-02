@@ -13,9 +13,13 @@ export default function Home() {
       </div>
 
       <div className="flex-1 relative">
+        {/* <TopBar /> */}
         <FlowCanvas />
 
-        {useFlowStore((s) => s.inspectorOpen) && <InspectorPanel />}
+        {/* inspector modal overlay positioned near clicked node */}
+        {useFlowStore((s) => s.inspectorOpen) && (
+          <InspectorPanel key={useFlowStore.getState().selectedNodeId} />
+        )}
       </div>
     </div>
   );
