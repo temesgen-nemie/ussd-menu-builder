@@ -15,7 +15,6 @@ export default function Home() {
       <div className="flex-1 relative">
         <FlowCanvas />
 
-        {/* inspector modal overlay positioned near clicked node */}
         {useFlowStore((s) => s.inspectorOpen) && <InspectorPanel />}
       </div>
     </div>
