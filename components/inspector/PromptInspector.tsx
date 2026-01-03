@@ -162,7 +162,7 @@ export default function PromptInspector({
                             Input
                           </label>
                           <input
-                            className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400 font-mono text-center"
+                            className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400 font-mono text-center text-gray-900"
                             value={inputValue}
                             onChange={(e) => {
                               const nextNode = node.data.nextNode as PromptNextNode;
@@ -184,7 +184,7 @@ export default function PromptInspector({
                             Goto Flow/Node
                           </label>
                           <input
-                            className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400"
+                            className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400 text-gray-900"
                             value={gotoFlow}
                             onChange={(e) => {
                               const nextNode = node.data.nextNode as PromptNextNode;
