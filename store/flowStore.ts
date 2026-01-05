@@ -358,9 +358,36 @@ export const useFlowStore = create<FlowState>()(
       exitSubflow: () => set({ currentSubflowId: null, inspectorOpen: false }),
 
       groupNodes: (nodeIds, name) => {
-        const { nodes } = get();
+        const { nodes, rfInstance } = get();
+
+        // Handle Empty Group creation
+        if (nodeIds.length === 0) {
+          const groupId = `group-${Date.now()}`;
+
+          // Get sensible default position
+          let pos = { x: 100, y: 100 };
+          if (rfInstance) {
+            const center = rfInstance.project({
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 2,
+            });
+            pos = center;
+          }
+
+          const newNode: Node = {
+            id: groupId,
+            type: "group",
+            position: pos,
+            data: { name: name || "Empty Group" },
+            parentNode: get().currentSubflowId || undefined,
+          };
+          const nextNodes = [...nodes, newNode];
+          set({ nodes: nextNodes, flow: buildFlowJson(nextNodes), selectedNodeId: groupId });
+          return;
+        }
+
         const selectedNodes = nodes.filter((n) => nodeIds.includes(n.id));
-        if (selectedNodes.length < 2) return;
+        if (selectedNodes.length < 1) return; // Should not happen with current UI logic
 
         // Calculate center for the group node
         const avgX = selectedNodes.reduce((acc, n) => acc + n.position.x, 0) / selectedNodes.length;

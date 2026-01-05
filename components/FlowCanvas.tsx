@@ -129,7 +129,12 @@ export default function FlowCanvas() {
           left: event.clientX,
         });
       } else {
-        setMenu(null);
+        // Show "Empty Group" menu if clicking on blank space
+        setMenu({
+          id: "pane",
+          top: event.clientY,
+          left: event.clientX,
+        });
       }
     },
     [nodes, setMenu]
@@ -494,6 +499,32 @@ export default function FlowCanvas() {
                   </svg>
                 </div>
                 Group Selected Nodes
+              </button>
+            ) : menu.id === "pane" ? (
+              <button
+                className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                onClick={() => {
+                  // Open namer with empty array to signify "Create Empty Group"
+                  openNamer([]);
+                }}
+              >
+                <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                </div>
+                Create Empty Group
               </button>
             ) : (
               <>
