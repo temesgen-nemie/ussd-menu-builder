@@ -35,7 +35,7 @@ const buildFlowJson = (nodes: Node[]): FlowJson => {
   const idByName = new Map<string, string>();
 
   nodes.forEach((node) => {
-    if (node.type === "start") return;
+    if (node.type === "start" || node.type === "group") return;
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
     if (name) {
       nameById.set(node.id, name);
@@ -61,7 +61,7 @@ const buildFlowJson = (nodes: Node[]): FlowJson => {
   const entryResolved = resolveTarget(entryNodeRaw);
 
   const flowNodes: FlowNode[] = nodes
-    .filter((node) => node.type !== "start")
+    .filter((node) => node.type !== "start" && node.type !== "group")
     .map((node) => {
       const data = (node.data as Record<string, unknown>) || {};
       const base: FlowNode = {
@@ -186,6 +186,22 @@ interface FlowState {
   ) => void;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 
+  // Subflow / Grouping State
+  currentSubflowId: string | null;
+  enterSubflow: (groupId: string) => void;
+  exitSubflow: () => void;
+  groupNodes: (nodeIds: string[], name: string) => void;
+  ungroupNodes: (groupId: string) => void;
+
+  // Modal State
+  namerModal: { isOpen: boolean; nodeIds: string[] } | null;
+  openNamer: (nodeIds: string[]) => void;
+  closeNamer: () => void;
+
+  groupJsonModal: { isOpen: boolean; groupId: string | null; json: string } | null;
+  openGroupJson: (groupId: string) => void;
+  closeGroupJson: () => void;
+
   rfInstance: ReactFlowInstance | null;
   setRfInstance: (instance: ReactFlowInstance) => void;
 }
@@ -205,6 +221,10 @@ export const useFlowStore = create<FlowState>()(
       inspectorOpen: false,
       inspectorPosition: null,
 
+      currentSubflowId: null,
+      namerModal: null,
+      groupJsonModal: null,
+
       setNodes: (nodes) => set({ nodes, flow: buildFlowJson(nodes) }),
 
       setEdges: (edges) => set({ edges }),
@@ -214,24 +234,44 @@ export const useFlowStore = create<FlowState>()(
 
       addNode: (node) =>
         set((state) => {
-          const nextNodes = [...state.nodes, node];
+          const newNode = {
+            ...node,
+            parentNode: state.currentSubflowId || undefined,
+            extent: state.currentSubflowId ? ("parent" as const) : undefined,
+          };
+          const nextNodes = [...state.nodes, newNode];
           return { nodes: nextNodes, flow: buildFlowJson(nextNodes) };
         }),
 
       removeNode: (id) =>
         set((state) => {
-          const nextNodes = state.nodes.filter((n) => n.id !== id);
+          // Recursive removal for groups
+          const nodesToRemove = [id];
+          const findChildren = (parentId: string) => {
+            state.nodes.forEach((n) => {
+              if (n.parentNode === parentId) {
+                nodesToRemove.push(n.id);
+                findChildren(n.id);
+              }
+            });
+          };
+          findChildren(id);
+
+          const nextNodes = state.nodes.filter((n) => !nodesToRemove.includes(n.id));
           return {
             nodes: nextNodes,
-            edges: state.edges.filter((e) => e.source !== id && e.target !== id),
-            selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
+            edges: state.edges.filter(
+              (e) => !nodesToRemove.includes(e.source) && !nodesToRemove.includes(e.target)
+            ),
+            selectedNodeId: nodesToRemove.includes(state.selectedNodeId || "")
+              ? null
+              : state.selectedNodeId,
             flow: buildFlowJson(nextNodes),
           };
         }),
 
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
 
-      // open the inspector and compute its approximate screen position based on the node element
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
@@ -248,34 +288,23 @@ export const useFlowStore = create<FlowState>()(
           } | null = null;
           if (el) {
             const rect = el.getBoundingClientRect();
-
-            // Dimensions based on node type
-            // Action node is w-[800px], others are w-96 (384px)
             const modalWidth = isAction ? 800 : 384;
             const modalHalf = modalWidth / 2;
-
-            // Height estimate (Action node is taller due to tabs/fields)
             const modalHeightEstimate = isAction ? 600 : 360;
-
-            // position centered horizontally and prefer above placement when there's space
             const xCenter = rect.left + rect.width / 2;
             const x = Math.min(
               Math.max(xCenter, modalHalf + 16),
               window.innerWidth - modalHalf - 16
             );
-
             const margin = 12;
             const spaceAbove = rect.top;
             const spaceBelow = window.innerHeight - rect.bottom;
 
             if (spaceAbove > modalHeightEstimate + margin) {
-              // place above: y is top edge where we'll translate by -100%
               pos = { x, y: rect.top - margin, placement: "above" };
             } else if (spaceBelow > modalHeightEstimate + margin) {
-              // place below: y is the top coordinate of the modal
               pos = { x, y: rect.bottom + margin, placement: "below" };
             } else {
-              // center fallback
               pos = {
                 x: window.innerWidth / 2,
                 y: window.innerHeight / 2,
@@ -286,7 +315,6 @@ export const useFlowStore = create<FlowState>()(
 
           set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: pos });
         } catch (e) {
-          // fallback to opening without position
           set({ inspectorOpen: true, selectedNodeId: id, inspectorPosition: null });
         }
       },
@@ -302,10 +330,103 @@ export const useFlowStore = create<FlowState>()(
           );
           return { nodes: nextNodes, flow: buildFlowJson(nextNodes) };
         }),
+
+      enterSubflow: (groupId) => set({ currentSubflowId: groupId, inspectorOpen: false }),
+      exitSubflow: () => set({ currentSubflowId: null, inspectorOpen: false }),
+
+      groupNodes: (nodeIds, name) => {
+        const { nodes } = get();
+        const selectedNodes = nodes.filter((n) => nodeIds.includes(n.id));
+        if (selectedNodes.length < 2) return;
+
+        // Calculate center for the group node
+        const avgX = selectedNodes.reduce((acc, n) => acc + n.position.x, 0) / selectedNodes.length;
+        const avgY = selectedNodes.reduce((acc, n) => acc + n.position.y, 0) / selectedNodes.length;
+
+        const groupId = `group-${Date.now()}`;
+        const newNode: Node = {
+          id: groupId,
+          type: "group",
+          position: { x: avgX, y: avgY },
+          data: { name: name || "New Group" },
+          parentNode: get().currentSubflowId || undefined,
+        };
+
+        const updatedNodes = nodes.map((n) => {
+          if (nodeIds.includes(n.id)) {
+            return {
+              ...n,
+              position: { x: n.position.x - avgX, y: n.position.y - avgY },
+              parentNode: groupId,
+              extent: "parent" as const,
+            };
+          }
+          return n;
+        });
+
+        const nextNodes = [...updatedNodes, newNode];
+        set({
+          nodes: nextNodes,
+          flow: buildFlowJson(nextNodes),
+          selectedNodeId: groupId,
+        });
+      },
+
+      ungroupNodes: (groupId) => {
+        const { nodes } = get();
+        const groupNode = nodes.find((n) => n.id === groupId);
+        if (!groupNode) return;
+
+        const nextNodes = nodes
+          .filter((n) => n.id !== groupId)
+          .map((n) => {
+            if (n.parentNode === groupId) {
+              return {
+                ...n,
+                position: {
+                  x: n.position.x + groupNode.position.x,
+                  y: n.position.y + groupNode.position.y,
+                },
+                parentNode: undefined,
+                extent: undefined,
+              };
+            }
+            return n;
+          });
+
+        set({
+          nodes: nextNodes,
+          flow: buildFlowJson(nextNodes),
+          selectedNodeId: null,
+        });
+      },
+
+      openNamer: (nodeIds) => set({ namerModal: { isOpen: true, nodeIds } }),
+      closeNamer: () => set({ namerModal: null }),
+
+      openGroupJson: (groupId) => {
+        const { nodes } = get();
+        const children = nodes.filter((n) => n.parentNode === groupId);
+        const subflowJson = buildFlowJson(children);
+        set({
+          groupJsonModal: {
+            isOpen: true,
+            groupId,
+            json: JSON.stringify(subflowJson, null, 2),
+          },
+        });
+      },
+      closeGroupJson: () => set({ groupJsonModal: null }),
     }),
     {
       name: "ussd-menu-builder",
       storage: createJSONStorage(() => localStorage),
+      // Update hydration to strip parentNode if needed (safety check from previous revert)
+      onRehydrateStorage: (state) => {
+        return (rehydratedState, error) => {
+          if (error || !rehydratedState) return;
+        };
+      },
       partialize: (state) => ({
         nodes: state.nodes,
         edges: state.edges,
