@@ -574,28 +574,55 @@ export default function FlowCanvas() {
                       </div>
                       View Group JSON
                     </button>
-                    <button
-                      className="w-full flex items-center gap-3 px-5 py-3 text-sm text-red-600 hover:bg-red-50 font-bold transition-all group/item"
-                      onClick={() => ungroupNodes(menu.id)}
-                    >
-                      <div className="p-2 bg-red-100 rounded-xl group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                    {(() => {
+                      const groupNode = nodes.find((n) => n.id === menu.id);
+                      const children = nodes.filter((n) => n.parentNode === menu.id);
+                      const hasStartInChildren = children.some((n) => n.type === "start");
+                      const parentId = groupNode?.parentNode || null;
+                      const parentHasStart = nodes.some(
+                        (n) => n.type === "start" && (n.parentNode || null) === (parentId || null)
+                      );
+                      const isUngroupBlocked = hasStartInChildren && parentHasStart;
+
+                      return (
+                        <button
+                          disabled={isUngroupBlocked}
+                          className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-bold transition-all group/item ${
+                            isUngroupBlocked
+                              ? "text-gray-400 cursor-not-allowed bg-gray-50"
+                              : "text-red-600 hover:bg-red-50"
+                          }`}
+                          onClick={() => ungroupNodes(menu.id)}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2.5}
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 14c-.77 1.333.192 3 1.732 3z"
-                          />
-                        </svg>
-                      </div>
-                      Ungroup Items
-                    </button>
+                          <div className={`p-2 rounded-xl transition-colors ${
+                            isUngroupBlocked 
+                              ? "bg-gray-200 text-gray-400" 
+                              : "bg-red-100 group-hover/item:bg-red-600 group-hover/item:text-white"
+                          }`}>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2.5}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 14c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <span>Ungroup Items</span>
+                            {isUngroupBlocked && (
+                              <span className="text-[10px] font-medium text-red-500">Parent level already has a Start node</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </>

@@ -42,7 +42,11 @@ function IconAction() {
 }
 
 export default function NodePalette() {
-  const { addNode, rfInstance } = useFlowStore();
+  const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
+  
+  const hasStart = nodes.some(
+    (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
+  );
 
   // Return a position centered in the current viewport
   const getCenteredPosition = () => {
@@ -140,23 +144,32 @@ export default function NodePalette() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-3 bg-blue-500 rounded-lg shadow hover:shadow-lg transform hover:-translate-y-0.5 transition">
+        <div className={`flex items-center justify-between p-3 rounded-lg shadow transition ${
+          hasStart 
+            ? "bg-gray-100 opacity-60" 
+            : "bg-blue-500 hover:shadow-lg transform hover:-translate-y-0.5"
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-md">
+            <div className={`p-2 rounded-md ${hasStart ? "bg-gray-300" : "bg-blue-600"}`}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <div className="text-white font-semibold">Start Node</div>
-              <div className="text-blue-100 text-xs">
-                Entry point for the flow
+              <div className={`${hasStart ? "text-gray-500" : "text-white"} font-semibold`}>Start Node</div>
+              <div className={`${hasStart ? "text-gray-400" : "text-blue-100"} text-xs`}>
+                {hasStart ? "One Start node allowed per level" : "Entry point for the flow"}
               </div>
             </div>
           </div>
           <button
-            className="ml-4 bg-white/90 text-blue-600 font-medium rounded-md px-3 py-1 hover:bg-white"
+            disabled={hasStart}
+            className={`ml-4 font-medium rounded-md px-3 py-1 transition-all ${
+              hasStart 
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                : "bg-white/90 text-blue-600 hover:bg-white active:scale-95"
+            }`}
             onClick={() =>
               addNode({
                 id: uuidv4(),
@@ -166,7 +179,7 @@ export default function NodePalette() {
               })
             }
           >
-            Add
+            {hasStart ? "Added" : "Add"}
           </button>
         </div>
       </div>

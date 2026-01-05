@@ -10,6 +10,11 @@ export default function GroupNamerModal() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isCollision = isNameTaken(name);
+  
+  const selectedStartNodes = nodes.filter(
+    (n) => namerModal?.isOpen && namerModal.nodeIds.includes(n.id) && n.type === "start"
+  );
+  const tooManyStarts = selectedStartNodes.length > 1;
 
   useEffect(() => {
     if (namerModal?.isOpen) {
@@ -55,6 +60,9 @@ export default function GroupNamerModal() {
                   {isCollision && (
                     <span className="text-[10px] font-bold text-red-500 animate-pulse">Name already taken</span>
                   )}
+                  {tooManyStarts && (
+                    <span className="text-[10px] font-bold text-red-500 animate-pulse">Too many Start nodes ({selectedStartNodes.length})</span>
+                  )}
                 </div>
                 <input
                   ref={inputRef}
@@ -62,12 +70,17 @@ export default function GroupNamerModal() {
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                   className={`w-full border-2 rounded-xl px-4 py-3 text-lg font-bold outline-none transition-all ${
-                    isCollision 
+                    isCollision || tooManyStarts
                       ? "border-red-300 bg-red-50 text-red-900 focus:ring-red-100" 
                       : "border-gray-100 bg-gray-50 text-gray-800 focus:border-indigo-500 focus:bg-white focus:ring-indigo-100"
                   }`}
                   placeholder="e.g. Authentication Flow"
                 />
+                {tooManyStarts && (
+                  <p className="mt-2 text-xs text-red-500 font-medium">
+                    A group can only contain one Start node. Please reduce your selection.
+                  </p>
+                )}
              </div>
           </div>
 
@@ -80,9 +93,9 @@ export default function GroupNamerModal() {
              </button>
              <button
                onClick={handleCreate}
-               disabled={isCollision || !name.trim()}
+               disabled={isCollision || tooManyStarts || !name.trim()}
                className={`flex-[2] px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
-                 isCollision || !name.trim()
+                 isCollision || tooManyStarts || !name.trim()
                    ? "bg-gray-400 cursor-not-allowed shadow-none"
                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
                }`}
