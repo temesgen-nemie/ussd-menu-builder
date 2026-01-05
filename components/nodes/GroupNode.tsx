@@ -1,6 +1,6 @@
 "use client";
 
-import { Handle, Position, NodeProps } from "reactflow";
+import { NodeProps } from "reactflow";
 import { useFlowStore } from "../../store/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
@@ -26,18 +26,6 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
     >
       {/* Decorative Gradient Bar */}
       <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-2xl opacity-80" />
-
-      {/* Inputs/Outputs */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="w-3 h-3 bg-indigo-500 border-2 border-white ring-2 ring-indigo-100"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="w-3 h-3 bg-indigo-500 border-2 border-white ring-2 ring-indigo-100"
-      />
 
       <div className="flex flex-col gap-3">
         {/* Header */}
