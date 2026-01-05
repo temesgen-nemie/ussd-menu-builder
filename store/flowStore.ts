@@ -185,6 +185,7 @@ interface FlowState {
     pos: { x: number; y: number; placement: "above" | "below" | "center" } | null
   ) => void;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
+  isNameTaken: (name: string, excludeId?: string) => boolean;
 
   // Subflow / Grouping State
   currentSubflowId: string | null;
@@ -258,6 +259,12 @@ export const useFlowStore = create<FlowState>()(
           findChildren(id);
 
           const nextNodes = state.nodes.filter((n) => !nodesToRemove.includes(n.id));
+
+          // If we are deleting the current subflow we are in, exit to main
+          const nextSubflowId = nodesToRemove.includes(state.currentSubflowId || "")
+            ? null
+            : state.currentSubflowId;
+
           return {
             nodes: nextNodes,
             edges: state.edges.filter(
@@ -266,6 +273,7 @@ export const useFlowStore = create<FlowState>()(
             selectedNodeId: nodesToRemove.includes(state.selectedNodeId || "")
               ? null
               : state.selectedNodeId,
+            currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes),
           };
         }),
@@ -330,6 +338,19 @@ export const useFlowStore = create<FlowState>()(
           );
           return { nodes: nextNodes, flow: buildFlowJson(nextNodes) };
         }),
+
+      isNameTaken: (name, excludeId) => {
+        const trimmed = name.trim().toLowerCase();
+        if (!trimmed) return false;
+        return get().nodes.some(
+          (n) =>
+            n.id !== excludeId &&
+            n.type !== "start" &&
+            String((n.data as Record<string, unknown>)?.name ?? "")
+              .trim()
+              .toLowerCase() === trimmed
+        );
+      },
 
       enterSubflow: (groupId) => set({ currentSubflowId: groupId, inspectorOpen: false }),
       exitSubflow: () => set({ currentSubflowId: null, inspectorOpen: false }),

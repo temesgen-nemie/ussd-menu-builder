@@ -211,6 +211,7 @@ export default function ActionInspector({
   return (
     <div className="space-y-6">
       <ActionHeader
+        nodeId={node.id}
         name={String(node.data.name ?? "")}
         endpoint={String(node.data.endpoint ?? "")}
         onNameChange={(value) => updateNodeData(node.id, { name: value })}

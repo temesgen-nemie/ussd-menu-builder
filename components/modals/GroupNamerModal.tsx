@@ -4,9 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { useFlowStore } from "../../store/flowStore";
 
 export default function GroupNamerModal() {
-  const { namerModal, closeNamer, groupNodes } = useFlowStore();
+  const nodes = useFlowStore((s) => s.nodes);
+  const { namerModal, closeNamer, groupNodes, isNameTaken } = useFlowStore();
   const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isCollision = isNameTaken(name);
 
   useEffect(() => {
     if (namerModal?.isOpen) {
@@ -18,7 +21,7 @@ export default function GroupNamerModal() {
   if (!namerModal?.isOpen) return null;
 
   const handleCreate = () => {
-    if (name.trim()) {
+    if (name.trim() && !isCollision) {
       groupNodes(namerModal.nodeIds, name.trim());
       closeNamer();
     }
@@ -47,13 +50,22 @@ export default function GroupNamerModal() {
 
           <div className="space-y-4">
              <div className="group">
-                <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1.5 block">Group Name</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest block">Group Name</label>
+                  {isCollision && (
+                    <span className="text-[10px] font-bold text-red-500 animate-pulse">Name already taken</span>
+                  )}
+                </div>
                 <input
                   ref={inputRef}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all"
+                  className={`w-full border-2 rounded-xl px-4 py-3 text-lg font-bold outline-none transition-all ${
+                    isCollision 
+                      ? "border-red-300 bg-red-50 text-red-900 focus:ring-red-100" 
+                      : "border-gray-100 bg-gray-50 text-gray-800 focus:border-indigo-500 focus:bg-white focus:ring-indigo-100"
+                  }`}
                   placeholder="e.g. Authentication Flow"
                 />
              </div>
@@ -68,7 +80,12 @@ export default function GroupNamerModal() {
              </button>
              <button
                onClick={handleCreate}
-               className="flex-[2] px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 flex items-center justify-center gap-2"
+               disabled={isCollision || !name.trim()}
+               className={`flex-[2] px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
+                 isCollision || !name.trim()
+                   ? "bg-gray-400 cursor-not-allowed shadow-none"
+                   : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
+               }`}
              >
                <span>Create Group</span>
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

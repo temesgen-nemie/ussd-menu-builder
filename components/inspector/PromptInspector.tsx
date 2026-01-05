@@ -1,5 +1,7 @@
 "use client";
 
+import NodeNameInput from "./NodeNameInput";
+
 type PromptInspectorProps = {
   node: PromptNode;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
@@ -35,15 +37,11 @@ export default function PromptInspector({
     <div className="grid grid-cols-2 gap-6">
       {/* Left Column: Basic Info */}
       <div className="space-y-4">
-        <div>
-          <label className="text-xs font-medium text-gray-600">Name</label>
-          <input
-            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
-            value={String(node.data.name ?? "")}
-            placeholder="e.g. Welcome Screen"
-            onChange={(e) => updateNodeData(node.id, { name: e.target.value })}
-          />
-        </div>
+        <NodeNameInput
+          nodeId={node.id}
+          name={String(node.data.name ?? "")}
+          onNameChange={(val) => updateNodeData(node.id, { name: val })}
+        />
 
         <div>
           <label className="text-xs font-medium text-gray-600">Message</label>
