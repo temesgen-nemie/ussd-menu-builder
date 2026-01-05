@@ -91,7 +91,7 @@ export default function FlowCanvas() {
     (event: ReactMouseEvent, node: Node) => {
       event.preventDefault();
 
-      const selectedNodes = nodes.filter((n) => n.selected);
+      const selectedNodes = visibleNodes.filter((n) => n.selected);
       const isPartofSelection = selectedNodes.some((n) => n.id === node.id);
 
       // If we right click a node that is part of a multi-selection, show the Grouping menu
@@ -119,7 +119,7 @@ export default function FlowCanvas() {
   const onPaneContextMenu = useCallback(
     (event: ReactMouseEvent) => {
       event.preventDefault();
-      const selectedNodes = nodes.filter((n) => n.selected);
+      const selectedNodes = visibleNodes.filter((n) => n.selected);
 
       // Show grouping menu if multiple nodes are selected
       if (selectedNodes.length > 1) {
@@ -476,7 +476,7 @@ export default function FlowCanvas() {
               <button
                 className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
-                  const selectedIds = nodes
+                  const selectedIds = visibleNodes
                     .filter((n) => n.selected)
                     .map((n) => n.id);
                   openNamer(selectedIds);
