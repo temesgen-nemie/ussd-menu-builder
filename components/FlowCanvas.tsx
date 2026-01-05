@@ -39,12 +39,11 @@ const nodeTypes = {
 };
 
 export default function FlowCanvas() {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [menu, setMenu] = useState<{ id: string; top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const [menu, setMenu] = useState<{
+    id: string;
+    top: number;
+    left: number;
+  } | null>(null);
 
   const {
     nodes,
@@ -71,43 +70,66 @@ export default function FlowCanvas() {
   // Strip parentNode reference from visible nodes so React Flow treats them as top-level in drill-down view
   const visibleNodes = useMemo(() => {
     return nodes
-      .filter(n => (n.parentNode || null) === (currentSubflowId || null))
-      .map(n => currentSubflowId ? { ...n, parentNode: undefined } : n);
+      .filter((n) => (n.parentNode || null) === (currentSubflowId || null))
+      .map((n) => (currentSubflowId ? { ...n, parentNode: undefined } : n));
   }, [nodes, currentSubflowId]);
-    
+
   // Edges are visible if both source and target are in the current view
   const visibleEdges = useMemo(() => {
-    return edges.filter(e => {
-        const s = nodes.find(n => n.id === e.source);
-        const t = nodes.find(n => n.id === e.target);
-        return (s?.parentNode || null) === (currentSubflowId || null) && 
-               (t?.parentNode || null) === (currentSubflowId || null);
-      });
+    return edges.filter((e) => {
+      const s = nodes.find((n) => n.id === e.source);
+      const t = nodes.find((n) => n.id === e.target);
+      return (
+        (s?.parentNode || null) === (currentSubflowId || null) &&
+        (t?.parentNode || null) === (currentSubflowId || null)
+      );
+    });
   }, [edges, nodes, currentSubflowId]);
 
   // Context Menu Handlers
   const onNodeContextMenu = useCallback(
     (event: ReactMouseEvent, node: Node) => {
       event.preventDefault();
-      setMenu({
-        id: node.id,
-        top: event.clientY,
-        left: event.clientX,
-      });
+
+      const selectedNodes = nodes.filter((n) => n.selected);
+      const isPartofSelection = selectedNodes.some((n) => n.id === node.id);
+
+      // If we right click a node that is part of a multi-selection, show the Grouping menu
+      if (selectedNodes.length > 1 && isPartofSelection) {
+        setMenu({
+          id: "selection",
+          top: event.clientY,
+          left: event.clientX,
+        });
+      }
+      // Otherwise, only show menu for Group nodes (to avoid the "empty white bar" bug)
+      else if (node.type === "group") {
+        setMenu({
+          id: node.id,
+          top: event.clientY,
+          left: event.clientX,
+        });
+      } else {
+        setMenu(null);
+      }
     },
-    [setMenu]
+    [nodes, setMenu]
   );
 
   const onPaneContextMenu = useCallback(
     (event: ReactMouseEvent) => {
       event.preventDefault();
       const selectedNodes = nodes.filter((n) => n.selected);
+
+      // Show grouping menu if multiple nodes are selected
       if (selectedNodes.length > 1) {
         setMenu({
           id: "selection",
           top: event.clientY,
           left: event.clientX,
         });
+      } else {
+        setMenu(null);
       }
     },
     [nodes, setMenu]
@@ -297,10 +319,10 @@ export default function FlowCanvas() {
   // open inspector on double-click
   const onNodeDoubleClick = useCallback(
     (_event: ReactMouseEvent, node: Node) => {
-        if (node.type === 'group') {
-             enterSubflow(node.id);
-             return;
-        }
+      if (node.type === "group") {
+        enterSubflow(node.id);
+        return;
+      }
       try {
         const el = document.querySelector(
           `.react-flow__node[data-id="${node.id}"]`
@@ -361,32 +383,54 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectedNodeId, removeNode, closeInspector]);
 
-  if (!isHydrated) return null;
 
   return (
     <div className="w-full h-full relative group">
       {/* Subflow Breadcrumbs */}
       {currentSubflowId && (
         <div className="absolute top-6 left-6 z-50 flex items-center gap-3 bg-white/90 backdrop-blur-xl shadow-2xl border border-indigo-100 px-6 py-3 rounded-2xl animate-in slide-in-from-top-6 duration-500">
-          <button 
+          <button
             onClick={() => exitSubflow()}
             className="flex items-center gap-2 text-gray-400 hover:text-indigo-600 transition-all font-bold text-sm group/main"
           >
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transform group-hover/main:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-             </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 transform group-hover/main:-translate-x-1 transition-transform"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
             Main Flow
           </button>
           <div className="h-4 w-[2px] bg-gray-200 rounded-full mx-1" />
           <div className="flex items-center gap-2">
-             <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-             </div>
-             <span className="text-indigo-600 font-black text-sm tracking-tight">
-               {nodes.find(n => n.id === currentSubflowId)?.data.name || "Subflow"}
-             </span>
+            <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={3}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+            </div>
+            <span className="text-indigo-600 font-black text-sm tracking-tight">
+              {nodes.find((n) => n.id === currentSubflowId)?.data.name ||
+                "Subflow"}
+            </span>
           </div>
         </div>
       )}
@@ -427,28 +471,52 @@ export default function FlowCanvas() {
               <button
                 className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
-                  const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id);
+                  const selectedIds = nodes
+                    .filter((n) => n.selected)
+                    .map((n) => n.id);
                   openNamer(selectedIds);
                 }}
               >
                 <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
                   </svg>
                 </div>
                 Group Selected Nodes
               </button>
             ) : (
               <>
-                {nodes.find(n => n.id === menu.id)?.type === 'group' && (
+                {nodes.find((n) => n.id === menu.id)?.type === "group" && (
                   <div className="flex flex-col gap-0.5">
                     <button
                       className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                       onClick={() => enterSubflow(menu.id)}
                     >
                       <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"
+                          />
                         </svg>
                       </div>
                       Enter Group
@@ -458,8 +526,19 @@ export default function FlowCanvas() {
                       onClick={() => openGroupJson(menu.id)}
                     >
                       <div className="p-2 bg-emerald-100 rounded-xl group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                          />
                         </svg>
                       </div>
                       View Group JSON
@@ -469,8 +548,19 @@ export default function FlowCanvas() {
                       onClick={() => ungroupNodes(menu.id)}
                     >
                       <div className="p-2 bg-red-100 rounded-xl group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 14c-.77 1.333.192 3 1.732 3z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 14c-.77 1.333.192 3 1.732 3z"
+                          />
                         </svg>
                       </div>
                       Ungroup Items
@@ -482,7 +572,7 @@ export default function FlowCanvas() {
           </div>
         )}
       </ReactFlow>
-      
+
       {/* Modals */}
       <GroupNamerModal />
       <GroupJsonModal />

@@ -1,6 +1,7 @@
 "use client";
 
 import NodeNameInput from "./NodeNameInput";
+import TargetNodeDisplay from "./TargetNodeDisplay";
 
 type PromptInspectorProps = {
   node: PromptNode;
@@ -234,23 +235,11 @@ export default function PromptInspector({
 
         {/* Linear Mode: Show Next Node ID */}
         {node.data.routingMode === "linear" && (
-          <div>
-            <label className="text-xs font-medium text-gray-600">
-              Next Node ID
-            </label>
-            <div className="relative">
-              <input
-                className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-gray-50 shadow-sm text-gray-500 cursor-not-allowed"
-                value={String(node.data.nextNode ?? "")}
-                placeholder="Connect on canvas"
-                readOnly
-                title="Connect the Prompt Node bottom handle on the canvas"
-              />
-            </div>
-            <p className="mt-2 text-[10px] text-gray-400">
-              Collects input then proceeds to this node.
-            </p>
-          </div>
+          <TargetNodeDisplay
+            nodeId={String(node.data.nextNode ?? "")}
+            label="Next Node"
+            title="Connect the Prompt Node bottom handle on the canvas"
+          />
         )}
       </div>
     </div>

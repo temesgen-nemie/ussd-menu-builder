@@ -9,6 +9,7 @@ import PersistToggle from "./action/PersistToggle";
 import RequestBar from "./action/RequestBar";
 import ResponseViewer from "./action/ResponseViewer";
 import ResponseMappingEditor from "./action/ResponseMappingEditor";
+import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 
 type ActionInspectorProps = {
@@ -53,9 +54,27 @@ export default function ActionInspector({
   const [responseError, setResponseError] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<
-    "headers" | "body" | "responseMapping" | "persist" | "routing"
-  >("headers");
+    "params" | "headers" | "body" | "responseMapping" | "persist" | "routing"
+  >("params");
   const [curlText, setCurlText] = React.useState<string>("");
+
+  const [paramPairs, setParamPairs] = React.useState<
+    Array<{ id: string; key: string; value: string }>
+  >(() => {
+    const ep = String(node.data.endpoint ?? "");
+    try {
+      if (ep.includes("?")) {
+        const query = ep.split("?")[1];
+        const searchParams = new URLSearchParams(query);
+        return Array.from(searchParams.entries()).map(([key, value]) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          key,
+          value,
+        }));
+      }
+    } catch {}
+    return [];
+  });
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -208,6 +227,37 @@ export default function ActionInspector({
     [node.id, updateNodeData]
   );
 
+  const syncParamsToUrl = (pairs: Array<{ id: string; key: string; value: string }>) => {
+    const currentEp = String(node.data.endpoint ?? "");
+    const baseUrl = currentEp.split("?")[0];
+    const searchParams = new URLSearchParams();
+    
+    pairs.forEach(p => {
+      if (p.key.trim()) searchParams.append(p.key, p.value);
+    });
+
+    const queryString = searchParams.toString();
+    const newEndpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    updateNodeData(node.id, { endpoint: newEndpoint });
+  };
+
+  const syncUrlToParams = (newUrl: string) => {
+    try {
+      if (newUrl.includes("?")) {
+        const query = newUrl.split("?")[1];
+        const searchParams = new URLSearchParams(query);
+        const newPairs = Array.from(searchParams.entries()).map(([key, value]) => ({
+          id: generateId(),
+          key,
+          value,
+        }));
+        setParamPairs(newPairs);
+      } else {
+        setParamPairs([]);
+      }
+    } catch {}
+  };
+
   return (
     <div className="space-y-6">
       <ActionHeader
@@ -215,7 +265,10 @@ export default function ActionInspector({
         name={String(node.data.name ?? "")}
         endpoint={String(node.data.endpoint ?? "")}
         onNameChange={(value) => updateNodeData(node.id, { name: value })}
-        onEndpointChange={(value) => updateNodeData(node.id, { endpoint: value })}
+        onEndpointChange={(value) => {
+          updateNodeData(node.id, { endpoint: value });
+          syncUrlToParams(value);
+        }}
       />
 
       <div className="space-y-3">
@@ -326,6 +379,16 @@ export default function ActionInspector({
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
           <button
             className={`px-3 py-1 text-xs font-medium rounded-md ${
+              activeSection === "params"
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+            onClick={() => setActiveSection("params")}
+          >
+            Params
+          </button>
+          <button
+            className={`px-3 py-1 text-xs font-medium rounded-md ${
               activeSection === "headers"
                 ? "bg-indigo-600 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -377,6 +440,28 @@ export default function ActionInspector({
         </div>
 
         <div className="mt-4">
+          {activeSection === "params" && (
+            <ParamsEditor
+              params={paramPairs}
+              onAdd={() => {
+                const next = [...paramPairs, { id: generateId(), key: "", value: "" }];
+                setParamPairs(next);
+              }}
+              onRemove={(id: string) => {
+                const next = paramPairs.filter((p) => p.id !== id);
+                setParamPairs(next);
+                syncParamsToUrl(next);
+              }}
+              onUpdate={(id: string, key: string, value: string) => {
+                const next = paramPairs.map((p) =>
+                  p.id === id ? { ...p, key, value } : p
+                );
+                setParamPairs(next);
+                syncParamsToUrl(next);
+              }}
+            />
+          )}
+
           {activeSection === "headers" && (
             <HeadersEditor
               headers={headerPairs}

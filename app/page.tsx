@@ -1,9 +1,11 @@
 "use client";
 
-import FlowCanvas from '../components/FlowCanvas';
+import dynamic from 'next/dynamic';
 import NodePalette from '../components/NodePalette';
 import InspectorPanel from '../components/inspector/InspectorPanel';
 import { useFlowStore } from '../store/flowStore';
+
+const FlowCanvas = dynamic(() => import('../components/FlowCanvas'), { ssr: false });
 
 export default function Home() {
   return (

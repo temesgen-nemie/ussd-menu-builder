@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionRoute } from "./types";
+import TargetNodeDisplay from "../TargetNodeDisplay";
 
 type ActionRoutesProps = {
   routes: ActionRoute[];
@@ -89,20 +90,11 @@ export default function ActionRoutes({
             Fallback if no conditions match.
           </p>
         </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600">
-            Default Next Node ID
-          </label>
-          <div className="relative">
-            <input
-              className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-gray-50 shadow-sm text-gray-500 cursor-not-allowed"
-              value={defaultNextNode}
-              placeholder="Connect on canvas"
-              readOnly
-              title="Connect nodes on the canvas to set this value"
-            />
-          </div>
-        </div>
+        <TargetNodeDisplay
+          nodeId={defaultNextNode}
+          label="Default Next Node"
+          title="Connect nodes on the canvas to set this value"
+        />
       </div>
 
       <div className="border-t pt-4">
@@ -215,21 +207,11 @@ export default function ActionRoutes({
                   })()}
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase bg-white px-1 border rounded">
-                      Then
-                    </span>
-                    <label className="text-xs text-gray-500">Go to Node</label>
-                  </div>
-                  <input
-                    className="w-full text-sm border-b border-gray-300 bg-gray-100 py-1 text-gray-500 focus:outline-none cursor-not-allowed px-2 rounded-sm"
-                    value={route.nextNodeId || ""}
-                    readOnly
-                    placeholder="Connect on canvas"
+                  <TargetNodeDisplay
+                    nodeId={route.nextNodeId || ""}
+                    label="Go to Node"
                     title="Connect this route handle on the canvas"
                   />
-                </div>
               </div>
             </div>
           ))}
