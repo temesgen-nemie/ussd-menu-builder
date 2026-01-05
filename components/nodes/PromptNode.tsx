@@ -29,7 +29,9 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
           : "border-gray-300"
       }`}
     >
-      <div className="font-bold text-indigo-600 mb-2">{data.name || "Prompt"}</div>
+      <div className="font-bold text-indigo-600 mb-2">
+        {data.name || "Prompt"}
+      </div>
       <div className="text-sm text-gray-700">
         {data.message || "No message"}
       </div>
@@ -38,53 +40,73 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
       {(!data.routingMode || data.routingMode === "menu") && (
         <div className="mt-3 pt-2 border-t border-gray-100 space-y-1">
           {/* Check if nextNode has routes (Logic Mode) */}
-          {data.nextNode && typeof data.nextNode === "object" && data.nextNode.routes && (
-             data.nextNode.routes.map((route, idx: number) => {
-               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
-               const matchVal = route.when?.eq?.[1] || "?";
-               return (
-                 <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100">
-                   <div className="flex items-center gap-2">
-                     <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">{matchVal}</span>
-                     <span className="text-gray-400">→</span>
-                     <span className="text-gray-700 font-medium truncate max-w-25" title={route.gotoFlow}>{route.gotoFlow}</span>
-                   </div>
-                 </div>
-               );
-             })
-          )}
+          {data.nextNode &&
+            typeof data.nextNode === "object" &&
+            data.nextNode.routes &&
+            data.nextNode.routes.map((route, idx: number) => {
+              // Extract input value from condition: { "eq": ["{{input}}", "1"] }
+              const matchVal = route.when?.eq?.[1] || "?";
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">
+                      {matchVal}
+                    </span>
+                    <span className="text-gray-400">→</span>
+                    <span
+                      className="text-gray-700 font-medium truncate max-w-25"
+                      title={route.gotoFlow}
+                    >
+                      {route.gotoFlow}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
 
           {/* Fallback/Legacy: If no rules yet, show placeholder */}
-          {(!data.nextNode || typeof data.nextNode !== 'object' || !data.nextNode.routes || data.nextNode.routes.length === 0) && (
-             <div className="text-center text-[10px] text-gray-400 italic py-2">
-               No routing rules defined
-             </div>
+          {(!data.nextNode ||
+            typeof data.nextNode !== "object" ||
+            !data.nextNode.routes ||
+            data.nextNode.routes.length === 0) && (
+            <div className="text-center text-[10px] text-gray-400 italic py-2">
+              No routing rules defined
+            </div>
           )}
-          
+
           {/* Default Route Indicator */}
-          {data.nextNode && typeof data.nextNode === 'object' && data.nextNode.default && (
-             <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 px-1">
+          {data.nextNode &&
+            typeof data.nextNode === "object" &&
+            data.nextNode.default && (
+              <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 px-1">
                 <span>Default:</span>
-                <span className="font-medium text-gray-600">{data.nextNode.default}</span>
-             </div>
-          )}
+                <span className="font-medium text-gray-600">
+                  {data.nextNode.default}
+                </span>
+              </div>
+            )}
         </div>
       )}
 
       {/* Linear Mode Indicator */}
       {data.routingMode === "linear" && (
         <div className="mt-3 text-center">
-            <div className="text-[10px] text-gray-400 mb-1">Input Collection Mode</div>
+          <div className="text-[10px] text-gray-400 mb-1">
+            Input Collection Mode
+          </div>
         </div>
       )}
 
       <Handle type="target" position={Position.Top} />
-      
+
       {/* Linear Mode: Default Bottom Handle */}
       {data.routingMode === "linear" && (
         <Handle type="source" position={Position.Bottom} />
       )}
-      
+
       {/* Legacy/Fallback: Show bottom handle if menu mode but no options? (Optional, maybe keep it clean) */}
       {/* For now, strict: If menu mode, no bottom handle. User must add options. */}
     </div>

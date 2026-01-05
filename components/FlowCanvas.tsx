@@ -64,6 +64,9 @@ export default function FlowCanvas() {
     openNamer,
     ungroupNodes,
     openGroupJson,
+    publishGroup,
+    namerModal,
+    groupJsonModal,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -113,7 +116,7 @@ export default function FlowCanvas() {
         setMenu(null);
       }
     },
-    [nodes, setMenu]
+    [visibleNodes, setMenu]
   );
 
   const onPaneContextMenu = useCallback(
@@ -137,7 +140,7 @@ export default function FlowCanvas() {
         });
       }
     },
-    [nodes, setMenu]
+    [visibleNodes, setMenu]
   );
 
   // add edge (uses current edges array)
@@ -388,7 +391,6 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectedNodeId, removeNode, closeInspector]);
 
-
   return (
     <div className="w-full h-full relative group">
       {/* Subflow Breadcrumbs */}
@@ -574,15 +576,44 @@ export default function FlowCanvas() {
                       </div>
                       View Group JSON
                     </button>
+                    <button
+                      className="w-full flex items-center gap-3 px-5 py-3 text-sm text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
+                      onClick={() => publishGroup(menu.id)}
+                    >
+                      <div className="p-2 bg-violet-100 rounded-xl group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                      </div>
+                      Publish to Backend
+                    </button>
                     {(() => {
                       const groupNode = nodes.find((n) => n.id === menu.id);
-                      const children = nodes.filter((n) => n.parentNode === menu.id);
-                      const hasStartInChildren = children.some((n) => n.type === "start");
+                      const children = nodes.filter(
+                        (n) => n.parentNode === menu.id
+                      );
+                      const hasStartInChildren = children.some(
+                        (n) => n.type === "start"
+                      );
                       const parentId = groupNode?.parentNode || null;
                       const parentHasStart = nodes.some(
-                        (n) => n.type === "start" && (n.parentNode || null) === (parentId || null)
+                        (n) =>
+                          n.type === "start" &&
+                          (n.parentNode || null) === (parentId || null)
                       );
-                      const isUngroupBlocked = hasStartInChildren && parentHasStart;
+                      const isUngroupBlocked =
+                        hasStartInChildren && parentHasStart;
 
                       return (
                         <button
@@ -594,11 +625,13 @@ export default function FlowCanvas() {
                           }`}
                           onClick={() => ungroupNodes(menu.id)}
                         >
-                          <div className={`p-2 rounded-xl transition-colors ${
-                            isUngroupBlocked 
-                              ? "bg-gray-200 text-gray-400" 
-                              : "bg-red-100 group-hover/item:bg-red-600 group-hover/item:text-white"
-                          }`}>
+                          <div
+                            className={`p-2 rounded-xl transition-colors ${
+                              isUngroupBlocked
+                                ? "bg-gray-200 text-gray-400"
+                                : "bg-red-100 group-hover/item:bg-red-600 group-hover/item:text-white"
+                            }`}
+                          >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="h-4 w-4"
@@ -617,7 +650,9 @@ export default function FlowCanvas() {
                           <div className="flex flex-col items-start">
                             <span>Ungroup Items</span>
                             {isUngroupBlocked && (
-                              <span className="text-[10px] font-medium text-red-500">Parent level already has a Start node</span>
+                              <span className="text-[10px] font-medium text-red-500">
+                                Parent level already has a Start node
+                              </span>
                             )}
                           </div>
                         </button>
@@ -632,8 +667,8 @@ export default function FlowCanvas() {
       </ReactFlow>
 
       {/* Modals */}
-      <GroupNamerModal />
-      <GroupJsonModal />
+      {namerModal?.isOpen && <GroupNamerModal />}
+      {groupJsonModal?.isOpen && <GroupJsonModal />}
     </div>
   );
 }

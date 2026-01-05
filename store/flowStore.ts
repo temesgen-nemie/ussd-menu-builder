@@ -1,14 +1,16 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { Node, Edge, ReactFlowInstance } from "reactflow";
+import { createFlow } from "../lib/api";
+import { toast } from "sonner";
 
-type FlowRoute = {
+export type FlowRoute = {
   when?: Record<string, unknown>;
   goto?: string;
   gotoId?: string;
 };
 
-type FlowNode = {
+export type FlowNode = {
   id: string;
   name?: string;
   type: string;
@@ -23,14 +25,18 @@ type FlowNode = {
   nextNodeId?: string;
 };
 
-type FlowJson = {
+export type FlowJson = {
   flowName: string;
   entryNode: string;
   entryNodeId: string;
   nodes: FlowNode[];
+  visualState?: {
+    nodes: Node[];
+    edges: Edge[];
+  };
 };
 
-const buildFlowJson = (nodes: Node[]): FlowJson => {
+const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
 
@@ -159,6 +165,7 @@ const buildFlowJson = (nodes: Node[]): FlowJson => {
     entryNode: entryResolved.name,
     entryNodeId: entryResolved.id,
     nodes: flowNodes,
+    visualState: { nodes, edges },
   };
 };
 
@@ -205,6 +212,8 @@ interface FlowState {
 
   rfInstance: ReactFlowInstance | null;
   setRfInstance: (instance: ReactFlowInstance) => void;
+
+  publishGroup: (groupId: string) => Promise<void>;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -226,9 +235,9 @@ export const useFlowStore = create<FlowState>()(
       namerModal: null,
       groupJsonModal: null,
 
-      setNodes: (nodes) => set({ nodes, flow: buildFlowJson(nodes) }),
+      setNodes: (nodes) => set((state) => ({ nodes, flow: buildFlowJson(nodes, state.edges) })),
 
-      setEdges: (edges) => set({ edges }),
+      setEdges: (edges) => set((state) => ({ edges, flow: buildFlowJson(state.nodes, edges) })),
 
       rfInstance: null,
       setRfInstance: (instance) => set({ rfInstance: instance }),
@@ -241,7 +250,7 @@ export const useFlowStore = create<FlowState>()(
             extent: state.currentSubflowId ? ("parent" as const) : undefined,
           };
           const nextNodes = [...state.nodes, newNode];
-          return { nodes: nextNodes, flow: buildFlowJson(nextNodes) };
+          return { nodes: nextNodes, flow: buildFlowJson(nextNodes, state.edges) };
         }),
 
       removeNode: (id) =>
@@ -265,16 +274,17 @@ export const useFlowStore = create<FlowState>()(
             ? null
             : state.currentSubflowId;
 
+          const nextEdges = state.edges.filter(
+            (e) => !nodesToRemove.includes(e.source) && !nodesToRemove.includes(e.target)
+          );
           return {
             nodes: nextNodes,
-            edges: state.edges.filter(
-              (e) => !nodesToRemove.includes(e.source) && !nodesToRemove.includes(e.target)
-            ),
+            edges: nextEdges,
             selectedNodeId: nodesToRemove.includes(state.selectedNodeId || "")
               ? null
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
-            flow: buildFlowJson(nextNodes),
+            flow: buildFlowJson(nextNodes, nextEdges),
           };
         }),
 
@@ -336,7 +346,7 @@ export const useFlowStore = create<FlowState>()(
           const nextNodes = state.nodes.map((n) =>
             n.id === id ? { ...n, data: { ...n.data, ...data } } : n
           );
-          return { nodes: nextNodes, flow: buildFlowJson(nextNodes) };
+          return { nodes: nextNodes, flow: buildFlowJson(nextNodes, state.edges) };
         }),
 
       isNameTaken: (name, excludeId) => {
@@ -358,7 +368,7 @@ export const useFlowStore = create<FlowState>()(
       exitSubflow: () => set({ currentSubflowId: null, inspectorOpen: false }),
 
       groupNodes: (nodeIds, name) => {
-        const { nodes, rfInstance } = get();
+        const { nodes, rfInstance, edges } = get();
 
         // Handle Empty Group creation
         if (nodeIds.length === 0) {
@@ -382,7 +392,7 @@ export const useFlowStore = create<FlowState>()(
             parentNode: get().currentSubflowId || undefined,
           };
           const nextNodes = [...nodes, newNode];
-          set({ nodes: nextNodes, flow: buildFlowJson(nextNodes), selectedNodeId: groupId });
+          set({ nodes: nextNodes, flow: buildFlowJson(nextNodes, edges), selectedNodeId: groupId });
           return;
         }
 
@@ -417,7 +427,7 @@ export const useFlowStore = create<FlowState>()(
         const nextNodes = [...updatedNodes, newNode];
         set({
           nodes: nextNodes,
-          flow: buildFlowJson(nextNodes),
+          flow: buildFlowJson(nextNodes, edges),
           selectedNodeId: groupId,
         });
       },
@@ -444,20 +454,24 @@ export const useFlowStore = create<FlowState>()(
             return n;
           });
 
-        set({
+        set((state) => ({
           nodes: nextNodes,
-          flow: buildFlowJson(nextNodes),
+          flow: buildFlowJson(nextNodes, state.edges),
           selectedNodeId: null,
-        });
+        }));
       },
 
       openNamer: (nodeIds) => set({ namerModal: { isOpen: true, nodeIds } }),
       closeNamer: () => set({ namerModal: null }),
 
       openGroupJson: (groupId) => {
-        const { nodes } = get();
+        const { nodes, edges } = get();
         const children = nodes.filter((n) => n.parentNode === groupId);
-        const subflowJson = buildFlowJson(children);
+        const childIds = children.map((n) => n.id);
+        const relevantEdges = edges.filter(
+          (e) => childIds.includes(e.source) && childIds.includes(e.target)
+        );
+        const subflowJson = buildFlowJson(children, relevantEdges);
         set({
           groupJsonModal: {
             isOpen: true,
@@ -467,6 +481,39 @@ export const useFlowStore = create<FlowState>()(
         });
       },
       closeGroupJson: () => set({ groupJsonModal: null }),
+
+      publishGroup: async (groupId: string) => {
+        const { nodes, edges } = get();
+        const children = nodes.filter((n) => n.parentNode === groupId);
+        const childIds = children.map((n) => n.id);
+        const relevantEdges = edges.filter(
+          (e) => childIds.includes(e.source) && childIds.includes(e.target)
+        );
+
+        const subflowJson = buildFlowJson(children, relevantEdges);
+
+        try {
+          // Verify we have a start node if we want it to be a valid flow
+          if (!children.some(n => n.type === 'start')) {
+            throw new Error("Cannot publish a group without a Start node.");
+          }
+
+          toast.promise(createFlow(subflowJson), {
+            loading: 'Publishing to backend...',
+            success: 'Subflow published successfully!',
+            error: (err: unknown) => {
+              const message = err instanceof Error ? err.message : 'Unknown error';
+              return `Failed to publish: ${message}`;
+            },
+          });
+
+        } catch (error: unknown) {
+          if (typeof window !== 'undefined') {
+            const message = error instanceof Error ? error.message : 'An unknown error occurred';
+            alert(message);
+          }
+        }
+      },
     }),
     {
       name: "ussd-menu-builder",

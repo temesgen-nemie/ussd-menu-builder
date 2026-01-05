@@ -15,10 +15,7 @@ export default function FlowJsonModal({
 
   return (
     <div className="fixed inset-0 z-[100000] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-[90vw] max-w-4xl max-h-[85vh] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="text-sm font-semibold text-gray-800">Flow JSON</div>

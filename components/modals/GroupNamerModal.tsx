@@ -6,27 +6,22 @@ import { useFlowStore } from "../../store/flowStore";
 export default function GroupNamerModal() {
   const nodes = useFlowStore((s) => s.nodes);
   const { namerModal, closeNamer, groupNodes, isNameTaken } = useFlowStore();
-  const [name, setName] = useState("");
+  const [name, setName] = useState("New Subflow");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isCollision = isNameTaken(name);
   
   const selectedStartNodes = nodes.filter(
-    (n) => namerModal?.isOpen && namerModal.nodeIds.includes(n.id) && n.type === "start"
+    (n) => namerModal?.nodeIds.includes(n.id) && n.type === "start"
   );
   const tooManyStarts = selectedStartNodes.length > 1;
 
   useEffect(() => {
-    if (namerModal?.isOpen) {
-      setName("New Subflow");
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [namerModal?.isOpen]);
-
-  if (!namerModal?.isOpen) return null;
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
 
   const handleCreate = () => {
-    if (name.trim() && !isCollision) {
+    if (name.trim() && !isCollision && namerModal) {
       groupNodes(namerModal.nodeIds, name.trim());
       closeNamer();
     }

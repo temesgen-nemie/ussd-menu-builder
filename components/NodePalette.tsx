@@ -43,36 +43,38 @@ function IconAction() {
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
-  
+
   const hasStart = nodes.some(
-    (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
+    (n) =>
+      n.type === "start" &&
+      (n.parentNode || null) === (currentSubflowId || null)
   );
 
   // Return a position centered in the current viewport
   const getCenteredPosition = () => {
     if (rfInstance) {
-        // Center of the flow canvas area on screen
-        // Sidebar is 256px wide (w-64)
-        // Canvas Center X = 256 + (window.innerWidth - 256) / 2
-        // Canvas Center Y = window.innerHeight / 2
-        const centerX = 256 + (window.innerWidth - 256) / 2;
-        const centerY = window.innerHeight / 2;
+      // Center of the flow canvas area on screen
+      // Sidebar is 256px wide (w-64)
+      // Canvas Center X = 256 + (window.innerWidth - 256) / 2
+      // Canvas Center Y = window.innerHeight / 2
+      const centerX = 256 + (window.innerWidth - 256) / 2;
+      const centerY = window.innerHeight / 2;
 
-        const position = rfInstance.project({ 
-            x: centerX, 
-            y: centerY 
-        });
+      const position = rfInstance.project({
+        x: centerX,
+        y: centerY,
+      });
 
-        // Add small random offset so multiple nodes don't stack exactly
-        return {
-            x: position.x + (Math.random() * 40 - 20),
-            y: position.y + (Math.random() * 40 - 20)
-        };
+      // Add small random offset so multiple nodes don't stack exactly
+      return {
+        x: position.x + (Math.random() * 40 - 20),
+        y: position.y + (Math.random() * 40 - 20),
+      };
     }
 
     // Fallback: random range around origin
-    const x = Math.floor(Math.random() * 800) - 400; 
-    const y = Math.floor(Math.random() * 600) - 300; 
+    const x = Math.floor(Math.random() * 800) - 400;
+    const y = Math.floor(Math.random() * 600) - 300;
     return { x, y };
   };
 
@@ -144,30 +146,64 @@ export default function NodePalette() {
           </button>
         </div>
 
-        <div className={`flex items-center justify-between p-3 rounded-lg shadow transition ${
-          hasStart 
-            ? "bg-gray-100 opacity-60" 
-            : "bg-blue-500 hover:shadow-lg transform hover:-translate-y-0.5"
-        }`}>
+        <div
+          className={`flex items-center justify-between p-3 rounded-lg shadow transition ${
+            hasStart
+              ? "bg-gray-100 opacity-60"
+              : "bg-blue-500 hover:shadow-lg transform hover:-translate-y-0.5"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-md ${hasStart ? "bg-gray-300" : "bg-blue-600"}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div
+              className={`p-2 rounded-md ${
+                hasStart ? "bg-gray-300" : "bg-blue-600"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
             <div>
-              <div className={`${hasStart ? "text-gray-500" : "text-white"} font-semibold`}>Start Node</div>
-              <div className={`${hasStart ? "text-gray-400" : "text-blue-100"} text-xs`}>
-                {hasStart ? "One Start node allowed per level" : "Entry point for the flow"}
+              <div
+                className={`${
+                  hasStart ? "text-gray-500" : "text-white"
+                } font-semibold`}
+              >
+                Start Node
+              </div>
+              <div
+                className={`${
+                  hasStart ? "text-gray-400" : "text-blue-100"
+                } text-xs`}
+              >
+                {hasStart
+                  ? "One Start node allowed per level"
+                  : "Entry point for the flow"}
               </div>
             </div>
           </div>
           <button
             disabled={hasStart}
             className={`ml-4 font-medium rounded-md px-3 py-1 transition-all ${
-              hasStart 
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+              hasStart
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-white/90 text-blue-600 hover:bg-white active:scale-95"
             }`}
             onClick={() =>
