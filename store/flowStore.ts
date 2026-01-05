@@ -346,6 +346,8 @@ export const useFlowStore = create<FlowState>()(
           (n) =>
             n.id !== excludeId &&
             n.type !== "start" &&
+            n.type !== "prompt" &&
+            n.type !== "action" &&
             String((n.data as Record<string, unknown>)?.name ?? "")
               .trim()
               .toLowerCase() === trimmed

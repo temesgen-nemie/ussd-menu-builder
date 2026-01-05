@@ -65,7 +65,7 @@ export default function PromptInspector({
           </label>
           <select
             className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm text-gray-900"
-            value={String(node.data.routingMode ?? "menu")}
+            value={String(node.data.routingMode ?? "linear")}
             onChange={(e) =>
               updateNodeData(node.id, { routingMode: e.target.value })
             }
