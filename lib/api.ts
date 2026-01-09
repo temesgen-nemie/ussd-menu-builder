@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { FlowJson } from '../store/flowStore';
 
 const api = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: 'https://nkp8ip-ip-196-188-180-72.tunnelmole.net',
     headers: {
         'Content-Type': 'application/json',
     },
