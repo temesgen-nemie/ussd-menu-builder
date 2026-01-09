@@ -5,12 +5,22 @@ import { useFlowStore } from "../../store/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
 export default function GroupNode({ id, data, selected }: NodeProps) {
-  const { enterSubflow } = useFlowStore();
+  const { enterSubflow, refreshFlow, isLoading, publishedFlows } = useFlowStore();
   
   // Get children count from store
-  const childrenCount = useFlowStore(
-    useShallow((s) => s.nodes.filter((n) => n.parentNode === id).length)
+  const { childrenCount, flowName } = useFlowStore(
+    useShallow((s) => {
+        const children = s.nodes.filter((n) => n.parentNode === id);
+        const startNode = children.find(n => n.type === 'start');
+        const flowName = startNode ? (startNode.data.flowName as string) : null;
+        return {
+            childrenCount: children.length,
+            flowName
+        };
+    })
   );
+
+  const isPublished = flowName && publishedFlows.includes(flowName);
 
   return (
     <div
@@ -45,6 +55,29 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
                 </p>
              </div>
           </div>
+          </div>
+
+          {isPublished ? (
+              <button
+                onClick={(e) => {
+                    if (flowName) {
+                        e.stopPropagation();
+                        refreshFlow(flowName, id);
+                    }
+                }}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed group/refresh"
+                title={`Refresh flow '${flowName}' from backend`}
+              >
+                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isLoading ? 'animate-spin' : 'group-hover/refresh:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                 </svg>
+              </button>
+          ) : (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">
+               Unpublished
+            </span>
+          )}
         </div>
 
         {/* Content Preview */}
@@ -72,6 +105,6 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
             Double-click to drill down
         </div>
       </div>
-    </div>
+    
   );
 }

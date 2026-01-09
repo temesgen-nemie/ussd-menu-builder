@@ -214,6 +214,11 @@ interface FlowState {
   setRfInstance: (instance: ReactFlowInstance) => void;
 
   publishGroup: (groupId: string) => Promise<void>;
+
+  loadAllFlows: () => Promise<void>;
+  refreshFlow: (flowName: string, groupId: string) => Promise<void>;
+  isLoading: boolean;
+  publishedFlows: string[];
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -234,6 +239,190 @@ export const useFlowStore = create<FlowState>()(
       currentSubflowId: null,
       namerModal: null,
       groupJsonModal: null,
+      isLoading: false,
+      publishedFlows: [],
+
+      loadAllFlows: async () => {
+        set({ isLoading: true });
+        try {
+          // Dynamic import to avoid circular dependency loop if necessary, 
+          // though currently api.ts doesn't import store.
+          const { getAllFlows } = await import("../lib/api");
+          const flows = await getAllFlows();
+
+          let backendNodes: Node[] = [];
+          let backendEdges: Edge[] = [];
+
+          // Flatten all backend flows
+          flows.forEach(f => {
+            if (f.visualState) {
+              backendNodes = [...backendNodes, ...f.visualState.nodes];
+              backendEdges = [...backendEdges, ...f.visualState.edges];
+            }
+          });
+
+          // Get current local state
+          const { nodes: currentNodes, edges: currentEdges } = get();
+
+          // Create Maps/Sets for fast lookup of current local items
+          const currentNodeIds = new Set(currentNodes.map(n => n.id));
+          const currentEdgeIds = new Set(currentEdges.map(e => e.id));
+
+          // Filter backend items to ONLY those missing locally ("Local Wins")
+          const newNodes = backendNodes.filter(bn => !currentNodeIds.has(bn.id));
+          const newEdges = backendEdges.filter(be => !currentEdgeIds.has(be.id));
+
+          if (newNodes.length === 0 && newEdges.length === 0) {
+            // Even if nothing new, we might initially have empty state if it's a fresh load?
+            // If currentNodes is empty, we effectively load everything.
+            if (currentNodes.length === 0) {
+              // Proceed with backend nodes as "new"
+            } else {
+              // Nothing to add
+              // We still might want to re-calculate flow object just in case
+            }
+          }
+
+          // Merge
+          const mergedNodes = [...currentNodes, ...newNodes];
+          const mergedEdges = [...currentEdges, ...newEdges];
+
+          // Re-apply orphan fixing on the MERGED set (safety net)
+          // We can reuse the existing logic but applied to the map of everything
+          const nodeMap = new Map(mergedNodes.map(n => [n.id, n]));
+
+          // Fix Orphan Nodes
+          for (const [id, node] of nodeMap) {
+            if (node.parentNode && !nodeMap.has(node.parentNode)) {
+              const { parentNode, extent, position, ...rest } = node;
+              let newPos = position;
+              if (node.positionAbsolute) {
+                newPos = { ...node.positionAbsolute };
+              }
+              nodeMap.set(id, {
+                ...rest,
+                id,
+                position: newPos,
+                parentNode: undefined,
+                extent: undefined
+              });
+            }
+          }
+
+          const finalNodes = Array.from(nodeMap.values());
+          // For edges, we just take the merged list.
+          // We could dedupe edges too if needed, but the ID check above handles it?
+          // Sometimes edge IDs might regenerate or differ? ReactFlow usually relies on ID.
+          // Let's rely on ID uniqueness.
+
+          // Combine names from existing published backend flows
+          const backendNames = flows.map(f => f.flowName).filter(Boolean);
+
+          set({
+            nodes: finalNodes,
+            edges: mergedEdges,
+            flow: buildFlowJson(finalNodes, mergedEdges),
+            publishedFlows: backendNames
+          });
+
+          toast.success(`Loaded flows: ${newNodes.length} new nodes added from backend.`);
+
+        } catch (error) {
+          console.error("Failed to load flows", error);
+          toast.error("Failed to load flows from backend");
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      refreshFlow: async (flowName: string, groupId: string) => {
+        set({ isLoading: true });
+        try {
+          const { getFlowByName } = await import("../lib/api");
+          const flowData = await getFlowByName(flowName);
+          const flow = Array.isArray(flowData) ? flowData[0] : flowData;
+
+          if (!flow || !flow.visualState) {
+            toast.error(`Flow '${flowName}' not found or missing visual state.`);
+            return;
+          }
+
+          const { nodes, edges } = get();
+
+          // Helper to check if a node belongs to the target group (recursively)
+          // Actually, we only care about the direct children for the merge usually, 
+          // but since the backend returns a flattened list of visualState, 
+          // we should look at IDs.
+
+          // Strategy: "Local Wins"
+          // 1. Keep ALL current nodes/edges (modified or not).
+          // 2. Add ANY node/edge from backend that is NOT present locally.
+
+          // We only care about nodes/edges relevant to this specific subflow/group context if we want to be strict,
+          // OR we can just merge blindly if the backend visualState contains everything for that flow.
+          // The backend usually returns the whole flow's nodes/edges.
+          // BUT, we might be inside a "GroupNode" which corresponds to that Flow.
+
+          // Backend Nodes for this flow
+          const backendNodes = flow.visualState.nodes;
+          const backendEdges = flow.visualState.edges;
+
+          // Create Sets for fast lookup of existing local IDs
+          const existingNodeIds = new Set(nodes.map(n => n.id));
+          const existingEdgeIds = new Set(edges.map(e => e.id));
+
+          // Find missing nodes (present in backend but not locally)
+          // We need to be careful about parenting. 
+          // If the backend node is a child of the flow's main group, we need to map that to our current `groupId`.
+          // HOWEVER, usually when we "enter" a subflow, the nodes are children of that groupId.
+          // The backend might store them with `parentNode: null` if it's a root flow there, 
+          // OR `parentNode: 'some-group-id'` if it's a subflow.
+
+          // If we are "refreshing" a flow that is embedded as a GroupNode (id=groupId),
+          // the backend nodes for that flow likely don't know about our `groupId`.
+          // We need to reparent them to `groupId`.
+
+          const nodesToAdd = backendNodes
+            .filter(bn => !existingNodeIds.has(bn.id))
+            .map(bn => {
+              // If the backend node is a "root" node in its own context, 
+              // it should probably be a child of our `groupId` here.
+              // But wait, if the backend flow IS the subflow, its nodes are likely root nodes relative to that flow.
+              // So we should assign `parentNode: groupId`.
+
+              // If the backend node ALREADY has a parent, we preserve strict hierarchy relative to the flow?
+              // VisualState usually captures absolute structure. 
+              // Let's assume for now we just want to bring them in.
+              // If it's a flat flow being imported into a group:
+              if (!bn.parentNode) {
+                return { ...bn, parentNode: groupId, extent: 'parent' as const };
+              }
+              return bn;
+            });
+
+          const edgesToAdd = backendEdges.filter(be => !existingEdgeIds.has(be.id));
+
+          if (nodesToAdd.length === 0 && edgesToAdd.length === 0) {
+            toast.info("Flow is up to date. No new items from backend.");
+          } else {
+            const nextNodes = [...nodes, ...nodesToAdd];
+            const nextEdges = [...edges, ...edgesToAdd];
+
+            set({
+              nodes: nextNodes,
+              edges: nextEdges,
+              flow: buildFlowJson(nextNodes, nextEdges)
+            });
+            toast.success(`Refreshed: Added ${nodesToAdd.length} nodes, ${edgesToAdd.length} edges.`);
+          }
+
+        } catch (error) {
+          console.error("Failed to refresh flow", error);
+          toast.error(`Failed to refresh flow '${flowName}'`);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
 
       setNodes: (nodes) => set((state) => ({ nodes, flow: buildFlowJson(nodes, state.edges) })),
 
@@ -490,7 +679,12 @@ export const useFlowStore = create<FlowState>()(
           (e) => childIds.includes(e.source) && childIds.includes(e.target)
         );
 
-        const subflowJson = buildFlowJson(children, relevantEdges);
+        // Include the group node itself so visualState contains the grouping container
+        const groupNode = nodes.find(n => n.id === groupId);
+        // If group node exists, add it. Otherwise just use children.
+        const nodesToSave = groupNode ? [...children, groupNode] : children;
+
+        const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
 
         try {
           // Verify we have a start node if we want it to be a valid flow
@@ -500,7 +694,21 @@ export const useFlowStore = create<FlowState>()(
 
           toast.promise(createFlow(subflowJson), {
             loading: 'Publishing to backend...',
-            success: 'Subflow published successfully!',
+            success: (data: unknown) => {
+              // Add to published list
+              const { publishedFlows } = get();
+              // Extract name from current subflow json or just use the logic
+              // The API usually returns the created flow. Assuming createFlow returns the flow object.
+              // Let's verify start node name
+              const startNode = nodesToSave.find(n => n.type === 'start');
+              if (startNode) {
+                const flowName = String((startNode.data as Record<string, unknown>)?.flowName || '');
+                if (flowName && !publishedFlows.includes(flowName)) {
+                  set({ publishedFlows: [...publishedFlows, flowName] });
+                }
+              }
+              return 'Subflow published successfully!';
+            },
             error: (err: unknown) => {
               const message = err instanceof Error ? err.message : 'Unknown error';
               return `Failed to publish: ${message}`;
@@ -528,6 +736,7 @@ export const useFlowStore = create<FlowState>()(
         nodes: state.nodes,
         edges: state.edges,
         flow: state.flow,
+        publishedFlows: state.publishedFlows,
       }),
     }
   )

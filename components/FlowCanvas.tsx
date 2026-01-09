@@ -67,6 +67,8 @@ export default function FlowCanvas() {
     publishGroup,
     namerModal,
     groupJsonModal,
+    loadAllFlows,
+    isLoading,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -391,6 +393,11 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectedNodeId, removeNode, closeInspector]);
 
+  // Auto-load flows on mount
+  useEffect(() => {
+    loadAllFlows();
+  }, [loadAllFlows]);
+
   return (
     <div className="w-full h-full relative group">
       {/* Subflow Breadcrumbs */}
@@ -441,6 +448,20 @@ export default function FlowCanvas() {
           </div>
         </div>
       )}
+
+      {/* Auto-Load / Refresh Button */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+          <button
+            onClick={() => loadAllFlows()}
+            disabled={isLoading}
+            className="p-2 bg-white/90 backdrop-blur-xl shadow-lg border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all text-gray-500 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed group"
+            title="Refresh Flows from Backend"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+      </div>
 
       <ReactFlow
         nodes={visibleNodes}
