@@ -349,12 +349,10 @@ export const useFlowStore = create<FlowState>()(
 
           const { nodes, edges } = get();
 
-          // Helper to check if a node belongs to the target group (recursively)
           // Actually, we only care about the direct children for the merge usually, 
           // but since the backend returns a flattened list of visualState, 
           // we should look at IDs.
 
-          // Strategy: "Local Wins"
           // 1. Keep ALL current nodes/edges (modified or not).
           // 2. Add ANY node/edge from backend that is NOT present locally.
 
