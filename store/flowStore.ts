@@ -197,7 +197,7 @@ interface FlowState {
   // Subflow / Grouping State
   currentSubflowId: string | null;
   enterSubflow: (groupId: string) => void;
-  exitSubflow: () => void;
+  exitSubflow: (targetId?: string | null) => void;
   groupNodes: (nodeIds: string[], name: string) => void;
   ungroupNodes: (groupId: string) => void;
 
@@ -219,6 +219,8 @@ interface FlowState {
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
   isLoading: boolean;
   publishedFlows: string[];
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -241,6 +243,8 @@ export const useFlowStore = create<FlowState>()(
       groupJsonModal: null,
       isLoading: false,
       publishedFlows: [],
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       loadAllFlows: async () => {
         set({ isLoading: true });
@@ -530,29 +534,85 @@ export const useFlowStore = create<FlowState>()(
 
       updateNodeData: (id, data: Partial<Record<string, unknown>>) =>
         set((state) => {
-          const nextNodes = state.nodes.map((n) =>
+          let nextNodes = state.nodes.map((n) =>
             n.id === id ? { ...n, data: { ...n.data, ...data } } : n
           );
+
+          // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
+          const targetNode = nextNodes.find((n) => n.id === id);
+          if (targetNode && targetNode.type === "prompt" && data.nextNode) {
+            const nextNode = data.nextNode as any;
+            if (typeof nextNode === 'object' && nextNode.routes) {
+              const routes = nextNode.routes as any[];
+
+              // For each route, check if it's connected to a Menu Branch Group
+              routes.forEach((route, idx) => {
+                const handleId = `route-${idx}`;
+                const edge = state.edges.find(e => e.source === id && e.sourceHandle === handleId);
+
+                if (edge) {
+                  const connectedNode = nextNodes.find(n => n.id === edge.target);
+                  if (connectedNode && connectedNode.type === 'group' && connectedNode.data.isMenuBranch) {
+                    const newName = route.gotoFlow || route.when?.eq?.[1] || "Branch";
+
+                    // Update Group Name in the nextNodes array
+                    nextNodes = nextNodes.map(n => {
+                      if (n.id === connectedNode.id) {
+                        return { ...n, data: { ...n.data, name: newName } };
+                      }
+                      // Also update the internal Start Node's flowName
+                      if (n.parentNode === connectedNode.id && n.type === 'start') {
+                        return { ...n, data: { ...n.data, flowName: newName } };
+                      }
+                      return n;
+                    });
+                  }
+                }
+              });
+            }
+          }
+
           return { nodes: nextNodes, flow: buildFlowJson(nextNodes, state.edges) };
         }),
 
       isNameTaken: (name, excludeId) => {
         const trimmed = name.trim().toLowerCase();
         if (!trimmed) return false;
-        return get().nodes.some(
+
+        const { nodes, currentSubflowId } = get();
+
+        // Find the parent group of the node we're checking
+        const targetNode = excludeId ? nodes.find(n => n.id === excludeId) : null;
+        const parentId = targetNode ? targetNode.parentNode : currentSubflowId;
+
+        return nodes.some(
           (n) =>
             n.id !== excludeId &&
-            n.type !== "start" &&
-            n.type !== "prompt" &&
-            n.type !== "action" &&
-            String((n.data as Record<string, unknown>)?.name ?? "")
-              .trim()
-              .toLowerCase() === trimmed
+            n.parentNode === parentId && // Must be in the same group
+            n.type !== "group" && // Skip group nodes (as requested: group node can have any name)
+            (
+              // Check both standard 'name' and Start node's 'flowName'
+              String((n.data as any)?.name ?? "").trim().toLowerCase() === trimmed ||
+              String((n.data as any)?.flowName ?? "").trim().toLowerCase() === trimmed
+            )
         );
       },
 
       enterSubflow: (groupId) => set({ currentSubflowId: groupId, inspectorOpen: false }),
-      exitSubflow: () => set({ currentSubflowId: null, inspectorOpen: false }),
+      exitSubflow: (targetId) => {
+        if (targetId !== undefined) {
+          set({ currentSubflowId: targetId, inspectorOpen: false });
+          return;
+        }
+
+        // Default behavior: go up one level
+        const { nodes, currentSubflowId } = get();
+        if (!currentSubflowId) return;
+
+        const currentGroup = nodes.find((n) => n.id === currentSubflowId);
+        const parentId = currentGroup?.parentNode || null;
+        set({ currentSubflowId: parentId, inspectorOpen: false });
+      },
 
       groupNodes: (nodeIds, name) => {
         const { nodes, rfInstance, edges } = get();
@@ -728,6 +788,7 @@ export const useFlowStore = create<FlowState>()(
       onRehydrateStorage: (state) => {
         return (rehydratedState, error) => {
           if (error || !rehydratedState) return;
+          rehydratedState.setHasHydrated(true);
         };
       },
       partialize: (state) => ({
