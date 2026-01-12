@@ -56,6 +56,7 @@ export default function ActionInspector({
   const [activeSection, setActiveSection] = React.useState<
     "params" | "headers" | "body" | "responseMapping" | "persist" | "routing"
   >("params");
+  const [sourceMode, setSourceMode] = React.useState<"api" | "local">("api");
   const [curlText, setCurlText] = React.useState<string>("");
 
   const [paramPairs, setParamPairs] = React.useState<
@@ -271,323 +272,423 @@ export default function ActionInspector({
         }}
       />
 
-      <div className="space-y-3">
-        <div className="text-xs font-medium text-gray-600">Request</div>
-        <RequestBar
-          method={String(node.data.method ?? "POST")}
-          endpoint={String(node.data.endpoint ?? "")}
-          curlText={curlText}
-          isSending={isSending}
-          onMethodChange={(value) => updateNodeData(node.id, { method: value })}
-          onEndpointChange={(value) =>
-            updateNodeData(node.id, { endpoint: value })
-          }
-          onCurlChange={(value) => setCurlText(value)}
-          onImportCurl={() => {
-            const parsed = parseCurl(curlText);
-            if (!parsed) {
-              setResponseError(
-                "Invalid curl input. Paste a curl command that starts with 'curl'."
-              );
-              return;
-            }
-
-            updateNodeData(node.id, { method: parsed.method });
-            updateNodeData(node.id, { endpoint: parsed.url });
-
-            const pairs = Object.entries(parsed.headers).map(([key, value]) => ({
-              id: generateId(),
-              key,
-              value,
-            }));
-            setHeaderPairs(pairs);
-            syncHeaders(pairs);
-
-            if (parsed.body) {
-              setApiBodyText(parsed.body);
-              try {
-                const parsedBody = JSON.parse(parsed.body);
-                setApiBodyError(null);
-                updateNodeData(node.id, { apiBody: parsedBody });
-              } catch (err) {
-                setApiBodyError(
-                  err instanceof Error ? err.message : "Invalid JSON"
-                );
-              }
-            }
-          }}
-          onSend={async () => {
-            setResponseError(null);
-            setResponseStatus(null);
-            setResponseStatusText("");
-            setResponseHeaders({});
-            setResponseBody("");
-            setIsSending(true);
-
-            const endpoint = String(node.data.endpoint ?? "").trim();
-            if (!endpoint) {
-              setResponseError("Endpoint URL is required.");
-              setIsSending(false);
-              return;
-            }
-
-            const method = String(node.data.method ?? "POST").toUpperCase();
-            const headers: Record<string, string> = {};
-            headerPairs.forEach((pair) => {
-              if (pair.key.trim()) {
-                headers[pair.key] = pair.value;
-              }
-            });
-
-            let body: string | undefined;
-            if (method !== "GET" && method !== "HEAD") {
-              body = apiBodyText ? apiBodyText : undefined;
-            }
-
-            try {
-              const response = await fetch(endpoint, {
-                method,
-                headers,
-                body,
-              });
-
-              setResponseStatus(response.status);
-              setResponseStatusText(response.statusText);
-
-              const headerRecord: Record<string, string> = {};
-              response.headers.forEach((value, key) => {
-                headerRecord[key] = value;
-              });
-              setResponseHeaders(headerRecord);
-
-              const text = await response.text();
-              setResponseBody(text);
-            } catch (err) {
-              setResponseError(
-                err instanceof Error ? err.message : "Request failed."
-              );
-            } finally {
-              setIsSending(false);
-            }
-          }}
-        />
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <button
+          className={`px-3 py-1 text-xs font-medium rounded-md ${
+            sourceMode === "api"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+          onClick={() => setSourceMode("api")}
+        >
+          From API
+        </button>
+        <button
+          className={`px-3 py-1 text-xs font-medium rounded-md ${
+            sourceMode === "local"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+          onClick={() => setSourceMode("local")}
+        >
+          From Local Storage
+        </button>
       </div>
 
-      
-
-      <div>
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "params"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("params")}
-          >
-            Params
-          </button>
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "headers"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("headers")}
-          >
-            Headers
-          </button>
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "body"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("body")}
-          >
-            Body
-          </button>
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "responseMapping"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("responseMapping")}
-          >
-            Response Mapping
-          </button>
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "persist"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("persist")}
-          >
-            Persist Response Mapping
-          </button>
-          <button
-            className={`px-3 py-1 text-xs font-medium rounded-md ${
-              activeSection === "routing"
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            onClick={() => setActiveSection("routing")}
-          >
-            Routing
-          </button>
-        </div>
-
-        <div className="mt-4">
-          {activeSection === "params" && (
-            <ParamsEditor
-              params={paramPairs}
-              onAdd={() => {
-                const next = [...paramPairs, { id: generateId(), key: "", value: "" }];
-                setParamPairs(next);
-              }}
-              onRemove={(id: string) => {
-                const next = paramPairs.filter((p) => p.id !== id);
-                setParamPairs(next);
-                syncParamsToUrl(next);
-              }}
-              onUpdate={(id: string, key: string, value: string) => {
-                const next = paramPairs.map((p) =>
-                  p.id === id ? { ...p, key, value } : p
-                );
-                setParamPairs(next);
-                syncParamsToUrl(next);
-              }}
-            />
-          )}
-
-          {activeSection === "headers" && (
-            <HeadersEditor
-              headers={headerPairs}
-              onAdd={() => {
-                const next = [
-                  ...headerPairs,
-                  { id: generateId(), key: "", value: "" },
-                ];
-                setHeaderPairs(next);
-              }}
-              onRemove={(id) => {
-                const next = headerPairs.filter((pair) => pair.id !== id);
-                setHeaderPairs(next);
-                syncHeaders(next);
-              }}
-              onUpdate={(id, key, value) => {
-                const next = headerPairs.map((pair) =>
-                  pair.id === id ? { ...pair, key, value } : pair
-                );
-                setHeaderPairs(next);
-                syncHeaders(next);
-              }}
-            />
-          )}
-
-          {activeSection === "body" && (
-            <BodyEditor
-              apiBodyText={apiBodyText}
-              apiBodyError={apiBodyError}
-              onApiBodyChange={(value) => {
-                setApiBodyText(value);
-                try {
-                  const parsed = JSON.parse(value || "{}");
-                  setApiBodyError(null);
-                  updateNodeData(node.id, { apiBody: parsed });
-                } catch (err) {
-                  setApiBodyError(
-                    err instanceof Error ? err.message : "Invalid JSON"
+      {sourceMode === "api" && (
+        <>
+          <div className="space-y-3">
+            <div className="text-xs font-medium text-gray-600">Request</div>
+            <RequestBar
+              method={String(node.data.method ?? "POST")}
+              endpoint={String(node.data.endpoint ?? "")}
+              curlText={curlText}
+              isSending={isSending}
+              onMethodChange={(value) => updateNodeData(node.id, { method: value })}
+              onEndpointChange={(value) =>
+                updateNodeData(node.id, { endpoint: value })
+              }
+              onCurlChange={(value) => setCurlText(value)}
+              onImportCurl={() => {
+                const parsed = parseCurl(curlText);
+                if (!parsed) {
+                  setResponseError(
+                    "Invalid curl input. Paste a curl command that starts with 'curl'."
                   );
+                  return;
+                }
+
+                updateNodeData(node.id, { method: parsed.method });
+                updateNodeData(node.id, { endpoint: parsed.url });
+
+                const pairs = Object.entries(parsed.headers).map(([key, value]) => ({
+                  id: generateId(),
+                  key,
+                  value,
+                }));
+                setHeaderPairs(pairs);
+                syncHeaders(pairs);
+
+                if (parsed.body) {
+                  setApiBodyText(parsed.body);
+                  try {
+                    const parsedBody = JSON.parse(parsed.body);
+                    setApiBodyError(null);
+                    updateNodeData(node.id, { apiBody: parsedBody });
+                  } catch (err) {
+                    setApiBodyError(
+                      err instanceof Error ? err.message : "Invalid JSON"
+                    );
+                  }
+                }
+              }}
+              onSend={async () => {
+                setResponseError(null);
+                setResponseStatus(null);
+                setResponseStatusText("");
+                setResponseHeaders({});
+                setResponseBody("");
+                setIsSending(true);
+
+                const endpoint = String(node.data.endpoint ?? "").trim();
+                if (!endpoint) {
+                  setResponseError("Endpoint URL is required.");
+                  setIsSending(false);
+                  return;
+                }
+
+                const method = String(node.data.method ?? "POST").toUpperCase();
+                const headers: Record<string, string> = {};
+                headerPairs.forEach((pair) => {
+                  if (pair.key.trim()) {
+                    headers[pair.key] = pair.value;
+                  }
+                });
+
+                let body: string | undefined;
+                if (method !== "GET" && method !== "HEAD") {
+                  body = apiBodyText ? apiBodyText : undefined;
+                }
+
+                try {
+                  const response = await fetch(endpoint, {
+                    method,
+                    headers,
+                    body,
+                  });
+
+                  setResponseStatus(response.status);
+                  setResponseStatusText(response.statusText);
+
+                  const headerRecord: Record<string, string> = {};
+                  response.headers.forEach((value, key) => {
+                    headerRecord[key] = value;
+                  });
+                  setResponseHeaders(headerRecord);
+
+                  const text = await response.text();
+                  setResponseBody(text);
+                } catch (err) {
+                  setResponseError(
+                    err instanceof Error ? err.message : "Request failed."
+                  );
+                } finally {
+                  setIsSending(false);
                 }
               }}
             />
-          )}
+          </div>
 
-          {activeSection === "responseMapping" && (
-            <ResponseMappingEditor
-              mappings={mappingPairs}
-              options={responseOptions}
-              onAdd={() => {
-                const next = [
-                  ...mappingPairs,
-                  { id: generateId(), key: "", value: "" },
-                ];
-                setMappingPairs(next);
-              }}
-              onRemove={(id) => {
-                const next = mappingPairs.filter((pair) => pair.id !== id);
-                setMappingPairs(next);
-                syncResponseMapping(next);
-              }}
-              onUpdate={(id, key, value) => {
-                const next = mappingPairs.map((pair) =>
-                  pair.id === id ? { ...pair, key, value } : pair
-                );
-                setMappingPairs(next);
-                syncResponseMapping(next);
-              }}
-            />
-          )}
+          <div>
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "params"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("params")}
+              >
+                Params
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "headers"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("headers")}
+              >
+                Headers
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "body"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("body")}
+              >
+                Body
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "responseMapping"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("responseMapping")}
+              >
+                Response Mapping
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "persist"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("persist")}
+              >
+                Persist Response Mapping
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeSection === "routing"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                onClick={() => setActiveSection("routing")}
+              >
+                Routing
+              </button>
+            </div>
 
-          {activeSection === "persist" && (
-            <PersistToggle
-              persistResponseMapping={Boolean(node.data.persistResponseMapping)}
-              onPersistResponseMappingChange={(value) =>
-                updateNodeData(node.id, { persistResponseMapping: value })
-              }
-            />
-          )}
+            <div className="mt-4">
+              {activeSection === "params" && (
+                <ParamsEditor
+                  params={paramPairs}
+                  onAdd={() => {
+                    const next = [...paramPairs, { id: generateId(), key: "", value: "" }];
+                    setParamPairs(next);
+                  }}
+                  onRemove={(id: string) => {
+                    const next = paramPairs.filter((p) => p.id !== id);
+                    setParamPairs(next);
+                    syncParamsToUrl(next);
+                  }}
+                  onUpdate={(id: string, key: string, value: string) => {
+                    const next = paramPairs.map((p) =>
+                      p.id === id ? { ...p, key, value } : p
+                    );
+                    setParamPairs(next);
+                    syncParamsToUrl(next);
+                  }}
+                />
+              )}
 
-          {activeSection === "routing" && (
-            <ActionRoutes
-              routes={node.data.routes || []}
-              options={responseOptions}
-              defaultNextNode={String(node.data.nextNode ?? "")}
-              onAddRoute={() => {
-                const currentRoutes = node.data.routes || [];
-                const defaultPath = responseOptions[0] || "";
-                const condition = defaultPath
-                  ? JSON.stringify({
-                      eq: [`{{response.${defaultPath}}}`, ""],
-                    })
-                  : "";
-                updateNodeData(node.id, {
-                  routes: [
-                    ...currentRoutes,
-                    {
-                      id: generateId(),
-                      condition,
-                      nextNodeId: "",
-                    },
-                  ],
-                });
-              }}
-              onRemoveRoute={(index) => {
-                const currentRoutes = node.data.routes || [];
-                updateNodeData(node.id, {
-                  routes: currentRoutes.filter((_, i) => i !== index),
-                });
-              }}
-              onUpdateRoute={(index, route) => {
-                const newRoutes: ActionRoute[] = [...(node.data.routes || [])];
-                newRoutes[index] = route;
-                updateNodeData(node.id, { routes: newRoutes });
-              }}
-            />
-          )}
+              {activeSection === "headers" && (
+                <HeadersEditor
+                  headers={headerPairs}
+                  onAdd={() => {
+                    const next = [
+                      ...headerPairs,
+                      { id: generateId(), key: "", value: "" },
+                    ];
+                    setHeaderPairs(next);
+                  }}
+                  onRemove={(id) => {
+                    const next = headerPairs.filter((pair) => pair.id !== id);
+                    setHeaderPairs(next);
+                    syncHeaders(next);
+                  }}
+                  onUpdate={(id, key, value) => {
+                    const next = headerPairs.map((pair) =>
+                      pair.id === id ? { ...pair, key, value } : pair
+                    );
+                    setHeaderPairs(next);
+                    syncHeaders(next);
+                  }}
+                />
+              )}
+
+              {activeSection === "body" && (
+                <BodyEditor
+                  apiBodyText={apiBodyText}
+                  apiBodyError={apiBodyError}
+                  onApiBodyChange={(value) => {
+                    setApiBodyText(value);
+                    try {
+                      const parsed = JSON.parse(value || "{}");
+                      setApiBodyError(null);
+                      updateNodeData(node.id, { apiBody: parsed });
+                    } catch (err) {
+                      setApiBodyError(
+                        err instanceof Error ? err.message : "Invalid JSON"
+                      );
+                    }
+                  }}
+                />
+              )}
+
+              {activeSection === "responseMapping" && (
+                <ResponseMappingEditor
+                  mappings={mappingPairs}
+                  options={responseOptions}
+                  onAdd={() => {
+                    const next = [
+                      ...mappingPairs,
+                      { id: generateId(), key: "", value: "" },
+                    ];
+                    setMappingPairs(next);
+                  }}
+                  onRemove={(id) => {
+                    const next = mappingPairs.filter((pair) => pair.id !== id);
+                    setMappingPairs(next);
+                    syncResponseMapping(next);
+                  }}
+                  onUpdate={(id, key, value) => {
+                    const next = mappingPairs.map((pair) =>
+                      pair.id === id ? { ...pair, key, value } : pair
+                    );
+                    setMappingPairs(next);
+                    syncResponseMapping(next);
+                  }}
+                />
+              )}
+
+              {activeSection === "persist" && (
+                <PersistToggle
+                  persistResponseMapping={Boolean(node.data.persistResponseMapping)}
+                  onPersistResponseMappingChange={(value) =>
+                    updateNodeData(node.id, { persistResponseMapping: value })
+                  }
+                />
+              )}
+
+              {activeSection === "routing" && (
+                <ActionRoutes
+                  routes={node.data.routes || []}
+                  options={responseOptions}
+                  defaultNextNode={String(node.data.nextNode ?? "")}
+                  onAddRoute={() => {
+                    const currentRoutes = node.data.routes || [];
+                    const defaultPath = responseOptions[0] || "";
+                    const condition = defaultPath
+                      ? JSON.stringify({
+                          eq: [`{{response.${defaultPath}}}`, ""],
+                        })
+                      : "";
+                    updateNodeData(node.id, {
+                      routes: [
+                        ...currentRoutes,
+                        {
+                          id: generateId(),
+                          condition,
+                          nextNodeId: "",
+                        },
+                      ],
+                    });
+                  }}
+                  onRemoveRoute={(index) => {
+                    const currentRoutes = node.data.routes || [];
+                    updateNodeData(node.id, {
+                      routes: currentRoutes.filter((_, i) => i !== index),
+                    });
+                  }}
+                  onUpdateRoute={(index, route) => {
+                    const newRoutes: ActionRoute[] = [...(node.data.routes || [])];
+                    newRoutes[index] = route;
+                    updateNodeData(node.id, { routes: newRoutes });
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          <ResponseViewer
+            status={responseStatus}
+            statusText={responseStatusText}
+            headers={responseHeaders}
+            body={responseBody}
+            error={responseError}
+          />
+        </>
+      )}
+
+      {sourceMode === "local" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Data Source
+              </label>
+              <input
+                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                placeholder="e.g. inputManager"
+                value={String(node.data.dataSource ?? "")}
+                onChange={(e) =>
+                  updateNodeData(node.id, { dataSource: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Field
+              </label>
+              <input
+                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                placeholder="e.g. userAccounts"
+                value={String(node.data.field ?? "")}
+                onChange={(e) =>
+                  updateNodeData(node.id, { field: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Output Variable
+              </label>
+              <input
+                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                placeholder="e.g. accountsMenu"
+                value={String(node.data.outputVar ?? "")}
+                onChange={(e) =>
+                  updateNodeData(node.id, { outputVar: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Format
+              </label>
+              <select
+                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                value={String(node.data.format ?? "indexedList")}
+                onChange={(e) =>
+                  updateNodeData(node.id, {
+                    format: e.target.value as "indexedList" | "singleValue",
+                  })
+                }
+              >
+                <option value="indexedList">indexedList</option>
+                <option value="singleValue">singleValue</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Next Node
+              </label>
+              <input
+                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-gray-50 shadow-sm text-sm text-gray-500"
+                value={String(node.data.nextNode ?? "")}
+                readOnly
+                placeholder="Connect on canvas"
+                title="Connect the default handle to set this value"
+              />
+            </div>
+          </div>
         </div>
-      </div>
-
-      <ResponseViewer
-        status={responseStatus}
-        statusText={responseStatusText}
-        headers={responseHeaders}
-        body={responseBody}
-        error={responseError}
-      />
+      )}
     </div>
   );
 }

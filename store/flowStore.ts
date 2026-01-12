@@ -17,6 +17,10 @@ export type FlowNode = {
   message?: string;
   endpoint?: string;
   method?: string;
+  dataSource?: string;
+  field?: string;
+  outputVar?: string;
+  format?: "indexedList" | "singleValue";
   headers?: Record<string, unknown>;
   apiBody?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
@@ -145,6 +149,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           ...base,
           endpoint: String(data.endpoint ?? ""),
           method: String(data.method ?? ""),
+          dataSource: String(data.dataSource ?? ""),
+          field: String(data.field ?? ""),
+          outputVar: String(data.outputVar ?? ""),
+          format: (data.format as "indexedList" | "singleValue") || undefined,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
           responseMapping: (data.responseMapping as Record<string, unknown>) || undefined,
