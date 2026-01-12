@@ -11,7 +11,7 @@ const FlowCanvas = dynamic(() => import('../components/FlowCanvas'), { ssr: fals
 export default function Home() {
   return (
     <div className='h-screen flex'>
-      <div className='w-64 border-r bg-gray-50'>
+      <div className='w-64 border-r border-border bg-background'>
         <NodePalette />
       </div>
 

@@ -2,6 +2,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { useFlowStore } from "../store/flowStore";
+import { ModeToggle } from "./ModeToggle";
 
 function IconPrompt() {
   return (
@@ -79,16 +80,21 @@ export default function NodePalette() {
   };
 
   return (
-    <aside className="p-4 space-y-4 bg-linear-to-b from-white/60 to-white/30 rounded-lg shadow-md">
+    <aside className="p-4 space-y-4 bg-card/80 text-card-foreground rounded-lg shadow-md border border-border">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight text-gray-800">
+          <div className="flex justify-between items-center">
+ <h2 className="text-lg font-extrabold tracking-tight text-foreground">
             Node Palette
           </h2>
-          <p className="text-sm text-gray-500">
+          <ModeToggle />
+          </div>
+         
+          <p className="text-sm text-muted-foreground">
             Drag or add nodes to build your flow
           </p>
         </div>
+        
       </div>
 
       <div className="grid grid-cols-1 gap-3">
