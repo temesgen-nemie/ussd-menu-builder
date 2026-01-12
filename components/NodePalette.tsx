@@ -79,7 +79,7 @@ export default function NodePalette() {
   };
 
   return (
-    <aside className="p-4 space-y-4 bg-gradient-to-b from-white/60 to-white/30 rounded-lg shadow-md">
+    <aside className="p-4 space-y-4 bg-linear-to-b from-white/60 to-white/30 rounded-lg shadow-md">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-extrabold tracking-tight text-gray-800">
