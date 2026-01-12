@@ -10,6 +10,10 @@ export type ActionNodeData = {
   name?: string;
   endpoint?: string;
   method?: string;
+  dataSource?: string;
+  field?: string;
+  outputVar?: string;
+  format?: "indexedList" | "singleValue";
   apiBody?: Record<string, unknown>;
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
