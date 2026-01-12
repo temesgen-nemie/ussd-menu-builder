@@ -22,7 +22,9 @@ import {
   type MouseEvent as ReactMouseEvent,
   useState,
   useMemo,
+  Fragment,
 } from "react";
+import { toast } from "sonner";
 import { useFlowStore } from "../store/flowStore";
 import PromptNode from "./nodes/PromptNode";
 import ActionNode from "./nodes/ActionNode";
@@ -69,6 +71,7 @@ export default function FlowCanvas() {
     groupJsonModal,
     loadAllFlows,
     isLoading,
+    _hasHydrated,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -148,33 +151,68 @@ export default function FlowCanvas() {
   // add edge (uses current edges array)
   const onConnect = useCallback(
     (params: Edge | Connection) => {
-      setEdges(addEdge(params, edges));
-
       const sourceNode = nodes.find((n) => n.id === params.source);
 
       // Visual Branching Logic:
       if (params.sourceHandle) {
         // 1. Prompt Options
-        if (
-          sourceNode &&
-          sourceNode.type === "prompt" &&
-          sourceNode.data.options
-        ) {
+        if (sourceNode && sourceNode.type === "prompt") {
           const handleId = params.sourceHandle;
-          interface PromptOption {
-            id: string;
-            nextNode?: string;
-          }
-          const options = (sourceNode.data.options as PromptOption[]) || [];
-          const optionIndex = options.findIndex((o) => o.id === handleId);
+          const targetNode = nodes.find((n) => n.id === params.target);
 
-          if (optionIndex !== -1) {
-            const newOptions = [...options];
-            newOptions[optionIndex] = {
-              ...newOptions[optionIndex],
-              nextNode: params.target || "",
-            };
-            updateNodeData(sourceNode.id, { options: newOptions });
+          // VALIDATION: If connecting to a Menu Branch Group, check for Start node
+          if (targetNode && targetNode.type === 'group' && targetNode.data.isMenuBranch) {
+            const children = nodes.filter(n => n.parentNode === targetNode.id);
+            const hasStartNode = children.some(n => n.type === 'start');
+
+            if (!hasStartNode) {
+              toast.error("Invalid Menu Branch", {
+                description: `Target group '${targetNode.data.name || 'Untitled'}' must contain a Start node to be used as a menu branch destination.`,
+                duration: 5000,
+              });
+              return; // REJECT CONNECTION
+            }
+          }
+
+          const nextNode = sourceNode.data.nextNode;
+          if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
+            const routeIdx = parseInt(handleId.split('-')[1]);
+            const newRoutes = [...nextNode.routes];
+            const route = newRoutes[routeIdx];
+
+            if (route) {
+              let finalName = "";
+
+              // SYNC LOGIC: If connecting to a Menu Branch Group
+              if (targetNode && targetNode.type === 'group' && targetNode.data.isMenuBranch) {
+                 // 1. Prioritize any explicitly set gotoFlow in the prompt
+                 // 2. Fallback to existing Group name (if it's not default)
+                 // 3. Last fallback: use the prompt input value
+                 const targetName = targetNode.data.name;
+                 const isDefaultTargetName = !targetName || targetName === "Untitled Group";
+                 
+                 finalName = route.gotoFlow || (!isDefaultTargetName ? targetName : "") || route.when?.eq?.[1] || "Branch";
+                 
+                 // Update Group Name (Sync)
+                 updateNodeData(targetNode.id, { name: finalName });
+
+                 // Update Internal Start Node flowName
+                 const children = nodes.filter(n => n.parentNode === targetNode.id);
+                 const startNode = children.find(n => n.type === 'start');
+                 if (startNode) {
+                    updateNodeData(startNode.id, { flowName: finalName });
+                 }
+              } else {
+                // For non-branch connections or linear mode
+                finalName = route.gotoFlow || (targetNode?.data.name && targetNode.data.name !== "Untitled Group" ? targetNode.data.name : "");
+              }
+
+              // Update the route itself with the final name
+              newRoutes[routeIdx] = { ...route, gotoFlow: finalName || (targetNode?.id || "") };
+              updateNodeData(sourceNode.id, { 
+                nextNode: { ...nextNode, routes: newRoutes } 
+              });
+            }
           }
         }
         // 2. Action Routes
@@ -218,6 +256,9 @@ export default function FlowCanvas() {
           updateNodeData(sourceNode.id, { entryNode: params.target });
         }
       }
+
+      // Finally, add the edge if we haven't returned early (rejected)
+      setEdges(addEdge(params, edges));
     },
     [edges, setEdges, nodes, updateNodeData]
   );
@@ -230,27 +271,17 @@ export default function FlowCanvas() {
           const sourceNode = nodes.find((n) => n.id === edge.source);
 
           // 1. Prompt Options
-          if (
-            sourceNode &&
-            sourceNode.type === "prompt" &&
-            sourceNode.data.options
-          ) {
-            interface PromptOption {
-              id: string;
-              nextNode?: string;
-            }
-            const options = (sourceNode.data.options as PromptOption[]) || [];
-            const optionIndex = options.findIndex(
-              (o) => o.id === edge.sourceHandle
-            );
-
-            if (optionIndex !== -1) {
-              const newOptions = [...options];
-              newOptions[optionIndex] = {
-                ...newOptions[optionIndex],
-                nextNode: "",
-              };
-              updateNodeData(sourceNode.id, { options: newOptions });
+          if (sourceNode && sourceNode.type === "prompt") {
+            const nextNode = sourceNode.data.nextNode;
+            if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
+               const routeIdx = parseInt(edge.sourceHandle.split('-')[1]);
+               const newRoutes = [...nextNode.routes];
+               if (newRoutes[routeIdx]) {
+                  newRoutes[routeIdx] = { ...newRoutes[routeIdx], gotoFlow: "" };
+                  updateNodeData(sourceNode.id, { 
+                     nextNode: { ...nextNode, routes: newRoutes } 
+                  });
+               }
             }
           }
           // 2. Action Routes
@@ -395,59 +426,70 @@ export default function FlowCanvas() {
 
   // Auto-load flows on mount
   useEffect(() => {
-    loadAllFlows();
-  }, [loadAllFlows]);
+    if (_hasHydrated) {
+      loadAllFlows();
+    }
+  }, [loadAllFlows, _hasHydrated]);
 
   return (
     <div className="w-full h-full relative group">
       {/* Subflow Breadcrumbs */}
-      {currentSubflowId && (
-        <div className="absolute top-6 left-6 z-50 flex items-center gap-3 bg-white/90 backdrop-blur-xl shadow-2xl border border-indigo-100 px-6 py-3 rounded-2xl animate-in slide-in-from-top-6 duration-500">
-          <button
-            onClick={() => exitSubflow()}
-            className="flex items-center gap-2 text-gray-400 hover:text-indigo-600 transition-all font-bold text-sm group/main"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 transform group-hover/main:-translate-x-1 transition-transform"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+      {currentSubflowId && (() => {
+        const path: { id: string | null; name: string }[] = [];
+        let currId: string | null = currentSubflowId;
+        
+        while (currId) {
+          const node = nodes.find(n => n.id === currId);
+          if (node) {
+            path.unshift({ id: node.id, name: node.data.name || "Subflow" });
+            currId = node.parentNode || null;
+          } else {
+            break;
+          }
+        }
+        
+        return (
+          <div className="absolute top-6 left-6 z-50 flex items-center gap-1.5 bg-white/90 backdrop-blur-xl shadow-xl border border-indigo-100 px-3 py-1.5 rounded-xl animate-in slide-in-from-top-6 duration-500">
+            <button
+              onClick={() => exitSubflow(null)}
+              className="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-all font-bold text-xs group/main"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={3}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-            Main Flow
-          </button>
-          <div className="h-4 w-[2px] bg-gray-200 rounded-full mx-1" />
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-3.5 w-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={3}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-            </div>
-            <span className="text-indigo-600 font-black text-sm tracking-tight">
-              {nodes.find((n) => n.id === currentSubflowId)?.data.name ||
-                "Subflow"}
-            </span>
+              <span>Main</span>
+            </button>
+
+            {path.map((segment, idx) => (
+              <Fragment key={segment.id}>
+                <div className="text-gray-300 select-none">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                   </svg>
+                </div>
+                <button
+                  onClick={() => segment.id !== currentSubflowId && exitSubflow(segment.id)}
+                  disabled={segment.id === currentSubflowId}
+                  className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg transition-all text-xs font-bold ${
+                    segment.id === currentSubflowId 
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" 
+                      : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                  }`}
+                >
+                  {segment.id === currentSubflowId && (
+                     <div className="p-0.5 bg-white/20 rounded">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                     </div>
+                  )}
+                  {segment.name}
+                </button>
+              </Fragment>
+            ))}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Auto-Load / Refresh Button */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
@@ -574,6 +616,30 @@ export default function FlowCanvas() {
                         </svg>
                       </div>
                       Enter Group
+                    </button>
+                    <button
+                      className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-bold transition-all group/item ${
+                        nodes.find(n => n.id === menu.id)?.data.isMenuBranch 
+                          ? "text-indigo-600 hover:bg-indigo-50" 
+                          : "text-emerald-600 hover:bg-emerald-50"
+                      }`}
+                      onClick={() => {
+                        const groupNode = nodes.find(n => n.id === menu.id);
+                        if (groupNode) {
+                           updateNodeData(groupNode.id, { isMenuBranch: !groupNode.data.isMenuBranch });
+                        }
+                      }}
+                    >
+                      <div className={`p-2 rounded-xl group-hover/item:text-white transition-colors ${
+                        nodes.find(n => n.id === menu.id)?.data.isMenuBranch 
+                          ? "bg-indigo-100 group-hover/item:bg-indigo-600" 
+                          : "bg-emerald-100 group-hover/item:bg-emerald-600"
+                      }`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      {nodes.find(n => n.id === menu.id)?.data.isMenuBranch ? "Convert to Subflow" : "Convert to Menu Branch"}
                     </button>
                     <button
                       className="w-full flex items-center gap-3 px-5 py-3 text-sm text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item"

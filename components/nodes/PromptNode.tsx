@@ -49,7 +49,7 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
               return (
                 <div
                   key={idx}
-                  className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100"
+                  className="relative flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100"
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">
@@ -57,12 +57,20 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
                     </span>
                     <span className="text-gray-400">→</span>
                     <span
-                      className="text-gray-700 font-medium truncate max-w-25"
+                      className="text-gray-700 font-medium truncate max-w-[100px]"
                       title={route.gotoFlow}
                     >
-                      {route.gotoFlow}
+                      {route.gotoFlow || "Select Target..."}
                     </span>
                   </div>
+                  
+                  {/* Source Handle for this specific option */}
+                  <Handle
+                    type="source"
+                    position={Position.Right}
+                    id={`route-${idx}`}
+                    className="!w-3 !h-3 !bg-indigo-500 border-2 border-white -right-3"
+                  />
                 </div>
               );
             })}

@@ -2,15 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useFlowStore } from "../../store/flowStore";
+import { toast } from "sonner";
 
 export default function GroupNamerModal() {
   const nodes = useFlowStore((s) => s.nodes);
   const { namerModal, closeNamer, groupNodes, isNameTaken } = useFlowStore();
-  const [name, setName] = useState("New Subflow");
+  const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isCollision = isNameTaken(name);
-  
   const selectedStartNodes = nodes.filter(
     (n) => namerModal?.nodeIds.includes(n.id) && n.type === "start"
   );
@@ -21,7 +20,14 @@ export default function GroupNamerModal() {
   }, []);
 
   const handleCreate = () => {
-    if (name.trim() && !isCollision && namerModal) {
+    if (!name.trim()) {
+      toast.error("Name Required", {
+        description: "Please enter a name for your group subflow.",
+      });
+      return;
+    }
+
+    if (namerModal && !tooManyStarts) {
       groupNodes(namerModal.nodeIds, name.trim());
       closeNamer();
     }
@@ -52,9 +58,6 @@ export default function GroupNamerModal() {
              <div className="group">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest block">Group Name</label>
-                  {isCollision && (
-                    <span className="text-[10px] font-bold text-red-500 animate-pulse">Name already taken</span>
-                  )}
                   {tooManyStarts && (
                     <span className="text-[10px] font-bold text-red-500 animate-pulse">Too many Start nodes ({selectedStartNodes.length})</span>
                   )}
@@ -65,7 +68,7 @@ export default function GroupNamerModal() {
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                   className={`w-full border-2 rounded-xl px-4 py-3 text-lg font-bold outline-none transition-all ${
-                    isCollision || tooManyStarts
+                    tooManyStarts
                       ? "border-red-300 bg-red-50 text-red-900 focus:ring-red-100" 
                       : "border-gray-100 bg-gray-50 text-gray-800 focus:border-indigo-500 focus:bg-white focus:ring-indigo-100"
                   }`}
@@ -81,19 +84,19 @@ export default function GroupNamerModal() {
 
           <div className="flex gap-3">
              <button
-               onClick={closeNamer}
-               className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-all active:scale-95"
+                onClick={closeNamer}
+                className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-all active:scale-95"
              >
                Cancel
              </button>
              <button
-               onClick={handleCreate}
-               disabled={isCollision || tooManyStarts || !name.trim()}
-               className={`flex-[2] px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
-                 isCollision || tooManyStarts || !name.trim()
-                   ? "bg-gray-400 cursor-not-allowed shadow-none"
-                   : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
-               }`}
+                onClick={handleCreate}
+                disabled={tooManyStarts}
+                className={`flex-[2] px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
+                  tooManyStarts
+                    ? "bg-gray-400 cursor-not-allowed shadow-none"
+                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
+                }`}
              >
                <span>Create Group</span>
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
