@@ -1,49 +1,37 @@
 "use client";
 
 import { v4 as uuidv4 } from "uuid";
+import { useCallback, useEffect, useState } from "react";
+import { Bolt, Menu, MessageSquare, PlayCircle } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
 import { ModeToggle } from "./ModeToggle";
-
-function IconPrompt() {
-  return (
-    <svg
-      className="w-6 h-6 text-white"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="3" y="4" width="18" height="12" rx="2" fill="currentColor" />
-      <path
-        d="M7 16h10v2a2 2 0 01-2 2H9a2 2 0 01-2-2v-2z"
-        fill="currentColor"
-        opacity="0.9"
-      />
-    </svg>
-  );
-}
-
-function IconAction() {
-  return (
-    <svg
-      className="w-6 h-6 text-white"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="12" cy="8" r="3" fill="currentColor" />
-      <path
-        d="M5 20c1.5-4 6-6 7-6s5.5 2 7 6"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
+  const [paramOpen, setParamOpen] = useState(false);
+  const [paramFetched, setParamFetched] = useState(false);
+  const [paramLoading, setParamLoading] = useState(false);
+  const [paramSaving, setParamSaving] = useState(false);
+  const [paramError, setParamError] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [shortCode, setShortCode] = useState("");
+  const [storageTime, setStorageTime] = useState("");
 
   const hasStart = nodes.some(
     (n) =>
@@ -52,13 +40,9 @@ export default function NodePalette() {
   );
 
   // Return a position centered in the current viewport
-  const getCenteredPosition = () => {
+  const getCenteredPosition = useCallback(() => {
     if (rfInstance) {
-      // Center of the flow canvas area on screen
-      // Sidebar is 256px wide (w-64)
-      // Canvas Center X = 256 + (window.innerWidth - 256) / 2
-      // Canvas Center Y = window.innerHeight / 2
-      const centerX = 256 + (window.innerWidth - 256) / 2;
+      const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
 
       const position = rfInstance.project({
@@ -66,165 +50,248 @@ export default function NodePalette() {
         y: centerY,
       });
 
-      // Add small random offset so multiple nodes don't stack exactly
       return {
         x: position.x + (Math.random() * 40 - 20),
         y: position.y + (Math.random() * 40 - 20),
       };
     }
 
-    // Fallback: random range around origin
     const x = Math.floor(Math.random() * 800) - 400;
     const y = Math.floor(Math.random() * 600) - 300;
     return { x, y };
+  }, [rfInstance]);
+
+  const handleAddNode = useCallback(
+    (type: "prompt" | "action" | "start") => {
+      if (type === "start" && hasStart) return;
+      const data =
+        type === "prompt"
+          ? { message: "" }
+          : type === "action"
+          ? { endpoint: "" }
+          : { flowName: "", entryNode: "" };
+
+      addNode({
+        id: uuidv4(),
+        type,
+        position: getCenteredPosition(),
+        data,
+        parentNode: currentSubflowId ?? undefined,
+      });
+    },
+    [addNode, currentSubflowId, getCenteredPosition, hasStart]
+  );
+
+  const handleDragStart = (
+    event: React.DragEvent<HTMLButtonElement>,
+    nodeType: "prompt" | "action" | "start"
+  ) => {
+    if (nodeType === "start" && hasStart) return;
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.effectAllowed = "move";
   };
 
+  useEffect(() => {
+    if (!paramOpen || paramFetched) return;
+    let isActive = true;
+    setParamLoading(true);
+    setParamError(null);
+
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch("http://localhost:4000/settings/fetch");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch settings (${response.status})`);
+        }
+        const data = (await response.json()) as Record<string, unknown>;
+        const settings =
+          (data.settings as Record<string, unknown> | undefined) ?? data;
+
+        if (!isActive) return;
+        setBaseUrl(String(settings.baseUrl ?? ""));
+        setShortCode(String(settings.shortCode ?? ""));
+        const timeValue = settings.storageTime ?? settings.timeoutMs ?? "";
+        setStorageTime(timeValue === "" ? "" : String(timeValue));
+        setParamFetched(true);
+      } catch (err) {
+        if (!isActive) return;
+        setParamError(err instanceof Error ? err.message : "Unable to load settings.");
+      } finally {
+        if (isActive) setParamLoading(false);
+      }
+    };
+
+    fetchSettings();
+    return () => {
+      isActive = false;
+    };
+  }, [paramOpen, paramFetched]);
+
+  const handleSaveSettings = useCallback(async () => {
+    setParamSaving(true);
+    setParamError(null);
+    const storageTimeValue =
+      storageTime.trim() === "" ? null : Number(storageTime);
+    const settingsPayload: Record<string, unknown> = {
+      baseUrl: baseUrl.trim(),
+      shortCode: shortCode.trim(),
+    };
+    if (storageTimeValue !== null && !Number.isNaN(storageTimeValue)) {
+      settingsPayload.storageTime = storageTimeValue;
+    }
+
+    try {
+      const response = await fetch("http://localhost:4000/settings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: settingsPayload }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save settings (${response.status})`);
+      }
+      setParamOpen(false);
+    } catch (err) {
+      setParamError(err instanceof Error ? err.message : "Unable to save settings.");
+    } finally {
+      setParamSaving(false);
+    }
+  }, [baseUrl, shortCode, storageTime]);
+
   return (
-    <aside className="p-4 space-y-4 bg-card/80 text-card-foreground rounded-lg shadow-md border border-border">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex justify-between items-center">
- <h2 className="text-lg font-extrabold tracking-tight text-foreground">
-            Node Palette
-          </h2>
-          <ModeToggle />
-          </div>
-         
-          <p className="text-sm text-muted-foreground">
-            Drag or add nodes to build your flow
-          </p>
-        </div>
-        
-      </div>
-
-      <div className="grid grid-cols-1 gap-3">
-        <div className="flex items-center justify-between p-3 bg-indigo-600 rounded-lg shadow hover:shadow-lg transform hover:-translate-y-0.5 transition">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-700 rounded-md">
-              <IconPrompt />
-            </div>
-            <div>
-              <div className="text-white font-semibold">Prompt Node</div>
-              <div className="text-indigo-100 text-xs">
-                Collect user input with customizable message
-              </div>
-            </div>
-          </div>
-          <button
-            className="ml-4 bg-white/90 text-indigo-700 font-medium rounded-md px-3 py-1 hover:bg-white"
-            onClick={() =>
-              addNode({
-                id: uuidv4(),
-                type: "prompt",
-                position: getCenteredPosition(),
-                data: { message: "" },
-              })
-            }
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between p-3 bg-emerald-600 rounded-lg shadow hover:shadow-lg transform hover:-translate-y-0.5 transition">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-700 rounded-md">
-              <IconAction />
-            </div>
-            <div>
-              <div className="text-white font-semibold">Action Node</div>
-              <div className="text-emerald-100 text-xs">
-                Trigger API calls or side-effects
-              </div>
-            </div>
-          </div>
-          <button
-            className="ml-4 bg-white/90 text-emerald-700 font-medium rounded-md px-3 py-1 hover:bg-white"
-            onClick={() =>
-              addNode({
-                id: uuidv4(),
-                type: "action",
-                position: getCenteredPosition(),
-                data: { endpoint: "" },
-              })
-            }
-          >
-            Add
-          </button>
-        </div>
-
-        <div
-          className={`flex items-center justify-between p-3 rounded-lg shadow transition ${
-            hasStart
-              ? "bg-gray-100 opacity-60"
-              : "bg-blue-500 hover:shadow-lg transform hover:-translate-y-0.5"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`p-2 rounded-md ${
-                hasStart ? "bg-gray-300" : "bg-blue-600"
-              }`}
+    <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
+      <div className="flex items-center justify-between px-6 py-2">
+        <div className="flex items-center gap-3">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            Nodes
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 cursor-pointer"
+              draggable
+              onDragStart={(e) => handleDragStart(e, "prompt")}
+              onClick={() => handleAddNode("prompt")}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <span className="rounded-sm bg-indigo-700 p-1">
+                <MessageSquare className="h-4 w-4 text-white" />
+              </span>
+              Prompt
+            </button>
+            <button
+              className="flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 cursor-pointer"
+              draggable
+              onDragStart={(e) => handleDragStart(e, "action")}
+              onClick={() => handleAddNode("action")}
+            >
+              <span className="rounded-sm bg-emerald-700 p-1">
+                <Bolt className="h-4 w-4 text-white" />
+              </span>
+              Action
+            </button>
+            <button
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                hasStart
+                  ? "bg-muted text-muted-foreground cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              draggable={!hasStart}
+              onDragStart={(e) => handleDragStart(e, "start")}
+              onClick={() => handleAddNode("start")}
+              disabled={hasStart}
+            >
+              <span
+                className={`rounded-sm p-1 ${
+                  hasStart ? "bg-muted-foreground/30" : "bg-blue-700"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <div
-                className={`${
-                  hasStart ? "text-gray-500" : "text-white"
-                } font-semibold`}
-              >
-                Start Node
-              </div>
-              <div
-                className={`${
-                  hasStart ? "text-gray-400" : "text-blue-100"
-                } text-xs`}
-              >
-                {hasStart
-                  ? "One Start node allowed per level"
-                  : "Entry point for the flow"}
-              </div>
-            </div>
+                <PlayCircle className="h-4 w-4 text-white" />
+              </span>
+              Start
+            </button>
           </div>
-          <button
-            disabled={hasStart}
-            className={`ml-4 font-medium rounded-md px-3 py-1 transition-all ${
-              hasStart
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white/90 text-blue-600 hover:bg-white active:scale-95"
-            }`}
-            onClick={() =>
-              addNode({
-                id: uuidv4(),
-                type: "start",
-                position: getCenteredPosition(),
-                data: { flowName: "", entryNode: "" },
-              })
-            }
-          >
-            {hasStart ? "Added" : "Add"}
-          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <ModeToggle />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
+                aria-label="Open menu"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => setParamOpen(true)}>
+                Parameter Context
+              </DropdownMenuItem>
+              <DropdownMenuItem>Controller Settings</DropdownMenuItem>
+              <DropdownMenuItem>Other</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-    </aside>
+
+      <Dialog open={paramOpen} onOpenChange={setParamOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Parameter Context</DialogTitle>
+            <DialogDescription>
+              Configure shared values used across API requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                API base url
+              </label>
+              <Input
+                value={baseUrl}
+                onChange={(event) => setBaseUrl(event.target.value)}
+                placeholder="https://api.example.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Short Code
+              </label>
+              <Input
+                value={shortCode}
+                onChange={(event) => setShortCode(event.target.value)}
+                placeholder="*123#"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Storage Time
+              </label>
+              <Input
+                value={storageTime}
+                onChange={(event) => setStorageTime(event.target.value)}
+                placeholder="1500"
+              />
+            </div>
+
+            {paramLoading && (
+              <div className="text-xs text-muted-foreground">Loading settings...</div>
+            )}
+            {paramError && (
+              <div className="text-xs text-destructive">{paramError}</div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={paramSaving}
+            >
+              {paramSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </nav>
   );
 }

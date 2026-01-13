@@ -19,11 +19,12 @@ import {
   useCallback,
   useEffect,
   useRef,
+  type DragEvent,
   type MouseEvent as ReactMouseEvent,
   useState,
   useMemo,
-  Fragment,
 } from "react";
+import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { useFlowStore } from "../store/flowStore";
 import PromptNode from "./nodes/PromptNode";
@@ -32,6 +33,7 @@ import StartNode from "./nodes/StartNode";
 import GroupNode from "./nodes/GroupNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
+import FlowBreadcrumb from "./FlowBreadcrumb";
 
 const nodeTypes = {
   prompt: PromptNode,
@@ -55,6 +57,7 @@ export default function FlowCanvas() {
     setSelectedNodeId,
     selectedNodeId,
     removeNode,
+    addNode,
     openInspector,
     updateNodeData,
     closeInspector,
@@ -356,6 +359,57 @@ export default function FlowCanvas() {
   );
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type) return;
+
+      const hasStartInView = nodes.some(
+        (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
+      );
+      if (type === "start" && hasStartInView) {
+        toast.error("Only one Start node is allowed per flow.");
+        return;
+      }
+
+      const bounds = wrapperRef.current?.getBoundingClientRect();
+      const position =
+        bounds && rfInstanceRef.current
+          ? rfInstanceRef.current.project({
+              x: event.clientX - bounds.left,
+              y: event.clientY - bounds.top,
+            })
+          : { x: event.clientX, y: event.clientY };
+
+      let data: Record<string, unknown> = {};
+      if (type === "prompt") {
+        data = { message: "" };
+      } else if (type === "action") {
+        data = { endpoint: "" };
+      } else if (type === "start") {
+        data = { flowName: "", entryNode: "" };
+      } else if (type === "group") {
+        data = { name: "Untitled Group" };
+      }
+
+      addNode({
+        id: uuidv4(),
+        type,
+        position,
+        data,
+        parentNode: currentSubflowId ?? undefined,
+      });
+    },
+    [addNode, currentSubflowId, nodes]
+  );
 
   // open inspector on double-click
   const onNodeDoubleClick = useCallback(
@@ -432,64 +486,17 @@ export default function FlowCanvas() {
   }, [loadAllFlows, _hasHydrated]);
 
   return (
-    <div className="w-full h-full relative group">
-      {/* Subflow Breadcrumbs */}
-      {currentSubflowId && (() => {
-        const path: { id: string | null; name: string }[] = [];
-        let currId: string | null = currentSubflowId;
-        
-        while (currId) {
-          const node = nodes.find(n => n.id === currId);
-          if (node) {
-            path.unshift({ id: node.id, name: node.data.name || "Subflow" });
-            currId = node.parentNode || null;
-          } else {
-            break;
-          }
-        }
-        
-        return (
-          <div className="absolute top-6 left-6 z-50 flex items-center gap-1.5 bg-white/90 backdrop-blur-xl shadow-xl border border-indigo-100 px-3 py-1.5 rounded-xl animate-in slide-in-from-top-6 duration-500">
-            <button
-              onClick={() => exitSubflow(null)}
-              className="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-all font-bold text-xs group/main"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span>Main</span>
-            </button>
-
-            {path.map((segment, idx) => (
-              <Fragment key={segment.id}>
-                <div className="text-gray-300 select-none">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                   </svg>
-                </div>
-                <button
-                  onClick={() => segment.id !== currentSubflowId && exitSubflow(segment.id)}
-                  disabled={segment.id === currentSubflowId}
-                  className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg transition-all text-xs font-bold ${
-                    segment.id === currentSubflowId 
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" 
-                      : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                  }`}
-                >
-                  {segment.id === currentSubflowId && (
-                     <div className="p-0.5 bg-white/20 rounded">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                     </div>
-                  )}
-                  {segment.name}
-                </button>
-              </Fragment>
-            ))}
-          </div>
-        );
-      })()}
+    <div
+      ref={wrapperRef}
+      className="w-full h-full relative group"
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+    >
+      <FlowBreadcrumb
+        currentSubflowId={currentSubflowId}
+        nodes={nodes}
+        onNavigate={exitSubflow}
+      />
 
       {/* Auto-Load / Refresh Button */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
