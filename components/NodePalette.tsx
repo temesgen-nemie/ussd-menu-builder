@@ -141,7 +141,7 @@ export default function NodePalette() {
     }
 
     try {
-      const response = await fetch("http://localhost:4000/settings/create", {
+      const response = await fetch("https://ussdtool.profilesage.com/settings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: settingsPayload }),
