@@ -128,10 +128,10 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
 
       const responseText = await response.text();
       const msgContentMatch = responseText.match(
-        /<msg_content>(.*?)<\/msg_content>/
+        /<msg_content>([\s\S]*?)<\/msg_content>/
       );
       const responseContent = msgContentMatch
-        ? msgContentMatch[1]
+        ? msgContentMatch[1].trim()
         : "No response content";
 
       const systemMessage: Message = {
