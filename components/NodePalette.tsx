@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
@@ -32,6 +33,7 @@ export default function NodePalette() {
   const [baseUrl, setBaseUrl] = useState("");
   const [shortCode, setShortCode] = useState("");
   const [storageTime, setStorageTime] = useState("");
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
 
   const hasStart = nodes.some(
     (n) =>
@@ -209,6 +211,22 @@ export default function NodePalette() {
             </button>
           </div>
         </div>
+
+        {/* Center - USSD Simulator Button */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <button
+            onClick={() => setSimulatorOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
+          >
+            <span className="rounded-sm bg-purple-700 p-1">
+              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </span>
+            USSD Simulator
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
           <ModeToggle />
           <DropdownMenu>
@@ -292,6 +310,9 @@ export default function NodePalette() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* USSD Simulator */}
+      <ResizablePhoneEmulator isOpen={simulatorOpen} onClose={() => setSimulatorOpen(false)} />
     </nav>
   );
 }
