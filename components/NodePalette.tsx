@@ -99,7 +99,7 @@ export default function NodePalette() {
 
     const fetchSettings = async () => {
       try {
-        const response = await fetch("http://localhost:4000/settings/fetch");
+        const response = await fetch("https://ussdtool.profilesage.com/settings/fetch");
         if (!response.ok) {
           throw new Error(`Failed to fetch settings (${response.status})`);
         }
