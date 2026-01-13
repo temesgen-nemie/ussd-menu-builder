@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 export type FlowRoute = {
   when?: Record<string, unknown>;
-  goto?: string;
+  gotoFlow?: string;
   gotoId?: string;
 };
 
@@ -104,7 +104,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             const target = resolveTarget(route.gotoFlow || "");
             return {
               when: route.when,
-              goto: target.name || route.gotoFlow || "",
+              gotoFlow: target.name || route.gotoFlow || "",
               gotoId: target.id,
             };
           });
@@ -434,7 +434,17 @@ export const useFlowStore = create<FlowState>()(
         }
       },
 
-      setNodes: (nodes) => set((state) => ({ nodes, flow: buildFlowJson(nodes, state.edges) })),
+      setNodes: (newNodes) =>
+        set((state) => {
+          const correctedNodes = newNodes.map((n) => {
+            const existing = state.nodes.find((e) => e.id === n.id);
+            if (existing?.parentNode && !n.parentNode && state.currentSubflowId) {
+              return { ...n, parentNode: existing.parentNode, extent: existing.extent || "parent" };
+            }
+            return n;
+          });
+          return { nodes: correctedNodes, flow: buildFlowJson(correctedNodes, state.edges) };
+        }),
 
       setEdges: (edges) => set((state) => ({ edges, flow: buildFlowJson(state.nodes, edges) })),
 
@@ -454,32 +464,38 @@ export const useFlowStore = create<FlowState>()(
 
       removeNode: (id) =>
         set((state) => {
-          // Recursive removal for groups
-          const nodesToRemove = [id];
-          const findChildren = (parentId: string) => {
+          const nodesToRemoveIds = new Set<string>();
+          nodesToRemoveIds.add(id);
+
+          // Iterative approach to identify all descendants at any depth
+          let changed = true;
+          while (changed) {
+            changed = false;
             state.nodes.forEach((n) => {
-              if (n.parentNode === parentId) {
-                nodesToRemove.push(n.id);
-                findChildren(n.id);
+              if (n.parentNode && nodesToRemoveIds.has(n.parentNode)) {
+                if (!nodesToRemoveIds.has(n.id)) {
+                  nodesToRemoveIds.add(n.id);
+                  changed = true;
+                }
               }
             });
-          };
-          findChildren(id);
+          }
 
-          const nextNodes = state.nodes.filter((n) => !nodesToRemove.includes(n.id));
+          const nextNodes = state.nodes.filter((n) => !nodesToRemoveIds.has(n.id));
 
           // If we are deleting the current subflow we are in, exit to main
-          const nextSubflowId = nodesToRemove.includes(state.currentSubflowId || "")
+          const nextSubflowId = nodesToRemoveIds.has(state.currentSubflowId || "")
             ? null
             : state.currentSubflowId;
 
           const nextEdges = state.edges.filter(
-            (e) => !nodesToRemove.includes(e.source) && !nodesToRemove.includes(e.target)
+            (e) => !nodesToRemoveIds.has(e.source) && !nodesToRemoveIds.has(e.target)
           );
+
           return {
             nodes: nextNodes,
             edges: nextEdges,
-            selectedNodeId: nodesToRemove.includes(state.selectedNodeId || "")
+            selectedNodeId: nodesToRemoveIds.has(state.selectedNodeId || "")
               ? null
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
