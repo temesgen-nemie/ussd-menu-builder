@@ -27,6 +27,25 @@ export default function InspectorPanel() {
   }, [closeInspector]);
 
   const [actionResetKey, setActionResetKey] = React.useState(0);
+  
+  // Drag and resize state
+  const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+  const [size, setSize] = React.useState({ width: 0, height: 0 }); // 0 means use default
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [isResizing, setIsResizing] = React.useState(false);
+  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = React.useState({ x: 0, y: 0, width: 0, height: 0 });
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  // Initialize size based on node type if not set
+  useEffect(() => {
+    if (size.width === 0 && node) {
+      setSize({
+        width: node.type === "action" || node.type === "prompt" ? 800 : 384, // 200 * 4 = 800, w-96 = 384
+        height: 0 // allow auto height
+      });
+    }
+  }, [node?.type]);
 
   if (!node) {
     return (
@@ -41,11 +60,11 @@ export default function InspectorPanel() {
     );
   }
 
-  const style: CSSProperties = inspectorPosition
+  const baseStyle: CSSProperties = inspectorPosition
     ? {
         position: "fixed",
-        left: inspectorPosition.x,
-        top: inspectorPosition.y,
+        left: inspectorPosition.x + offset.x,
+        top: inspectorPosition.y + offset.y,
         transform:
           inspectorPosition.placement === "above"
             ? "translate(-50%, -100%)"
@@ -53,13 +72,19 @@ export default function InspectorPanel() {
             ? "translate(-50%, 0)"
             : "translate(-50%, -50%)",
         zIndex: 100000,
+        width: size.width > 0 ? size.width : undefined,
+        height: size.height > 0 ? size.height : undefined,
+        maxHeight: "90vh",
       }
     : {
         position: "fixed",
-        left: "50%",
-        top: "50%",
+        left: `calc(50% + ${offset.x}px)`,
+        top: `calc(50% + ${offset.y}px)`,
         transform: "translate(-50%, -50%)",
         zIndex: 100000,
+        width: size.width > 0 ? size.width : undefined,
+        height: size.height > 0 ? size.height : undefined,
+        maxHeight: "90vh",
       };
       
   const handleReset = () => {
@@ -92,19 +117,75 @@ export default function InspectorPanel() {
     }
   };
 
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only allow dragging from header
+    if ((e.target as HTMLElement).closest('button')) return;
+    
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    setIsDragging(true);
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (panelRef.current) {
+      setResizeStart({
+        x: e.clientX,
+        y: e.clientY,
+        width: panelRef.current.offsetWidth,
+        height: panelRef.current.offsetHeight
+      });
+      setIsResizing(true);
+    }
+  };
+
+  // Global mouse handlers for drag/resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setOffset({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      } else if (isResizing) {
+        const deltaX = e.clientX - resizeStart.x;
+        const deltaY = e.clientY - resizeStart.y;
+        setSize({
+          width: Math.max(300, resizeStart.width + deltaX),
+          height: Math.max(200, resizeStart.height + deltaY)
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+    };
+
+    if (isDragging || isResizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing, dragStart, resizeStart]);
+
   return (
     <div className="pointer-events-none" onClick={(e) => e.stopPropagation()}>
       <div
-        style={style}
-        className={`pointer-events-auto rounded-xl bg-white p-4 shadow-2xl ring-1 ring-black/5 transition-all transform duration-150 ease-out max-h-[90vh] overflow-y-auto ${
-          node.type === "action" || node.type === "prompt"
-            ? "w-200"
-            : "w-96"
-        }`}
+        ref={panelRef}
+        style={baseStyle}
+        className="pointer-events-auto rounded-xl bg-white shadow-2xl ring-1 ring-black/5 flex flex-col overflow-hidden transition-none"
       >
-        <div className="flex items-start justify-between gap-3">
+        {/* Header - Draggable */}
+        <div 
+          onMouseDown={handleMouseDown}
+          className="flex items-start justify-between gap-3 p-4 pb-2 cursor-grab active:cursor-grabbing border-b border-gray-100 bg-gray-50/50"
+        >
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-md bg-linear-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md">
+            <div className="h-10 w-10 rounded-md bg-linear-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shrink-0">
               {/* simple icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -142,36 +223,46 @@ export default function InspectorPanel() {
           </div>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {node.type === "prompt" && (
-            <PromptInspector node={node} updateNodeData={updateNodeData} />
-          )}
+        <div className="p-4 pt-2 overflow-y-auto flex-1">
+          <div className="space-y-3">
+            {node.type === "prompt" && (
+              <PromptInspector node={node} updateNodeData={updateNodeData} />
+            )}
 
-          {node.type === "action" && (
-            <ActionInspector
-              key={`action-${node.id}-${actionResetKey}`}
-              node={node}
-              updateNodeData={updateNodeData}
-            />
-          )}
+            {node.type === "action" && (
+              <ActionInspector
+                key={`action-${node.id}-${actionResetKey}`}
+                node={node}
+                updateNodeData={updateNodeData}
+              />
+            )}
 
-          {node.type === "start" && (
-            <StartInspector node={node} updateNodeData={updateNodeData} />
-          )}
+            {node.type === "start" && (
+              <StartInspector node={node} updateNodeData={updateNodeData} />
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+              onClick={() => closeInspector()}
+            >
+              Done
+            </button>
+          </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-            onClick={() => closeInspector()}
-          >
-            Done
-          </button>
+        {/* Resize Handle */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize group flex items-end justify-end p-1 z-50"
+        >
+          <div className="w-2 h-2 border-r-2 border-b-2 border-gray-300 group-hover:border-indigo-500 transition-colors"></div>
         </div>
 
         {/* arrow pointing to the node */}
         {/* arrow pointing to the node (below modal: small triangle) */}
-        {inspectorPosition?.placement !== "below" && (
+        {inspectorPosition?.placement !== "below" && offset.x === 0 && offset.y === 0 && (
           <div
             style={{
               position: "absolute",
@@ -194,7 +285,7 @@ export default function InspectorPanel() {
         )}
 
         {/* arrow pointing up (when modal is below the node) */}
-        {inspectorPosition?.placement === "below" && (
+        {inspectorPosition?.placement === "below" && offset.x === 0 && offset.y === 0 && (
           <div
             style={{
               position: "absolute",
