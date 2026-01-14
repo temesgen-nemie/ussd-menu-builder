@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
+import { API_BASE_URL } from "../lib/api";
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
@@ -101,7 +102,7 @@ export default function NodePalette() {
 
     const fetchSettings = async () => {
       try {
-        const response = await fetch("https://ussdtool.profilesage.com/settings/fetch");
+        const response = await fetch(`${API_BASE_URL}/settings/fetch`);
         if (!response.ok) {
           throw new Error(`Failed to fetch settings (${response.status})`);
         }
@@ -143,7 +144,7 @@ export default function NodePalette() {
     }
 
     try {
-      const response = await fetch("https://ussdtool.profilesage.com/settings/create", {
+      const response = await fetch(`${API_BASE_URL}/settings/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: settingsPayload }),

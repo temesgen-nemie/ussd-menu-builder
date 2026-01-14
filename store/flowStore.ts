@@ -15,6 +15,13 @@ export type FlowNode = {
   name?: string;
   type: string;
   message?: string;
+  persistByIndex?: boolean;
+  persistSourceField?: string;
+  persistFieldName?: string;
+  validateIndexedList?: boolean;
+  indexedListVar?: string;
+  invalidInputMessage?: string;
+  emptyInputMessage?: string;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -84,12 +91,31 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const message = String(data.message ?? "");
         const routingMode = String(data.routingMode ?? "menu");
         const nextNode = data.nextNode;
+        const persistSourceField = String(data.persistSourceField ?? "");
+        const persistFieldName = String(data.persistFieldName ?? "");
+        const indexedListVar = String(data.indexedListVar ?? "");
+        const invalidInputMessage = String(data.invalidInputMessage ?? "");
+        const emptyInputMessage = String(data.emptyInputMessage ?? "");
+        const promptExtras = {
+          persistByIndex:
+            typeof data.persistByIndex === "boolean" ? data.persistByIndex : undefined,
+          persistSourceField: persistSourceField || undefined,
+          persistFieldName: persistFieldName || undefined,
+          validateIndexedList:
+            typeof data.validateIndexedList === "boolean"
+              ? data.validateIndexedList
+              : undefined,
+          indexedListVar: indexedListVar || undefined,
+          invalidInputMessage: invalidInputMessage || undefined,
+          emptyInputMessage: emptyInputMessage || undefined,
+        };
 
         if (routingMode === "linear" && typeof nextNode === "string") {
           const resolved = resolveTarget(nextNode);
           return {
             ...base,
             message,
+            ...promptExtras,
             nextNode: resolved.name,
             nextNodeId: resolved.id,
           };
@@ -112,6 +138,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           return {
             ...base,
             message,
+            ...promptExtras,
             nextNode: {
               routes,
               default: defaultResolved.name,
@@ -120,10 +147,12 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           };
         }
 
-        return { ...base, message };
+        return { ...base, message, ...promptExtras };
       }
 
       if (node.type === "action") {
+        const hasLocalSource = Boolean(data.dataSource) || Boolean(data.field) || Boolean(data.outputVar);
+        const formatValue = data.format as "indexedList" | "singleValue" | undefined;
         const routes = ((data.routes as Array<{ condition?: string; nextNodeId?: string }>) || []).map(
           (route) => {
             let when: Record<string, unknown> | undefined;
@@ -152,7 +181,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           dataSource: String(data.dataSource ?? ""),
           field: String(data.field ?? ""),
           outputVar: String(data.outputVar ?? ""),
-          format: (data.format as "indexedList" | "singleValue") || undefined,
+          format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
           responseMapping: (data.responseMapping as Record<string, unknown>) || undefined,

@@ -1,8 +1,10 @@
 import axios, { AxiosError } from 'axios';
 import { FlowJson } from '../store/flowStore';
 
+export const API_BASE_URL = 'https://ussdtool.profilesage.com';
+
 const api = axios.create({
-    baseURL: 'https://ussdtool.profilesage.com',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },

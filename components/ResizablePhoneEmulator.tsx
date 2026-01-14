@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Smartphone, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE_URL } from "../lib/api";
 
 type Message = {
   content: string;
@@ -112,7 +113,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
 
     try {
       const response = await fetch(
-        "https://ussdtool.profilesage.com/teleussd/api/v1/ussdRequest",
+        `${API_BASE_URL}/teleussd/api/v1/ussdRequest`,
         {
           method: "POST",
           headers: {

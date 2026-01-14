@@ -15,6 +15,13 @@ type PromptNodeData = {
   message?: string;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
+  persistByIndex?: boolean;
+  persistSourceField?: string;
+  persistFieldName?: string;
+  validateIndexedList?: boolean;
+  indexedListVar?: string;
+  invalidInputMessage?: string;
+  emptyInputMessage?: string;
 };
 
 type PromptNodeProps = NodeProps<PromptNodeData>;

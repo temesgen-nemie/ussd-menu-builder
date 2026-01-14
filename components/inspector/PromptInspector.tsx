@@ -23,6 +23,13 @@ type PromptNodeData = {
   message?: string;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
+  persistByIndex?: boolean;
+  persistSourceField?: string;
+  persistFieldName?: string;
+  validateIndexedList?: boolean;
+  indexedListVar?: string;
+  invalidInputMessage?: string;
+  emptyInputMessage?: string;
 };
 
 type PromptNode = {
@@ -36,7 +43,7 @@ export default function PromptInspector({
 }: PromptInspectorProps) {
   return (
     <div className="grid grid-cols-2 gap-6">
-      {/* Left Column: Basic Info */}
+      {/* Left Column: Basic Info + Routing */}
       <div className="space-y-4">
         <NodeNameInput
           nodeId={node.id}
@@ -55,25 +62,6 @@ export default function PromptInspector({
               updateNodeData(node.id, { message: e.target.value })
             }
           />
-        </div>
-      </div>
-
-      {/* Right Column: Routing & Options */}
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs font-medium text-gray-600">
-            Routing Mode
-          </label>
-          <select
-            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm text-gray-900"
-            value={String(node.data.routingMode ?? "linear")}
-            onChange={(e) =>
-              updateNodeData(node.id, { routingMode: e.target.value })
-            }
-          >
-            <option value="menu">Menu (Branching)</option>
-            <option value="linear">Linear (Input Collection)</option>
-          </select>
         </div>
 
         {/* Menu Mode: Logic Routing Rules */}
@@ -164,7 +152,8 @@ export default function PromptInspector({
                             className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400 font-mono text-center text-gray-900"
                             value={inputValue}
                             onChange={(e) => {
-                              const nextNode = node.data.nextNode as PromptNextNode;
+                              const nextNode = node.data
+                                .nextNode as PromptNextNode;
                               const newRoutes = [...(nextNode.routes || [])];
                               // Update specific deep property structure
                               newRoutes[idx] = {
@@ -186,7 +175,8 @@ export default function PromptInspector({
                             className="w-full text-sm border-b border-gray-300 bg-transparent py-1 focus:outline-none focus:border-indigo-500 placeholder-gray-400 text-gray-900"
                             value={gotoFlow}
                             onChange={(e) => {
-                              const nextNode = node.data.nextNode as PromptNextNode;
+                              const nextNode = node.data
+                                .nextNode as PromptNextNode;
                               const newRoutes = [...(nextNode.routes || [])];
                               newRoutes[idx] = {
                                 ...newRoutes[idx],
@@ -219,7 +209,10 @@ export default function PromptInspector({
                   }
                   onChange={(e) => {
                     let currentNextNode = node.data.nextNode;
-                    if (typeof currentNextNode !== "object" || !currentNextNode) {
+                    if (
+                      typeof currentNextNode !== "object" ||
+                      !currentNextNode
+                    ) {
                       currentNextNode = { routes: [], default: "" };
                     }
                     updateNodeData(node.id, {
@@ -241,6 +234,130 @@ export default function PromptInspector({
             title="Connect the Prompt Node bottom handle on the canvas"
           />
         )}
+      </div>
+
+      {/* Right Column: Routing Mode + Options */}
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs font-medium text-gray-600">
+            Routing Mode
+          </label>
+          <select
+            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm text-gray-900"
+            value={String(node.data.routingMode ?? "linear")}
+            onChange={(e) =>
+              updateNodeData(node.id, { routingMode: e.target.value })
+            }
+          >
+            <option value="menu">Menu (Branching)</option>
+            <option value="linear">Linear (Input Collection)</option>
+          </select>
+        </div>
+
+        <div className="space-y-3 rounded-md border border-gray-100 bg-white p-3 shadow-sm">
+          <div className="text-xs font-semibold text-gray-600">
+            Input Validation & Persistence
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={Boolean(node.data.persistByIndex)}
+              onChange={(e) =>
+                updateNodeData(node.id, { persistByIndex: e.target.checked })
+              }
+            />
+            Persist By Index
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                Persist Source Field
+              </label>
+              <input
+                className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                value={String(node.data.persistSourceField ?? "")}
+                onChange={(e) =>
+                  updateNodeData(node.id, {
+                    persistSourceField: e.target.value,
+                  })
+                }
+                placeholder="userAccounts"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                Persist Field Name
+              </label>
+              <input
+                className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                value={String(node.data.persistFieldName ?? "")}
+                onChange={(e) =>
+                  updateNodeData(node.id, { persistFieldName: e.target.value })
+                }
+                placeholder="SelectedAccount"
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={Boolean(node.data.validateIndexedList)}
+              onChange={(e) =>
+                updateNodeData(node.id, {
+                  validateIndexedList: e.target.checked,
+                })
+              }
+            />
+            Validate Indexed List
+          </label>
+
+          <div>
+            <label className="text-[10px] text-gray-500 block uppercase mb-1">
+              Indexed List Var
+            </label>
+            <input
+              className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+              value={String(node.data.indexedListVar ?? "")}
+              onChange={(e) =>
+                updateNodeData(node.id, { indexedListVar: e.target.value })
+              }
+              placeholder="accountsMenu"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] text-gray-500 block uppercase mb-1">
+              Invalid Input Message
+            </label>
+            <textarea
+              className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+              rows={3}
+              value={String(node.data.invalidInputMessage ?? "")}
+              onChange={(e) =>
+                updateNodeData(node.id, { invalidInputMessage: e.target.value })
+              }
+              placeholder="Invalid input..."
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] text-gray-500 block uppercase mb-1">
+              Empty Input Message
+            </label>
+            <textarea
+              className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+              rows={3}
+              value={String(node.data.emptyInputMessage ?? "")}
+              onChange={(e) =>
+                updateNodeData(node.id, { emptyInputMessage: e.target.value })
+              }
+              placeholder="Please try again..."
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
