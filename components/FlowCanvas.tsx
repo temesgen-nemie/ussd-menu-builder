@@ -567,7 +567,7 @@ export default function FlowCanvas() {
       >
         <Background gap={20} color="#f1f5f9" />
         <Controls className="bg-white border-2 border-gray-100 shadow-xl rounded-xl" />
-        <MiniMap className="border-2 border-gray-100 shadow-xl rounded-2xl overflow-hidden" />
+        <MiniMap pannable zoomable className="border-2 border-gray-100 cursor-pointer shadow-xl rounded-2xl overflow-hidden" />
 
         {/* Global Context Menu UI */}
         {menu && (
