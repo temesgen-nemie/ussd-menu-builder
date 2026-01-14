@@ -49,12 +49,70 @@ export const getFlowByName = async (flowName: string) => {
     try {
         // Based on user request "http://localhost:4000/flows/:flowName"
         const response = await api.get<{ data: FlowJson[] }>(`/flows/${flowName}`);
-        // Assuming the same data wrapper structure as getAllFlows
         return response.data.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
             throw new Error(axiosError.response?.data?.error || 'Backend error');
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error('An unknown error occurred');
+        }
+    }
+};
+
+export const sendUssdRequest = async (xmlRequest: string) => {
+    try {
+        const response = await api.post('/teleussd/api/v1/ussdRequest', xmlRequest, {
+            headers: {
+                'Content-Type': 'application/xml',
+            },
+            responseType: 'text'
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || `HTTP error! status: ${axiosError.response?.status}`);
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error('An unknown error occurred');
+        }
+    }
+};
+
+export const fetchSettings = async () => {
+    try {
+        const response = await api.get('/settings/fetch');
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || `Failed to fetch settings (${axiosError.response?.status})`);
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error('An unknown error occurred');
+        }
+    }
+};
+
+export interface SettingsPayload {
+    baseUrl: string;
+    shortCode: string;
+    storageTime?: number;
+}
+
+export const saveSettings = async (settings: SettingsPayload) => {
+    try {
+        const response = await api.post('/settings/create', { settings });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || `Failed to save settings (${axiosError.response?.status})`);
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {

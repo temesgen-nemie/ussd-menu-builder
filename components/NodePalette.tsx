@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
-import { API_BASE_URL } from "../lib/api";
+import { fetchSettings, saveSettings, SettingsPayload } from "../lib/api";
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
@@ -100,13 +100,9 @@ export default function NodePalette() {
     setParamLoading(true);
     setParamError(null);
 
-    const fetchSettings = async () => {
+    const loadSettings = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/settings/fetch`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch settings (${response.status})`);
-        }
-        const data = (await response.json()) as Record<string, unknown>;
+        const data = await fetchSettings();
         const settings =
           (data.settings as Record<string, unknown> | undefined) ?? data;
 
@@ -124,7 +120,7 @@ export default function NodePalette() {
       }
     };
 
-    fetchSettings();
+    loadSettings();
     return () => {
       isActive = false;
     };
@@ -135,23 +131,15 @@ export default function NodePalette() {
     setParamError(null);
     const storageTimeValue =
       storageTime.trim() === "" ? null : Number(storageTime);
-    const settingsPayload: Record<string, unknown> = {
+    
+    const settingsPayload: SettingsPayload = {
       baseUrl: baseUrl.trim(),
       shortCode: shortCode.trim(),
+      ...(storageTimeValue !== null && !Number.isNaN(storageTimeValue) && { storageTime: storageTimeValue }),
     };
-    if (storageTimeValue !== null && !Number.isNaN(storageTimeValue)) {
-      settingsPayload.storageTime = storageTimeValue;
-    }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/settings/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: settingsPayload }),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to save settings (${response.status})`);
-      }
+      await saveSettings(settingsPayload);
       setParamOpen(false);
     } catch (err) {
       setParamError(err instanceof Error ? err.message : "Unable to save settings.");
