@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Smartphone, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
-import { API_BASE_URL } from "../lib/api";
+import { sendUssdRequest } from "../lib/api";
 
 type Message = {
   content: string;
@@ -56,7 +56,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
     return "CA";
   };
 
-  const sendUssdRequest = async () => {
+  const handleSend = async () => {
     if (!messageInput.trim()) {
       toast.error("Please enter a message");
       return;
@@ -112,22 +112,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
 </cps-message>`;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/teleussd/api/v1/ussdRequest`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/xml",
-          },
-          body: xmlRequest,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const responseText = await response.text();
+      const responseText = await sendUssdRequest(xmlRequest);
       const msgContentMatch = responseText.match(
         /<msg_content>([\s\S]*?)<\/msg_content>/
       );
@@ -153,7 +138,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendUssdRequest();
+      handleSend();
     }
   };
 
@@ -330,7 +315,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all disabled:bg-gray-100 text-gray-900 font-medium placeholder:text-gray-400 text-sm"
             />
             <button
-              onClick={sendUssdRequest}
+              onClick={handleSend}
               disabled={isLoading || !messageInput.trim()}
               className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition-all font-medium text-sm shadow-md"
             >
