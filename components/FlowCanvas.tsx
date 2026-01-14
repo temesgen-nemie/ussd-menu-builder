@@ -75,6 +75,9 @@ export default function FlowCanvas() {
     loadAllFlows,
     isLoading,
     _hasHydrated,
+    copyNodes,
+    pasteNodes,
+    clipboard,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -138,7 +141,7 @@ export default function FlowCanvas() {
           left: event.clientX,
         });
       } else {
-        // Show "Empty Group" menu if clicking on blank space
+        // Show "Empty Group / Paste" menu
         setMenu({
           id: "pane",
           top: event.clientY,
@@ -462,28 +465,49 @@ export default function FlowCanvas() {
   // delete selected node with Delete/Backspace key, close inspector with Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Handle Delete and Backspace for node removal
-      if (e.key === "Delete" || e.key === "Backspace") {
-        // Ignore if user is typing in an input or textarea
-        if (
-          e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement
-        ) {
-          return;
+      // Ignore if user is typing in an input or textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLButtonElement // Optional: might want to allow shortcuts on buttons? strict is safer
+      ) {
+        // Only allow Escape to blur/close even if focused? 
+        // Usually Escape works everywhere.
+        if (e.key === "Escape") {
+           // allow pass through to close inspector
+        } else {
+           return;
         }
+      }
 
+      // Prevent repeating actions if key is held down (e.g. holding V pastes 50 times)
+      if (e.repeat) return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedNodeId) {
           removeNode(selectedNodeId);
         }
       } else if (e.key === "Escape") {
         // Close the inspector if open
         closeInspector();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        if (selectedNodeId) {
+          // Check if multiple are selected via internal state or just pass selection
+          // ReactFlow handles selection state on nodes. We can find selected.
+          // Note: visibleNodes has the 'selected' property updated by ReactFlow
+          const selected = visibleNodes.filter(n => n.selected).map(n => n.id);
+          if (selected.length > 0) {
+             copyNodes(selected);
+          }
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+         pasteNodes();
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedNodeId, removeNode, closeInspector, nodes]);
+  }, [selectedNodeId, removeNode, closeInspector, nodes, copyNodes, pasteNodes, visibleNodes]);
 
   // Auto-load flows on mount
   useEffect(() => {
@@ -581,6 +605,7 @@ export default function FlowCanvas() {
                 Group Selected Nodes
               </button>
             ) : menu.id === "pane" ? (
+              <div className="flex flex-col gap-0.5">
               <button
                 className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
@@ -606,6 +631,34 @@ export default function FlowCanvas() {
                 </div>
                 Create Empty Group
               </button>
+              {clipboard && clipboard.length > 0 && (
+                <button
+                  className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                  onClick={() => {
+                    pasteNodes();
+                    setMenu(null);
+                  }}
+                >
+                  <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                  </div>
+                  Paste Nodes
+                </button>
+              )}
+              </div>
             ) : (
               <>
                 {nodes.find((n) => n.id === menu.id)?.type === "group" && (
@@ -786,8 +839,25 @@ export default function FlowCanvas() {
                     Delete Node
                   </button>
                 )}
+                
+                <button
+                  className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-t border-gray-50"
+                  onClick={() => {
+                    copyNodes([menu.id]);
+                    setMenu(null);
+                  }}
+                >
+                  <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                  </div>
+                  Copy Node
+                </button>
               </>
             )}
+            
+
           </div>
         )}
       </ReactFlow>
