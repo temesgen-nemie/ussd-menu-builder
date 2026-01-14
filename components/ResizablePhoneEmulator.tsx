@@ -27,7 +27,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
     x: typeof window !== 'undefined' ? (window.innerWidth - 500) / 2 : 0, 
     y: typeof window !== 'undefined' ? (window.innerHeight - 600) / 2 : 100 
   });
-  const [size, setSize] = useState({ width: 500, height: 600 });
+  const [size, setSize] = useState({ width: 350, height: 500 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -280,7 +280,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
               <div>
                 <Smartphone className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                 <p>Start a USSD session</p>
-                <p className="text-xs mt-1">Enter a message below</p>
+                <p className="text-xs mt-1">start with a USSD code (e.g., *123#)</p>
               </div>
             </div>
           ) : (
