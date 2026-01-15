@@ -16,23 +16,32 @@ type ResizablePhoneProps = {
   onClose: () => void;
 };
 
-export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePhoneProps) {
+export default function ResizablePhoneEmulator({
+  isOpen,
+  onClose,
+}: ResizablePhoneProps) {
   const [phoneNumber, setPhoneNumber] = useState("+251903193553");
+  const [shortCode, setShortCode] = useState("*675#");
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Drag and resize state
-  const [position, setPosition] = useState({ 
-    x: typeof window !== 'undefined' ? (window.innerWidth - 500) / 2 : 0, 
-    y: typeof window !== 'undefined' ? (window.innerHeight - 600) / 2 : 100 
+  const [position, setPosition] = useState({
+    x: typeof window !== "undefined" ? (window.innerWidth - 500) / 2 : 0,
+    y: typeof window !== "undefined" ? (window.innerHeight - 600) / 2 : 100,
   });
   const [size, setSize] = useState({ width: 350, height: 500 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [resizeStart, setResizeStart] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
   const phoneRef = useRef<HTMLDivElement>(null);
 
   const generateSequenceNumber = () => {
@@ -41,17 +50,22 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
 
   // Determine if message is a USSD code (starts with * and ends with #)
   const isUssdCode = (message: string) => {
-    return message.trim().startsWith('*') && message.trim().endsWith('#');
+    return message.trim().startsWith("*") && message.trim().endsWith("#");
+  };
+
+  const isShortCodeValid = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed.startsWith("*") && trimmed.endsWith("#");
   };
 
   // Auto-determine service type
   const getServiceType = (message: string): "BR" | "CA" => {
     // If no session exists (no sequence number), it's a new session → BR
     if (!sequenceNumber) return "BR";
-    
+
     // If message is a USSD code (like *7584#), it's a new session → BR
     if (isUssdCode(message)) return "BR";
-    
+
     // Otherwise, continue existing session → CA
     return "CA";
   };
@@ -59,6 +73,11 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
   const handleSend = async () => {
     if (!messageInput.trim()) {
       toast.error("Please enter a message");
+      return;
+    }
+
+    if (!isShortCodeValid(shortCode)) {
+      toast.error("Short code must start with * and end with # (e.g., *675#)");
       return;
     }
 
@@ -79,7 +98,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
 
     // Auto-determine service type
     const serviceType = getServiceType(messageInput);
-    
+
     let currentSequence: number;
     if (serviceType === "BR") {
       // New session - generate new sequence number
@@ -102,7 +121,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
     <version>32</version>  
     <service_type>${serviceType}</service_type> 
     <source_addr>${phoneNumber}</source_addr>
-    <dest_addr>*675</dest_addr>
+    <dest_addr>${shortCode.trim()}</dest_addr>
     <timestamp>${timestamp}</timestamp>
     <command_status>0</command_status>
     <data_coding>0</data_coding>
@@ -215,7 +234,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
         top: `${position.y}px`,
         width: `${size.width}px`,
         height: `${size.height}px`,
-        cursor: isDragging ? 'grabbing' : 'default',
+        cursor: isDragging ? "grabbing" : "default",
       }}
     >
       {/* Header - Drag Handle */}
@@ -229,7 +248,9 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
           </div>
           <div>
             <h3 className="text-white font-bold text-sm">USSD Simulator</h3>
-            <p className="text-purple-200 text-xs">Seq: {sequenceNumber || "Not Started"}</p>
+            <p className="text-purple-200 text-xs">
+              Seq: {sequenceNumber || "Not Started"}
+            </p>
           </div>
         </div>
         <button
@@ -241,16 +262,32 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
       </div>
 
       {/* Phone Screen */}
-      <div className="flex flex-col h-full bg-white" style={{ height: `calc(100% - 60px)` }}>
+      <div
+        className="flex flex-col h-full bg-white"
+        style={{ height: `calc(100% - 60px)` }}
+      >
         {/* Config Bar */}
         <div className="bg-gray-50 border-b p-3 space-y-2">
-          <input
-            type="text"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium"
-            placeholder="Phone Number"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium"
+              placeholder="Phone Number"
+            />
+            <input
+              type="text"
+              value={shortCode}
+              onChange={(e) => setShortCode(e.target.value)}
+              className={`w-full px-3 py-2 rounded-lg text-sm border focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium ${
+                shortCode.trim() && !isShortCodeValid(shortCode)
+                  ? "border-red-300"
+                  : "border-gray-200"
+              }`}
+              placeholder="Short Code (e.g., *675#)"
+            />
+          </div>
           <button
             onClick={resetSession}
             className="w-full py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-xs font-medium"
@@ -266,7 +303,9 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
               <div>
                 <Smartphone className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                 <p>Start a USSD session</p>
-                <p className="text-xs mt-1">start with a USSD code (e.g., *123#)</p>
+                <p className="text-xs mt-1">
+                  start with a USSD code (e.g., *123#)
+                </p>
               </div>
             </div>
           ) : (
@@ -289,9 +328,7 @@ export default function ResizablePhoneEmulator({ isOpen, onClose }: ResizablePho
                   </div>
                   <div
                     className={`text-xs mt-1 ${
-                      msg.type === "user"
-                        ? "text-purple-200"
-                        : "text-gray-500"
+                      msg.type === "user" ? "text-purple-200" : "text-gray-500"
                     }`}
                   >
                     {msg.timestamp.toLocaleTimeString()}
