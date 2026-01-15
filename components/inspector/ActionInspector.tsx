@@ -260,7 +260,7 @@ export default function ActionInspector({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-x-hidden">
       <ActionHeader
         nodeId={node.id}
         name={String(node.data.name ?? "")}

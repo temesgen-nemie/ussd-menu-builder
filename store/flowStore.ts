@@ -286,6 +286,7 @@ interface FlowState {
 
   loadAllFlows: () => Promise<void>;
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
+  deletePublishedFlow: (flowName: string) => Promise<void>;
   isLoading: boolean;
   publishedFlows: string[];
   clipboard: Node[] | null;
@@ -784,7 +785,7 @@ export const useFlowStore = create<FlowState>()(
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
-          const isAction = node?.type === "action";
+          const isLarge = node?.type === "action" || node?.type === "prompt";
 
           const el = document.querySelector(
             `.react-flow__node[data-id="${id}"]`
@@ -797,9 +798,9 @@ export const useFlowStore = create<FlowState>()(
           } | null = null;
           if (el) {
             const rect = el.getBoundingClientRect();
-            const modalWidth = isAction ? 800 : 384;
+            const modalWidth = isLarge ? 720 : 350;
             const modalHalf = modalWidth / 2;
-            const modalHeightEstimate = isAction ? 600 : 360;
+            const modalHeightEstimate = isLarge ? 500 : 320;
             const xCenter = rect.left + rect.width / 2;
             const x = Math.min(
               Math.max(xCenter, modalHalf + 16),
@@ -1348,6 +1349,25 @@ export const useFlowStore = create<FlowState>()(
             alert(message);
           }
         }
+      },
+
+      deletePublishedFlow: async (flowName: string) => {
+        const { deleteFlow } = await import("../lib/api");
+        toast.promise(deleteFlow(flowName), {
+          loading: `Deleting flow '${flowName}' from backend...`,
+          success: () => {
+            const { publishedFlows } = get();
+            set({
+              publishedFlows: publishedFlows.filter((f) => f !== flowName),
+            });
+            return `Flow '${flowName}' deleted successfully!`;
+          },
+          error: (err: unknown) => {
+            const message =
+              err instanceof Error ? err.message : "Unknown error";
+            return `Failed to delete flow: ${message}`;
+          },
+        });
       },
     }),
     {
