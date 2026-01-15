@@ -100,9 +100,7 @@ export const fetchSettings = async () => {
 };
 
 export interface SettingsPayload {
-    baseUrl: string;
-    shortCode: string;
-    storageTime?: number;
+    endpoints: string[];
 }
 
 export const saveSettings = async (settings: SettingsPayload) => {
