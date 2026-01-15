@@ -1,9 +1,10 @@
 "use client";
 
 import { v4 as uuidv4 } from "uuid";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bolt, Menu, MessageSquare, PlayCircle } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
+import { useSettingsStore } from "../store/settingsStore";
 import { ModeToggle } from "./ModeToggle";
 import {
   DropdownMenu,
@@ -26,15 +27,23 @@ import { fetchSettings, saveSettings, SettingsPayload } from "../lib/api";
 
 export default function NodePalette() {
   const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
+  const {
+    endpoints: cachedEndpoints,
+    lastFetched,
+    setEndpoints,
+    setLastFetched,
+  } = useSettingsStore();
   const [paramOpen, setParamOpen] = useState(false);
-  const [paramFetched, setParamFetched] = useState(false);
   const [paramLoading, setParamLoading] = useState(false);
   const [paramSaving, setParamSaving] = useState(false);
   const [paramError, setParamError] = useState<string | null>(null);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [shortCode, setShortCode] = useState("");
-  const [storageTime, setStorageTime] = useState("");
+  const [endpoints, setLocalEndpoints] = useState<string[]>([]);
   const [simulatorOpen, setSimulatorOpen] = useState(false);
+
+  const isStale = useMemo(() => {
+    if (!lastFetched) return true;
+    return Date.now() - lastFetched > 5 * 60 * 1000;
+  }, [lastFetched]);
 
   const hasStart = nodes.some(
     (n) =>
@@ -95,10 +104,21 @@ export default function NodePalette() {
   };
 
   useEffect(() => {
-    if (!paramOpen || paramFetched) return;
+    if (!paramOpen) return;
     let isActive = true;
     setParamLoading(true);
     setParamError(null);
+
+    const initialEndpoints =
+      cachedEndpoints.length > 0 ? cachedEndpoints : [""];
+    setLocalEndpoints(initialEndpoints);
+
+    if (!isStale) {
+      setParamLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
 
     const loadSettings = async () => {
       try {
@@ -107,14 +127,25 @@ export default function NodePalette() {
           (data.settings as Record<string, unknown> | undefined) ?? data;
 
         if (!isActive) return;
-        setBaseUrl(String(settings.baseUrl ?? ""));
-        setShortCode(String(settings.shortCode ?? ""));
-        const timeValue = settings.storageTime ?? settings.timeoutMs ?? "";
-        setStorageTime(timeValue === "" ? "" : String(timeValue));
-        setParamFetched(true);
+        const rawEndpoints = Array.isArray(settings.endpoints)
+          ? settings.endpoints
+          : settings.baseUrl
+          ? [settings.baseUrl]
+          : [];
+        const normalizedEndpoints = (rawEndpoints as unknown[])
+          .map((value: unknown) => String(value))
+          .filter((value) => value.trim() !== "");
+        const fallbackEndpoints =
+          normalizedEndpoints.length > 0 ? normalizedEndpoints : [""];
+
+        setEndpoints(normalizedEndpoints);
+        setLastFetched(Date.now());
+        setLocalEndpoints(fallbackEndpoints);
       } catch (err) {
         if (!isActive) return;
-        setParamError(err instanceof Error ? err.message : "Unable to load settings.");
+        setParamError(
+          err instanceof Error ? err.message : "Unable to load settings."
+        );
       } finally {
         if (isActive) setParamLoading(false);
       }
@@ -124,29 +155,32 @@ export default function NodePalette() {
     return () => {
       isActive = false;
     };
-  }, [paramOpen, paramFetched]);
+  }, [cachedEndpoints, isStale, paramOpen, setEndpoints, setLastFetched]);
 
   const handleSaveSettings = useCallback(async () => {
     setParamSaving(true);
     setParamError(null);
-    const storageTimeValue =
-      storageTime.trim() === "" ? null : Number(storageTime);
-    
+    const cleanedEndpoints = endpoints
+      .map((value) => value.trim())
+      .filter((value) => value !== "");
+
     const settingsPayload: SettingsPayload = {
-      baseUrl: baseUrl.trim(),
-      shortCode: shortCode.trim(),
-      ...(storageTimeValue !== null && !Number.isNaN(storageTimeValue) && { storageTime: storageTimeValue }),
+      endpoints: cleanedEndpoints,
     };
 
     try {
       await saveSettings(settingsPayload);
+      setEndpoints(cleanedEndpoints);
+      setLastFetched(Date.now());
       setParamOpen(false);
     } catch (err) {
-      setParamError(err instanceof Error ? err.message : "Unable to save settings.");
+      setParamError(
+        err instanceof Error ? err.message : "Unable to save settings."
+      );
     } finally {
       setParamSaving(false);
     }
-  }, [baseUrl, shortCode, storageTime]);
+  }, [endpoints, setEndpoints, setLastFetched]);
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
@@ -208,8 +242,18 @@ export default function NodePalette() {
             className="flex items-center gap-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
           >
             <span className="rounded-sm bg-purple-700 p-1">
-              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              <svg
+                className="h-4 w-4 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
               </svg>
             </span>
             USSD Simulator
@@ -251,37 +295,50 @@ export default function NodePalette() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                API base url
+                API endpoints
               </label>
-              <Input
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://api.example.com"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Short Code
-              </label>
-              <Input
-                value={shortCode}
-                onChange={(event) => setShortCode(event.target.value)}
-                placeholder="*123#"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Storage Time
-              </label>
-              <Input
-                value={storageTime}
-                onChange={(event) => setStorageTime(event.target.value)}
-                placeholder="1500"
-              />
+              <div className="space-y-2">
+                {endpoints.map((endpoint, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={endpoint}
+                      onChange={(event) => {
+                        const next = [...endpoints];
+                        next[index] = event.target.value;
+                        setLocalEndpoints(next);
+                      }}
+                      placeholder="https://api.example.com"
+                    />
+                    {endpoints.length > 1 && (
+                      <button
+                        type="button"
+                        className="text-xs text-red-500 hover:text-red-600"
+                        onClick={() => {
+                          const next = endpoints.filter(
+                            (_, idx) => idx !== index
+                          );
+                          setLocalEndpoints(next.length > 0 ? next : [""]);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                  onClick={() => setLocalEndpoints([...endpoints, ""])}
+                >
+                  + Add endpoint
+                </button>
+              </div>
             </div>
 
             {paramLoading && (
-              <div className="text-xs text-muted-foreground">Loading settings...</div>
+              <div className="text-xs text-muted-foreground">
+                Loading settings...
+              </div>
             )}
             {paramError && (
               <div className="text-xs text-destructive">{paramError}</div>
@@ -301,7 +358,10 @@ export default function NodePalette() {
       </Dialog>
 
       {/* USSD Simulator */}
-      <ResizablePhoneEmulator isOpen={simulatorOpen} onClose={() => setSimulatorOpen(false)} />
+      <ResizablePhoneEmulator
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+      />
     </nav>
   );
 }
