@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { X, Smartphone, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import { sendUssdRequest } from "../lib/api";
-import "reactflow/dist/style.css";
 
 type Message = {
   content: string;

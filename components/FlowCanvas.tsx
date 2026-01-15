@@ -33,6 +33,7 @@ import GroupNode from "./nodes/GroupNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import FlowBreadcrumb from "./FlowBreadcrumb";
+import "reactflow/dist/style.css";
 
 const nodeTypes = {
   prompt: PromptNode,
