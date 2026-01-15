@@ -14,7 +14,6 @@ import ReactFlow, {
   EdgeChange,
   ReactFlowInstance,
 } from "reactflow";
-import "reactflow/dist/style.css";
 import {
   useCallback,
   useEffect,
@@ -165,13 +164,21 @@ export default function FlowCanvas() {
           const targetNode = nodes.find((n) => n.id === params.target);
 
           // VALIDATION: If connecting to a Menu Branch Group, check for Start node
-          if (targetNode && targetNode.type === 'group' && targetNode.data.isMenuBranch) {
-            const children = nodes.filter(n => n.parentNode === targetNode.id);
-            const hasStartNode = children.some(n => n.type === 'start');
+          if (
+            targetNode &&
+            targetNode.type === "group" &&
+            targetNode.data.isMenuBranch
+          ) {
+            const children = nodes.filter(
+              (n) => n.parentNode === targetNode.id
+            );
+            const hasStartNode = children.some((n) => n.type === "start");
 
             if (!hasStartNode) {
               toast.error("Invalid Menu Branch", {
-                description: `Target group '${targetNode.data.name || 'Untitled'}' must contain a Start node to be used as a menu branch destination.`,
+                description: `Target group '${
+                  targetNode.data.name || "Untitled"
+                }' must contain a Start node to be used as a menu branch destination.`,
                 duration: 5000,
               });
               return; // REJECT CONNECTION
@@ -179,8 +186,8 @@ export default function FlowCanvas() {
           }
 
           const nextNode = sourceNode.data.nextNode;
-          if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
-            const routeIdx = parseInt(handleId.split('-')[1]);
+          if (nextNode && typeof nextNode === "object" && nextNode.routes) {
+            const routeIdx = parseInt(handleId.split("-")[1]);
             const newRoutes = [...nextNode.routes];
             const route = newRoutes[routeIdx];
 
@@ -188,37 +195,56 @@ export default function FlowCanvas() {
               let finalName = "";
 
               // SYNC LOGIC: If connecting to a Menu Branch Group
-              if (targetNode && targetNode.type === 'group' && targetNode.data.isMenuBranch) {
-                 // 1. Prioritize any explicitly set gotoFlow in the prompt
-                 // 2. Fallback to existing Group name (if it's not default)
-                 // 3. Last fallback: use the prompt input value
-                 const targetName = targetNode.data.name;
-                 const isDefaultTargetName = !targetName || targetName === "Untitled Group";
-                 
-                 finalName = route.gotoFlow || (!isDefaultTargetName ? targetName : "") || route.when?.eq?.[1] || "Branch";
-                 
-                 // Update Group Name (Sync)
-                 updateNodeData(targetNode.id, { name: finalName });
+              if (
+                targetNode &&
+                targetNode.type === "group" &&
+                targetNode.data.isMenuBranch
+              ) {
+                // 1. Prioritize any explicitly set gotoFlow in the prompt
+                // 2. Fallback to existing Group name (if it's not default)
+                // 3. Last fallback: use the prompt input value
+                const targetName = targetNode.data.name;
+                const isDefaultTargetName =
+                  !targetName || targetName === "Untitled Group";
 
-                 // Update Internal Start Node flowName
-                 const children = nodes.filter(n => n.parentNode === targetNode.id);
-                 const startNode = children.find(n => n.type === 'start');
-                 if (startNode) {
-                    updateNodeData(startNode.id, { flowName: finalName });
-                 }
-              } else if (targetNode && targetNode.type !== 'group') {
+                finalName =
+                  route.gotoFlow ||
+                  (!isDefaultTargetName ? targetName : "") ||
+                  route.when?.eq?.[1] ||
+                  "Branch";
+
+                // Update Group Name (Sync)
+                updateNodeData(targetNode.id, { name: finalName });
+
+                // Update Internal Start Node flowName
+                const children = nodes.filter(
+                  (n) => n.parentNode === targetNode.id
+                );
+                const startNode = children.find((n) => n.type === "start");
+                if (startNode) {
+                  updateNodeData(startNode.id, { flowName: finalName });
+                }
+              } else if (targetNode && targetNode.type !== "group") {
                 // NEW: Rename non-group target node to match the route's value
                 finalName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
                 updateNodeData(targetNode.id, { name: finalName });
               } else {
                 // Fallback / legacy non-branch
-                finalName = route.gotoFlow || (targetNode?.data.name && targetNode.data.name !== "Untitled Group" ? targetNode.data.name : "");
+                finalName =
+                  route.gotoFlow ||
+                  (targetNode?.data.name &&
+                  targetNode.data.name !== "Untitled Group"
+                    ? targetNode.data.name
+                    : "");
               }
 
               // Update the route itself with the final name (without goto prefix)
-              newRoutes[routeIdx] = { ...route, gotoFlow: finalName || (targetNode?.id || "") };
-              updateNodeData(sourceNode.id, { 
-                nextNode: { ...nextNode, routes: newRoutes } 
+              newRoutes[routeIdx] = {
+                ...route,
+                gotoFlow: finalName || targetNode?.id || "",
+              };
+              updateNodeData(sourceNode.id, {
+                nextNode: { ...nextNode, routes: newRoutes },
               });
             }
           }
@@ -281,15 +307,15 @@ export default function FlowCanvas() {
           // 1. Prompt Options
           if (sourceNode && sourceNode.type === "prompt") {
             const nextNode = sourceNode.data.nextNode;
-            if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
-               const routeIdx = parseInt(edge.sourceHandle.split('-')[1]);
-               const newRoutes = [...nextNode.routes];
-               if (newRoutes[routeIdx]) {
-                  newRoutes[routeIdx] = { ...newRoutes[routeIdx], gotoFlow: "" };
-                  updateNodeData(sourceNode.id, { 
-                     nextNode: { ...nextNode, routes: newRoutes } 
-                  });
-               }
+            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
+              const routeIdx = parseInt(edge.sourceHandle.split("-")[1]);
+              const newRoutes = [...nextNode.routes];
+              if (newRoutes[routeIdx]) {
+                newRoutes[routeIdx] = { ...newRoutes[routeIdx], gotoFlow: "" };
+                updateNodeData(sourceNode.id, {
+                  nextNode: { ...nextNode, routes: newRoutes },
+                });
+              }
             }
           }
           // 2. Action Routes
@@ -378,7 +404,9 @@ export default function FlowCanvas() {
       if (!type) return;
 
       const hasStartInView = nodes.some(
-        (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
+        (n) =>
+          n.type === "start" &&
+          (n.parentNode || null) === (currentSubflowId || null)
       );
       if (type === "start" && hasStartInView) {
         toast.error("Only one Start node is allowed per flow.");
@@ -475,12 +503,12 @@ export default function FlowCanvas() {
         e.target instanceof HTMLTextAreaElement ||
         e.target instanceof HTMLButtonElement // Optional: might want to allow shortcuts on buttons? strict is safer
       ) {
-        // Only allow Escape to blur/close even if focused? 
+        // Only allow Escape to blur/close even if focused?
         // Usually Escape works everywhere.
         if (e.key === "Escape") {
-           // allow pass through to close inspector
+          // allow pass through to close inspector
         } else {
-           return;
+          return;
         }
       }
 
@@ -499,19 +527,29 @@ export default function FlowCanvas() {
           // Check if multiple are selected via internal state or just pass selection
           // ReactFlow handles selection state on nodes. We can find selected.
           // Note: visibleNodes has the 'selected' property updated by ReactFlow
-          const selected = visibleNodes.filter(n => n.selected).map(n => n.id);
+          const selected = visibleNodes
+            .filter((n) => n.selected)
+            .map((n) => n.id);
           if (selected.length > 0) {
-             copyNodes(selected);
+            copyNodes(selected);
           }
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-         pasteNodes();
+        pasteNodes();
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedNodeId, removeNode, closeInspector, nodes, copyNodes, pasteNodes, visibleNodes]);
+  }, [
+    selectedNodeId,
+    removeNode,
+    closeInspector,
+    nodes,
+    copyNodes,
+    pasteNodes,
+    visibleNodes,
+  ]);
 
   // Auto-load flows on mount
   useEffect(() => {
@@ -535,16 +573,31 @@ export default function FlowCanvas() {
 
       {/* Auto-Load / Refresh Button */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
-          <button
-            onClick={() => loadAllFlows()}
-            disabled={isLoading}
-            className="p-2 bg-white/90 backdrop-blur-xl shadow-lg border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all text-gray-500 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed group"
-            title="Refresh Flows from Backend"
+        <button
+          onClick={() => loadAllFlows()}
+          disabled={isLoading}
+          className="p-2 bg-white/90 backdrop-blur-xl shadow-lg border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all text-gray-500 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed group"
+          title="Refresh Flows from Backend"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-5 w-5 ${
+              isLoading
+                ? "animate-spin"
+                : "group-hover:rotate-180 transition-transform duration-500"
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
       </div>
 
       <ReactFlow
@@ -571,7 +624,11 @@ export default function FlowCanvas() {
       >
         <Background gap={20} color="#f1f5f9" />
         <Controls className="bg-white border-2 border-gray-100 shadow-xl rounded-xl" />
-        <MiniMap pannable zoomable className="border-2 border-gray-100 cursor-pointer shadow-xl rounded-2xl overflow-hidden" />
+        <MiniMap
+          pannable
+          zoomable
+          className="border-2 border-gray-100 cursor-pointer shadow-xl rounded-2xl overflow-hidden"
+        />
 
         {/* Global Context Menu UI */}
         {menu && (
@@ -610,37 +667,11 @@ export default function FlowCanvas() {
               </button>
             ) : menu.id === "pane" ? (
               <div className="flex flex-col gap-0.5">
-              <button
-                className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
-                onClick={() => {
-                  // Open namer with empty array to signify "Create Empty Group"
-                  openNamer([]);
-                }}
-              >
-                <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </div>
-                Create Empty Group
-              </button>
-              {clipboard && clipboard.length > 0 && (
                 <button
                   className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                   onClick={() => {
-                    pasteNodes();
-                    setMenu(null);
+                    // Open namer with empty array to signify "Create Empty Group"
+                    openNamer([]);
                   }}
                 >
                   <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
@@ -655,13 +686,39 @@ export default function FlowCanvas() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2.5}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        d="M12 4v16m8-8H4"
                       />
                     </svg>
                   </div>
-                  Paste Nodes
+                  Create Empty Group
                 </button>
-              )}
+                {clipboard && clipboard.length > 0 && (
+                  <button
+                    className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                    onClick={() => {
+                      pasteNodes();
+                      setMenu(null);
+                    }}
+                  >
+                    <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                    </div>
+                    Paste Nodes
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -691,27 +748,44 @@ export default function FlowCanvas() {
                     </button>
                     <button
                       className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-bold transition-all group/item ${
-                        nodes.find(n => n.id === menu.id)?.data.isMenuBranch 
-                          ? "text-indigo-600 hover:bg-indigo-50" 
+                        nodes.find((n) => n.id === menu.id)?.data.isMenuBranch
+                          ? "text-indigo-600 hover:bg-indigo-50"
                           : "text-emerald-600 hover:bg-emerald-50"
                       }`}
                       onClick={() => {
-                        const groupNode = nodes.find(n => n.id === menu.id);
+                        const groupNode = nodes.find((n) => n.id === menu.id);
                         if (groupNode) {
-                           updateNodeData(groupNode.id, { isMenuBranch: !groupNode.data.isMenuBranch });
+                          updateNodeData(groupNode.id, {
+                            isMenuBranch: !groupNode.data.isMenuBranch,
+                          });
                         }
                       }}
                     >
-                      <div className={`p-2 rounded-xl group-hover/item:text-white transition-colors ${
-                        nodes.find(n => n.id === menu.id)?.data.isMenuBranch 
-                          ? "bg-indigo-100 group-hover/item:bg-indigo-600" 
-                          : "bg-emerald-100 group-hover/item:bg-emerald-600"
-                      }`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      <div
+                        className={`p-2 rounded-xl group-hover/item:text-white transition-colors ${
+                          nodes.find((n) => n.id === menu.id)?.data.isMenuBranch
+                            ? "bg-indigo-100 group-hover/item:bg-indigo-600"
+                            : "bg-emerald-100 group-hover/item:bg-emerald-600"
+                        }`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                          />
                         </svg>
                       </div>
-                      {nodes.find(n => n.id === menu.id)?.data.isMenuBranch ? "Convert to Subflow" : "Convert to Menu Branch"}
+                      {nodes.find((n) => n.id === menu.id)?.data.isMenuBranch
+                        ? "Convert to Subflow"
+                        : "Convert to Menu Branch"}
                     </button>
                     <button
                       className="w-full flex items-center gap-3 px-5 py-3 text-sm text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item"
@@ -843,7 +917,7 @@ export default function FlowCanvas() {
                     Delete Node
                   </button>
                 )}
-                
+
                 <button
                   className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-t border-gray-50"
                   onClick={() => {
@@ -852,16 +926,25 @@ export default function FlowCanvas() {
                   }}
                 >
                   <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                      />
                     </svg>
                   </div>
                   Copy Node
                 </button>
               </>
             )}
-            
-
           </div>
         )}
       </ReactFlow>
