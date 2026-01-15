@@ -178,7 +178,11 @@ export default function FlowCanvas() {
             }
           }
 
-          const nextNode = sourceNode.data.nextNode;
+          interface PromptNextNode {
+            routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
+            default?: string;
+          }
+          const nextNode = sourceNode.data.nextNode as PromptNextNode;
           if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
             const routeIdx = parseInt(handleId.split('-')[1]);
             const newRoutes = [...nextNode.routes];
@@ -280,7 +284,11 @@ export default function FlowCanvas() {
 
           // 1. Prompt Options
           if (sourceNode && sourceNode.type === "prompt") {
-            const nextNode = sourceNode.data.nextNode;
+            interface PromptNextNode {
+              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
+              default?: string;
+            }
+            const nextNode = sourceNode.data.nextNode as PromptNextNode;
             if (nextNode && typeof nextNode === 'object' && nextNode.routes) {
                const routeIdx = parseInt(edge.sourceHandle.split('-')[1]);
                const newRoutes = [...nextNode.routes];

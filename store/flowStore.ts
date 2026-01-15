@@ -130,7 +130,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             routes?: Array<{ when?: Record<string, unknown>; gotoFlow?: string }>;
             default?: string;
           };
-          const routes = ((nextObj.routes || []) as any[]).map((route) => {
+          const routes = (nextObj.routes || []).map((route) => {
             const target = resolveTarget(route.gotoFlow || "");
             const targetType = typeById.get(target.id);
             const isGroup = targetType === "group";
@@ -139,7 +139,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               when: route.when,
               [isGroup ? "gotoFlow" : "goto"]: target.name || route.gotoFlow || "",
               gotoId: target.id,
-            };
+            } as FlowRoute;
           });
           const defaultResolved = resolveTarget(nextObj.default || "");
           return {
@@ -418,7 +418,7 @@ export const useFlowStore = create<FlowState>()(
 
           // Offset position slightly to show it's a copy
           // Only offset if it's a root of the paste operation (i.e. parent is not in clipboard)
-          let position = { ...node.position };
+          const position = { ...node.position };
           if (!node.parentNode || !idMap.has(node.parentNode)) {
             position.x += 20;
             position.y += 20;
@@ -773,9 +773,9 @@ export const useFlowStore = create<FlowState>()(
           // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
           const targetNode = nextNodes.find((n) => n.id === id);
           if (targetNode && targetNode.type === "prompt" && data.nextNode) {
-            const nextNode = data.nextNode as any;
-            if (typeof nextNode === 'object' && nextNode.routes) {
-              const routes = nextNode.routes as any[];
+            const nextNode = data.nextNode as FlowNode["nextNode"];
+            if (typeof nextNode === 'object' && nextNode && 'routes' in nextNode) {
+              const routes = nextNode.routes || [];
 
               // For each route, check if it's connected to a Menu Branch Group
               routes.forEach((route, idx) => {
@@ -785,7 +785,8 @@ export const useFlowStore = create<FlowState>()(
                 if (edge) {
                   const connectedNode = nextNodes.find(n => n.id === edge.target);
                   if (connectedNode && connectedNode.type === 'group' && connectedNode.data.isMenuBranch) {
-                    const newName = route.gotoFlow || route.when?.eq?.[1] || "Branch";
+                    const when = route.when as { eq?: string[] } | undefined;
+                    const newName = route.gotoFlow || when?.eq?.[1] || "Branch";
 
                     // Update Group Name in the nextNodes array
                     nextNodes = nextNodes.map(n => {
@@ -800,7 +801,8 @@ export const useFlowStore = create<FlowState>()(
                     });
                   } else if (connectedNode && connectedNode.type !== 'group') {
                     // NEW: Sync name for non-group nodes
-                    const newName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
+                    const when = route.when as { eq?: string[] } | undefined;
+                    const newName = route.gotoFlow || when?.eq?.[1] || "transfer";
                     nextNodes = nextNodes.map(n => {
                       if (n.id === connectedNode.id) {
                         return { ...n, data: { ...n.data, name: newName } };
@@ -833,8 +835,8 @@ export const useFlowStore = create<FlowState>()(
             n.type !== "group" && // Skip group nodes (as requested: group node can have any name)
             (
               // Check both standard 'name' and Start node's 'flowName'
-              String((n.data as any)?.name ?? "").trim().toLowerCase() === trimmed ||
-              String((n.data as any)?.flowName ?? "").trim().toLowerCase() === trimmed
+              String((n.data as Record<string, unknown>)?.name ?? "").trim().toLowerCase() === trimmed ||
+              String((n.data as Record<string, unknown>)?.flowName ?? "").trim().toLowerCase() === trimmed
             )
         );
       },
