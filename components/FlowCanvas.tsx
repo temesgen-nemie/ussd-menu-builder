@@ -206,12 +206,16 @@ export default function FlowCanvas() {
                  if (startNode) {
                     updateNodeData(startNode.id, { flowName: finalName });
                  }
+              } else if (targetNode && targetNode.type !== 'group') {
+                // NEW: Rename non-group target node to match the route's value
+                finalName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
+                updateNodeData(targetNode.id, { name: finalName });
               } else {
-                // For non-branch connections or linear mode
+                // Fallback / legacy non-branch
                 finalName = route.gotoFlow || (targetNode?.data.name && targetNode.data.name !== "Untitled Group" ? targetNode.data.name : "");
               }
 
-              // Update the route itself with the final name
+              // Update the route itself with the final name (without goto prefix)
               newRoutes[routeIdx] = { ...route, gotoFlow: finalName || (targetNode?.id || "") };
               updateNodeData(sourceNode.id, { 
                 nextNode: { ...nextNode, routes: newRoutes } 

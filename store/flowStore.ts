@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 export type FlowRoute = {
   when?: Record<string, unknown>;
   gotoFlow?: string;
+  goto?: string;
   gotoId?: string;
 };
 
@@ -51,10 +52,12 @@ export type FlowJson = {
 const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
+  const typeById = new Map<string, string>();
 
   nodes.forEach((node) => {
-    if (node.type === "start" || node.type === "group") return;
+    if (node.type === "start") return;
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
+    typeById.set(node.id, node.type || "");
     if (name) {
       nameById.set(node.id, name);
       idByName.set(name, node.id);
@@ -127,11 +130,14 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             routes?: Array<{ when?: Record<string, unknown>; gotoFlow?: string }>;
             default?: string;
           };
-          const routes = (nextObj.routes || []).map((route) => {
+          const routes = ((nextObj.routes || []) as any[]).map((route) => {
             const target = resolveTarget(route.gotoFlow || "");
+            const targetType = typeById.get(target.id);
+            const isGroup = targetType === "group";
+
             return {
               when: route.when,
-              gotoFlow: target.name || route.gotoFlow || "",
+              [isGroup ? "gotoFlow" : "goto"]: target.name || route.gotoFlow || "",
               gotoId: target.id,
             };
           });
@@ -789,6 +795,15 @@ export const useFlowStore = create<FlowState>()(
                       // Also update the internal Start Node's flowName
                       if (n.parentNode === connectedNode.id && n.type === 'start') {
                         return { ...n, data: { ...n.data, flowName: newName } };
+                      }
+                      return n;
+                    });
+                  } else if (connectedNode && connectedNode.type !== 'group') {
+                    // NEW: Sync name for non-group nodes
+                    const newName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
+                    nextNodes = nextNodes.map(n => {
+                      if (n.id === connectedNode.id) {
+                        return { ...n, data: { ...n.data, name: newName } };
                       }
                       return n;
                     });
