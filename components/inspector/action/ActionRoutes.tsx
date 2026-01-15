@@ -148,60 +148,66 @@ export default function ActionRoutes({
                   {(() => {
                     const parsed = parseCondition(route.condition);
                     return (
-                      <div className="grid grid-cols-[1.2fr_0.8fr_1fr] gap-2">
-                        <select
-                          className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-                          value={parsed.path}
-                          onChange={(e) => {
-                            const condition = buildCondition(
-                              e.target.value,
-                              parsed.operator,
-                              parsed.valueText
-                            );
-                            onUpdateRoute(idx, { ...route, condition });
-                          }}
-                        >
-                          <option value="">Select response field</option>
-                          {options.map((path, optionIndex) => (
-                            <option
-                              key={`${path}-${optionIndex}`}
-                              value={path}
-                            >
-                              {path}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-                          value={parsed.operator}
-                          onChange={(e) => {
-                            const condition = buildCondition(
-                              parsed.path,
-                              e.target.value,
-                              parsed.valueText
-                            );
-                            onUpdateRoute(idx, { ...route, condition });
-                          }}
-                        >
-                          {operatorOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-                          placeholder="Value (e.g. 200)"
-                          value={parsed.valueText}
-                          onChange={(e) => {
-                            const condition = buildCondition(
-                              parsed.path,
-                              parsed.operator,
-                              e.target.value
-                            );
-                            onUpdateRoute(idx, { ...route, condition });
-                          }}
-                        />
+                      <div className="grid grid-cols-[1.2fr_0.8fr_1fr] gap-2 min-w-0">
+                        <div className="min-w-0">
+                          <select
+                            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm overflow-hidden text-ellipsis"
+                            value={parsed.path}
+                            onChange={(e) => {
+                              const condition = buildCondition(
+                                e.target.value,
+                                parsed.operator,
+                                parsed.valueText
+                              );
+                              onUpdateRoute(idx, { ...route, condition });
+                            }}
+                          >
+                            <option value="">Field</option>
+                            {options.map((path, optionIndex) => (
+                              <option
+                                key={`${path}-${optionIndex}`}
+                                value={path}
+                              >
+                                {path}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <select
+                            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+                            value={parsed.operator}
+                            onChange={(e) => {
+                              const condition = buildCondition(
+                                parsed.path,
+                                e.target.value,
+                                parsed.valueText
+                              );
+                              onUpdateRoute(idx, { ...route, condition });
+                            }}
+                          >
+                            {operatorOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <input
+                            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+                            placeholder="Value"
+                            value={parsed.valueText}
+                            onChange={(e) => {
+                              const condition = buildCondition(
+                                parsed.path,
+                                parsed.operator,
+                                e.target.value
+                              );
+                              onUpdateRoute(idx, { ...route, condition });
+                            }}
+                          />
+                        </div>
                       </div>
                     );
                   })()}

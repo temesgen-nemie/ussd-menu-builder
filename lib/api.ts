@@ -119,4 +119,20 @@ export const saveSettings = async (settings: SettingsPayload) => {
     }
 };
 
+export const deleteFlow = async (flowName: string) => {
+    try {
+        const response = await api.delete(`/flows/${flowName}`);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || 'Backend error');
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error('An unknown error occurred');
+        }
+    }
+};
+
 export default api;

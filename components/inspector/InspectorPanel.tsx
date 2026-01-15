@@ -41,7 +41,7 @@ export default function InspectorPanel() {
   useEffect(() => {
     if (size.width === 0 && node) {
       setSize({
-        width: node.type === "action" || node.type === "prompt" ? 800 : 384, // 200 * 4 = 800, w-96 = 384
+        width: node.type === "action" || node.type === "prompt" ? 720 : 350,
         height: 0 // allow auto height
       });
     }

@@ -46,9 +46,9 @@ export default function ResponseViewer({
                 <div className="text-[10px] font-semibold text-gray-500 uppercase mb-1">
                   Headers
                 </div>
-                <div className="rounded border border-gray-200 bg-white p-2">
+                <div className="rounded border border-gray-200 bg-white p-2 divide-y divide-gray-50">
                   {Object.entries(headers).map(([key, value]) => (
-                    <div key={key} className="text-xs text-gray-700">
+                    <div key={key} className="text-xs text-gray-700 py-1 first:pt-0 last:pb-0 break-all">
                       <span className="font-semibold">{key}:</span> {value}
                     </div>
                   ))}
@@ -60,7 +60,7 @@ export default function ResponseViewer({
                 <div className="text-[10px] font-semibold text-gray-500 uppercase mb-1">
                   Body
                 </div>
-                <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                <pre className="text-xs text-gray-700 whitespace-pre-wrap break-words max-w-full overflow-x-auto bg-white p-2 rounded border border-gray-100">
                   {(() => {
                     try {
                       const parsed = JSON.parse(body);
