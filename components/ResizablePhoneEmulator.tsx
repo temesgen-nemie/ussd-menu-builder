@@ -9,6 +9,8 @@ type Message = {
   content: string;
   type: "user" | "system";
   timestamp: Date;
+  isOverLimit?: boolean;
+  originalLength?: number;
 };
 
 type ResizablePhoneProps = {
@@ -145,6 +147,8 @@ export default function ResizablePhoneEmulator({
         content: responseContent,
         type: "system",
         timestamp: new Date(),
+        isOverLimit: responseContent.length > 172,
+        originalLength: responseContent.length
       };
       setMessages((prev) => [...prev, systemMessage]);
       setMessageInput("");
@@ -311,21 +315,36 @@ export default function ResizablePhoneEmulator({
                 }`}
               >
                 <div
+                  title={msg.isOverLimit ? `Message exceeds USSD limit of 172 characters. Current: ${msg.originalLength}. This will be truncated by a real gateway.` : ""}
                   className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
                     msg.type === "user"
                       ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-sm"
-                      : "bg-white text-gray-800 rounded-bl-sm border border-gray-200"
+                      : msg.isOverLimit 
+                        ? "bg-red-50 text-red-900 rounded-bl-sm border border-red-200 animate-pulse-subtle"
+                        : "bg-white text-gray-800 rounded-bl-sm border border-gray-200"
                   }`}
                 >
-                  <div className="text-sm whitespace-pre-wrap font-medium">
-                    {msg.content}
+                  <div className={`text-sm whitespace-pre-wrap font-medium break-all ${msg.isOverLimit ? "text-gray-900" : ""}`}>
+                    {msg.type === "system" && msg.isOverLimit ? (
+                      <>
+                        <span>{msg.content.substring(0, 172)}</span>
+                        <span className="text-red-600 bg-red-50">{msg.content.substring(172)}</span>
+                      </>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                   <div
-                    className={`text-xs mt-1 ${
-                      msg.type === "user" ? "text-purple-200" : "text-gray-500"
+                    className={`text-xs mt-1 flex justify-between items-center gap-4 ${
+                      msg.type === "user" ? "text-purple-200" : msg.isOverLimit ? "text-red-400" : "text-gray-500"
                     }`}
                   >
-                    {msg.timestamp.toLocaleTimeString()}
+                    <span>{msg.timestamp.toLocaleTimeString()}</span>
+                    {msg.type === "system" && (
+                      <span className={`font-mono ${msg.isOverLimit ? "bg-red-100 px-1 rounded text-[10px]" : "opacity-50"}`}>
+                        {msg.originalLength}/172
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
