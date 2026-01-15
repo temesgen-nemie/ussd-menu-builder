@@ -76,14 +76,9 @@ export default function ResizablePhoneEmulator({
       return;
     }
 
-    if (!isShortCodeValid(shortCode)) {
-      toast.error("Short code must start with * and end with # (e.g., *675#)");
-      return;
-    }
-
     // Validate: if no session, must start with USSD code
     if (!sequenceNumber && !isUssdCode(messageInput)) {
-      toast.error("Please start with a USSD code (e.g., *7584#)");
+      toast.error("Please start with a USSD code (e.g., *123#)");
       return;
     }
 
@@ -98,6 +93,13 @@ export default function ResizablePhoneEmulator({
 
     // Auto-determine service type
     const serviceType = getServiceType(messageInput);
+
+    // If it's a new session start or a new USSD code, lock in the short code
+    let effectiveShortCode = shortCode;
+    if (serviceType === "BR" && isUssdCode(messageInput)) {
+      effectiveShortCode = messageInput.trim();
+      setShortCode(effectiveShortCode);
+    }
 
     let currentSequence: number;
     if (serviceType === "BR") {
@@ -121,7 +123,7 @@ export default function ResizablePhoneEmulator({
     <version>32</version>  
     <service_type>${serviceType}</service_type> 
     <source_addr>${phoneNumber}</source_addr>
-    <dest_addr>${shortCode.trim()}</dest_addr>
+    <dest_addr>${effectiveShortCode}</dest_addr>
     <timestamp>${timestamp}</timestamp>
     <command_status>0</command_status>
     <data_coding>0</data_coding>
@@ -267,25 +269,17 @@ export default function ResizablePhoneEmulator({
         style={{ height: `calc(100% - 60px)` }}
       >
         {/* Config Bar */}
-        <div className="bg-gray-50 border-b p-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="bg-gray-50 border-b p-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+              Phone No:
+            </label>
             <input
               type="text"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium"
-              placeholder="Phone Number"
-            />
-            <input
-              type="text"
-              value={shortCode}
-              onChange={(e) => setShortCode(e.target.value)}
-              className={`w-full px-3 py-2 rounded-lg text-sm border focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium ${
-                shortCode.trim() && !isShortCodeValid(shortCode)
-                  ? "border-red-300"
-                  : "border-gray-200"
-              }`}
-              placeholder="Short Code (e.g., *675#)"
+              className="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
+              placeholder="e.g. +251..."
             />
           </div>
           <button
