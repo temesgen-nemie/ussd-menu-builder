@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useFlowStore } from "../../store/flowStore";
+import { updateFlow } from "../../lib/api";
+import { useFlowStore, type FlowJson } from "../../store/flowStore";
 
 export default function GroupJsonModal() {
   const { groupJsonModal, closeGroupJson, nodes, applyGroupJson } =
     useFlowStore();
+  const publishedFlows = useFlowStore((state) => state.publishedFlows);
   const [draftJson, setDraftJson] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saveInProgress, setSaveInProgress] = useState(false);
 
   const isOpen = Boolean(groupJsonModal?.isOpen);
   useEffect(() => {
@@ -96,16 +99,40 @@ export default function GroupJsonModal() {
 
         <div className="px-8 py-4 bg-indigo-50/30 border-t border-indigo-50 flex justify-end gap-3">
           <button
-            onClick={() => {
+            onClick={async () => {
+              if (saveInProgress) return;
+              setSaveInProgress(true);
               try {
+                let parsed: FlowJson | null = null;
+                try {
+                  parsed = JSON.parse(draftJson) as FlowJson;
+                } catch {
+                  parsed = null;
+                }
+
+                const flowName = parsed?.flowName;
+                const isPublished =
+                  Boolean(flowName) &&
+                  publishedFlows.includes(flowName as string);
+
                 applyGroupJson(groupJsonModal.groupId || "", draftJson);
                 setError(null);
-                toast.success("Flow JSON saved.");
+
+                if (isPublished && parsed && flowName) {
+                  await updateFlow(flowName, parsed);
+                  toast.success("Flow JSON saved and updated on the backend.");
+                } else {
+                  toast.success("Flow JSON saved.");
+                }
+
+                closeGroupJson();
               } catch (err) {
                 const message =
                   err instanceof Error ? err.message : "Failed to save JSON.";
                 setError(message);
                 toast.error(message);
+              } finally {
+                setSaveInProgress(false);
               }
             }}
             className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 cursor-pointer"
