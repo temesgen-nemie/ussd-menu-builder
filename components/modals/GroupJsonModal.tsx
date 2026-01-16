@@ -135,9 +135,14 @@ export default function GroupJsonModal() {
                 setSaveInProgress(false);
               }
             }}
-            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 cursor-pointer"
+            disabled={saveInProgress}
+            className={`px-6 py-2 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 ${
+              saveInProgress
+                ? "bg-emerald-400 cursor-not-allowed"
+                : "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+            }`}
           >
-            Save
+            {saveInProgress ? "Saving..." : "Save"}
           </button>
           <button
             onClick={() => {
