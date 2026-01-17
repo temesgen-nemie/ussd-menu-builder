@@ -164,4 +164,27 @@ export const deleteFlow = async (flowName: string) => {
     }
 };
 
+export const getLogs = async (params: {
+    from: string;
+    to: string;
+    limit: number;
+}) => {
+    try {
+        const response = await api.get('/admin/logs', { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                    `Failed to fetch logs (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error('An unknown error occurred');
+        }
+    }
+};
+
 export default api;
