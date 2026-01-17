@@ -17,11 +17,8 @@ export const createFlow = async (payload: FlowJson) => {
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
             throw new Error(axiosError.response?.data?.error || "Backend error");
         } else if (error instanceof Error) {
-            // Something happened in setting up the request that triggered an Error
             throw new Error(error.message);
         } else {
             throw new Error("An unknown error occurred");
@@ -47,7 +44,6 @@ export const getAllFlows = async () => {
 
 export const getFlowByName = async (flowName: string) => {
     try {
-        // Based on user request "http://localhost:4000/flows/:flowName"
         const response = await api.get<{ data: FlowJson[] }>(`/flows/${flowName}`);
         return response.data.data;
     } catch (error) {
@@ -84,9 +80,7 @@ export const sendUssdRequest = async (xmlRequest: string) => {
             "/teleussd/api/v1/ussdRequest",
             xmlRequest,
             {
-                headers: {
-                    "Content-Type": "application/xml",
-                },
+                headers: { "Content-Type": "application/xml" },
                 responseType: "text",
             }
         );
@@ -155,32 +149,60 @@ export const deleteFlow = async (flowName: string) => {
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
-            throw new Error(axiosError.response?.data?.error || 'Backend error');
+            throw new Error(axiosError.response?.data?.error || "Backend error");
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {
-            throw new Error('An unknown error occurred');
+            throw new Error("An unknown error occurred");
         }
     }
 };
 
-export const updateNodeInFlow = async (flowName: string, nodeName: string, nodeData: FlowNode, previousName?: string) => {
+export const updateNodeInFlow = async (
+    flowName: string,
+    nodeName: string,
+    nodeData: FlowNode,
+    previousName?: string
+) => {
     try {
         const response = await api.put(`/flows/${flowName}/nodes/${nodeName}`, {
             flowName,
-            nodeName, // The current name for the backend to find
-            previousName, // The old name if changed
-            node: nodeData
+            nodeName,
+            previousName,
+            node: nodeData,
         });
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
-            throw new Error(axiosError.response?.data?.error || 'Backend error');
+            throw new Error(axiosError.response?.data?.error || "Backend error");
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {
-            throw new Error('An unknown error occurred');
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const getLogs = async (params: {
+    from: string;
+    to: string;
+    limit: number;
+}) => {
+    try {
+        const response = await api.get("/admin/logs", { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to fetch logs (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
         }
     }
 };
