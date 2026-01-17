@@ -2,7 +2,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bolt, Menu, MessageSquare, PlayCircle } from "lucide-react";
+import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3 } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ModeToggle } from "./ModeToggle";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
+import LogsModal from "./logs/LogsModal";
 import { fetchSettings, saveSettings, SettingsPayload } from "../lib/api";
 
 export default function NodePalette() {
@@ -39,6 +40,7 @@ export default function NodePalette() {
   const [paramError, setParamError] = useState<string | null>(null);
   const [endpoints, setLocalEndpoints] = useState<string[]>([]);
   const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
 
   const isStale = useMemo(() => {
     if (!lastFetched) return true;
@@ -236,7 +238,7 @@ export default function NodePalette() {
         </div>
 
         {/* Center - USSD Simulator Button */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
           <button
             onClick={() => setSimulatorOpen(true)}
             className="flex items-center gap-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
@@ -257,6 +259,15 @@ export default function NodePalette() {
               </svg>
             </span>
             USSD Simulator
+          </button>
+          <button
+            onClick={() => setLogsOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 transition-all cursor-pointer"
+          >
+            <span className="rounded-sm bg-white/20 p-1">
+              <BarChart3 className="h-4 w-4 text-white" />
+            </span>
+            Logs
           </button>
         </div>
 
@@ -362,6 +373,7 @@ export default function NodePalette() {
         isOpen={simulatorOpen}
         onClose={() => setSimulatorOpen(false)}
       />
+      <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
     </nav>
   );
 }
