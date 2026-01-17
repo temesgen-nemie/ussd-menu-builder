@@ -24,6 +24,8 @@ export type FlowNode = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  PersistInput?: boolean;
+  PersistInputAs?: string;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -116,6 +118,11 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
+          PersistInput:
+            typeof data.PersistInput === "boolean"
+              ? data.PersistInput
+              : undefined,
+          PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
         };
 
         if (routingMode === "linear" && typeof nextNode === "string") {

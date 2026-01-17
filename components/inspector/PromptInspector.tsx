@@ -30,6 +30,8 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  PersistInput?: boolean;
+  PersistInputAs?: string;
 };
 
 type PromptNode = {
@@ -259,47 +261,82 @@ export default function PromptInspector({
             Input Validation & Persistence
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-gray-700">
-            <input
-              type="checkbox"
-              checked={Boolean(node.data.persistByIndex)}
-              onChange={(e) =>
-                updateNodeData(node.id, { persistByIndex: e.target.checked })
-              }
-            />
-            Persist By Index
-          </label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.persistByIndex)}
+                onChange={(e) =>
+                  updateNodeData(node.id, { persistByIndex: e.target.checked })
+                }
+              />
+              Persist By Index
+            </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] text-gray-500 block uppercase mb-1">
-                Persist Source Field
-              </label>
+            <label className="flex items-center gap-2 text-xs text-gray-700">
               <input
-                className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                value={String(node.data.persistSourceField ?? "")}
+                type="checkbox"
+                checked={Boolean(node.data.PersistInput)}
                 onChange={(e) =>
-                  updateNodeData(node.id, {
-                    persistSourceField: e.target.value,
-                  })
+                  updateNodeData(node.id, { PersistInput: e.target.checked })
                 }
-                placeholder="userAccounts"
               />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-500 block uppercase mb-1">
-                Persist Field Name
-              </label>
-              <input
-                className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                value={String(node.data.persistFieldName ?? "")}
-                onChange={(e) =>
-                  updateNodeData(node.id, { persistFieldName: e.target.value })
-                }
-                placeholder="SelectedAccount"
-              />
-            </div>
+              Persist Input
+            </label>
           </div>
+
+          {(node.data.persistByIndex || node.data.PersistInput) && (
+            <div className="space-y-3 pt-2 border-t border-gray-50">
+              {node.data.persistByIndex && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Persist Source Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={String(node.data.persistSourceField ?? "")}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          persistSourceField: e.target.value,
+                        })
+                      }
+                      placeholder="userAccounts"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Persist Field Name
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={String(node.data.persistFieldName ?? "")}
+                      onChange={(e) =>
+                        updateNodeData(node.id, { persistFieldName: e.target.value })
+                      }
+                      placeholder="SelectedAccount"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {node.data.PersistInput && (
+                <div>
+                  <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                    Persist Input As
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                    value={String(node.data.PersistInputAs ?? "")}
+                    onChange={(e) =>
+                      updateNodeData(node.id, { PersistInputAs: e.target.value })
+                    }
+                    placeholder="receiverAccountNumber"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <label className="flex items-center gap-2 text-xs text-gray-700">
             <input
