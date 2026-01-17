@@ -85,6 +85,7 @@ export default function FlowCanvas() {
     pasteNodes,
     clipboard,
     publishedFlows,
+    modifiedFlows,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -824,29 +825,6 @@ export default function FlowCanvas() {
                       </div>
                       View Group JSON
                     </button>
-                    <button
-                      className="w-full flex items-center gap-3 px-5 py-3 text-sm text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
-                      onClick={() => publishGroup(menu.id)}
-                    >
-                      <div className="p-2 bg-violet-100 rounded-xl group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2.5}
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                          />
-                        </svg>
-                      </div>
-                      Publish to Backend
-                    </button>
-
                     {(() => {
                       const groupNode = nodes.find((n) => n.id === menu.id);
                       const children = nodes.filter(
@@ -858,35 +836,93 @@ export default function FlowCanvas() {
                       const flowName = (startNode?.data as any)?.flowName;
                       const isPublished =
                         flowName && publishedFlows.includes(flowName);
+                      const isModified = flowName && modifiedFlows.includes(flowName);
 
-                      if (!isPublished) return null;
+                      if (!isPublished) {
+                        return (
+                          <button
+                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
+                            onClick={() => publishGroup(menu.id)}
+                          >
+                            <div className="p-2 bg-violet-100 rounded-xl group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                />
+                              </svg>
+                            </div>
+                            Publish to Backend
+                          </button>
+                        );
+                      }
 
                       return (
-                        <button
-                          className="w-full flex items-center gap-3 px-5 py-3 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-all group/item border-b border-gray-50"
-                          onClick={() => {
-                            setDeleteModal({ isOpen: true, flowName });
-                            setMenu(null);
-                          }}
-                        >
-                          <div className="p-2 bg-rose-100 rounded-xl group-hover/item:bg-rose-600 group-hover/item:text-white transition-colors">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2.5}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </div>
-                          Delete Backend Flow
-                        </button>
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
+                            onClick={() => {
+                              useFlowStore.getState().updatePublishedFlow(menu.id);
+                              setMenu(null);
+                            }}
+                          >
+                            <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col items-start">
+                              <span>Update to Backend</span>
+                              <span className="text-[10px] text-indigo-400 font-medium">
+                                {isModified ? `Sync changes for '${flowName}'` : `Re-sync '${flowName}'`}
+                              </span>
+                            </div>
+                          </button>
+                          <button
+                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-all group/item border-b border-gray-50"
+                            onClick={() => {
+                              setDeleteModal({ isOpen: true, flowName });
+                              setMenu(null);
+                            }}
+                          >
+                            <div className="p-2 bg-rose-100 rounded-xl group-hover/item:bg-rose-600 group-hover/item:text-white transition-colors">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </div>
+                            Delete Backend Flow
+                          </button>
+                        </div>
                       );
                     })()}
                     {(() => {
