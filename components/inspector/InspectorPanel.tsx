@@ -12,10 +12,30 @@ export default function InspectorPanel() {
     selectedNodeId,
     updateNodeData,
     closeInspector,
+    syncNodeWithBackend,
     inspectorPosition,
   } = useFlowStore();
 
   const node = nodes.find((n) => n.id === selectedNodeId);
+
+  // Track the original name to detect changes and send to backend
+  const originalNameRef = React.useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (selectedNodeId && node) {
+      const currentName = String(node.data?.name || node.data?.flowName || "");
+      if (originalNameRef.current === undefined && currentName) {
+        originalNameRef.current = currentName;
+      }
+    }
+  }, [selectedNodeId, node]);
+
+  // Reset original name when inspector closes
+  useEffect(() => {
+    if (!selectedNodeId) {
+      originalNameRef.current = undefined;
+    }
+  }, [selectedNodeId]);
 
   // handle Escape locally as well for quick close
   useEffect(() => {
@@ -245,7 +265,12 @@ export default function InspectorPanel() {
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
               className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-              onClick={() => closeInspector()}
+              onClick={() => {
+                if (selectedNodeId) {
+                  syncNodeWithBackend(selectedNodeId, originalNameRef.current);
+                }
+                closeInspector();
+              }}
             >
               Done
             </button>

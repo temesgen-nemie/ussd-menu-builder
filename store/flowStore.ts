@@ -287,6 +287,7 @@ interface FlowState {
   loadAllFlows: () => Promise<void>;
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
   deletePublishedFlow: (flowName: string) => Promise<void>;
+  syncNodeWithBackend: (nodeId: string, previousName?: string) => Promise<void>;
   isLoading: boolean;
   publishedFlows: string[];
   clipboard: Node[] | null;
@@ -294,6 +295,8 @@ interface FlowState {
   pasteNodes: () => void;
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
+  modifiedFlows: string[];
+  updatePublishedFlow: (groupId: string) => Promise<void>;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -316,8 +319,47 @@ export const useFlowStore = create<FlowState>()(
       groupJsonModal: null,
       isLoading: false,
       publishedFlows: [],
+      modifiedFlows: [],
       clipboard: null,
       _hasHydrated: false,
+      updatePublishedFlow: async (groupId: string) => {
+        const { nodes, edges, modifiedFlows } = get();
+        const children = nodes.filter((n) => n.parentNode === groupId);
+        const childIds = children.map((n) => n.id);
+        const relevantEdges = edges.filter(
+          (e) => childIds.includes(e.source) && childIds.includes(e.target)
+        );
+
+        const groupNode = nodes.find((n) => n.id === groupId);
+        const nodesToSave = groupNode ? [...children, groupNode] : children;
+        const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
+        const flowName = subflowJson.flowName;
+
+        if (!flowName) {
+          toast.error("Flow name not found. Cannot update.");
+          return;
+        }
+
+        try {
+          const { updateFlow } = await import("../lib/api");
+          toast.promise(updateFlow(flowName, subflowJson), {
+            loading: `Updating flow '${flowName}'...`,
+            success: () => {
+              set({
+                modifiedFlows: modifiedFlows.filter((f) => f !== flowName),
+              });
+              return `Flow '${flowName}' updated successfully!`;
+            },
+            error: (err: unknown) => {
+              const message = err instanceof Error ? err.message : "Unknown error";
+              return `Failed to update: ${message}`;
+            },
+          });
+        } catch (error) {
+          console.error("Failed to trigger update", error);
+        }
+      },
+
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       copyNodes: (nodeIds) => {
@@ -728,9 +770,25 @@ export const useFlowStore = create<FlowState>()(
             extent: state.currentSubflowId ? ("parent" as const) : undefined,
           };
           const nextNodes = [...state.nodes, newNode];
+
+          // Tracking modifications
+          let nextModifiedFlows = state.modifiedFlows;
+          if (state.currentSubflowId) {
+            const parentGroup = state.nodes.find(n => n.id === state.currentSubflowId);
+            if (parentGroup) {
+              const children = state.nodes.filter(n => n.parentNode === parentGroup.id);
+              const startNode = children.find(n => n.type === 'start');
+              const flowName = startNode ? (startNode.data.flowName as string) : null;
+              if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
+                nextModifiedFlows = [...nextModifiedFlows, flowName];
+              }
+            }
+          }
+
           return {
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
+            modifiedFlows: nextModifiedFlows,
           };
         }),
 
@@ -738,6 +796,23 @@ export const useFlowStore = create<FlowState>()(
         set((state) => {
           const nodesToRemoveIds = new Set<string>();
           nodesToRemoveIds.add(id);
+
+          // Identify the flow that might be modified BEFORE removing nodes
+          let flowToMark: string | null = null;
+          const node = state.nodes.find(n => n.id === id);
+          if (node?.parentNode) {
+            const parent = state.nodes.find(pn => pn.id === node.parentNode);
+            if (parent?.type === 'group') {
+              const children = state.nodes.filter(cn => cn.parentNode === parent.id);
+              const startNode = children.find(sn => sn.type === 'start');
+              if (startNode) {
+                const fn = startNode.data.flowName as string;
+                if (fn && state.publishedFlows.includes(fn)) {
+                  flowToMark = fn;
+                }
+              }
+            }
+          }
 
           // Iterative approach to identify all descendants at any depth
           let changed = true;
@@ -769,6 +844,11 @@ export const useFlowStore = create<FlowState>()(
               !nodesToRemoveIds.has(e.source) && !nodesToRemoveIds.has(e.target)
           );
 
+          let nextModifiedFlows = state.modifiedFlows;
+          if (flowToMark && !nextModifiedFlows.includes(flowToMark)) {
+            nextModifiedFlows = [...nextModifiedFlows, flowToMark];
+          }
+
           return {
             nodes: nextNodes,
             edges: nextEdges,
@@ -777,6 +857,7 @@ export const useFlowStore = create<FlowState>()(
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes, nextEdges),
+            modifiedFlows: nextModifiedFlows,
           };
         }),
 
@@ -848,6 +929,23 @@ export const useFlowStore = create<FlowState>()(
             n.id === id ? { ...n, data: { ...n.data, ...data } } : n
           );
 
+          // Identify if this node belongs to a published flow
+          let flowToMark: string | null = null;
+          const node = state.nodes.find(n => n.id === id);
+          if (node?.parentNode) {
+            const parent = state.nodes.find(pn => pn.id === node.parentNode);
+            if (parent?.type === 'group') {
+              const children = state.nodes.filter(cn => cn.parentNode === parent.id);
+              const startNode = children.find(sn => sn.type === 'start');
+              if (startNode) {
+                const fn = startNode.data.flowName as string;
+                if (fn && state.publishedFlows.includes(fn)) {
+                  flowToMark = fn;
+                }
+              }
+            }
+          }
+
           // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
           const targetNode = nextNodes.find((n) => n.id === id);
           if (targetNode && targetNode.type === "prompt" && data.nextNode) {
@@ -906,9 +1004,15 @@ export const useFlowStore = create<FlowState>()(
             }
           }
 
+          let nextModifiedFlows = state.modifiedFlows;
+          if (flowToMark && !nextModifiedFlows.includes(flowToMark)) {
+            nextModifiedFlows = [...nextModifiedFlows, flowToMark];
+          }
+
           return {
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
+            modifiedFlows: nextModifiedFlows,
           };
         }),
 
@@ -1369,6 +1473,67 @@ export const useFlowStore = create<FlowState>()(
           },
         });
       },
+
+      syncNodeWithBackend: async (nodeId: string, previousName?: string) => {
+        const { nodes, edges, publishedFlows } = get();
+        const node = nodes.find((n) => n.id === nodeId);
+        if (!node || !node.parentNode) return;
+
+        // Trace up to find the group node
+        const parentGroup = nodes.find((n) => n.id === node.parentNode);
+        if (!parentGroup || parentGroup.type !== "group") return;
+
+        // Find nodes belonging to this group
+        const groupChildren = nodes.filter((n) => n.parentNode === parentGroup.id);
+
+        // Find the start node inside this group to get the flow name
+        const startNode = groupChildren.find((n) => n.type === "start");
+        if (!startNode) return;
+
+        const flowName = String(
+          (startNode.data as Record<string, unknown>)?.flowName || ""
+        );
+
+        // Only sync if it's in the published list
+        if (!flowName || !publishedFlows.includes(flowName)) return;
+
+        // Get the processed FlowNode data
+        const childIds = groupChildren.map((n) => n.id);
+        const relevantEdges = edges.filter(
+          (e) => childIds.includes(e.source) && childIds.includes(e.target)
+        );
+        const subflowJson = buildFlowJson(groupChildren, relevantEdges);
+        const flowNode = subflowJson.nodes.find((fn) => fn.id === nodeId);
+
+        if (!flowNode) return;
+
+        // The nodeName in the URL should be the OLD name if it changed, 
+        // because the backend uses it to find the record.
+        const currentName = flowNode.name || "";
+        const targetNodeNameInUrl = previousName || currentName;
+
+        if (!targetNodeNameInUrl) return;
+
+        try {
+          const { updateNodeInFlow } = await import("../lib/api");
+          toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
+            loading: `Syncing changes from '${currentName}'...`,
+            success: () => {
+              const { modifiedFlows } = get();
+              set({
+                modifiedFlows: modifiedFlows.filter((f) => f !== flowName),
+              });
+              return `Synced '${currentName}' with backend flow '${flowName}'`;
+            },
+            error: (err: unknown) => {
+              const message = err instanceof Error ? err.message : "Unknown error";
+              return `Failed to sync node: ${message}`;
+            }
+          });
+        } catch (error) {
+          console.error("Failed to trigger sync", error);
+        }
+      },
     }),
     {
       name: "ussd-menu-builder",
@@ -1377,6 +1542,12 @@ export const useFlowStore = create<FlowState>()(
       onRehydrateStorage: (state) => {
         return (rehydratedState, error) => {
           if (error || !rehydratedState) return;
+
+          // Safety Check: Ensure modifiedFlows is an array (migration from Record structure)
+          if (!Array.isArray(rehydratedState.modifiedFlows)) {
+            rehydratedState.modifiedFlows = [];
+          }
+
           rehydratedState.setHasHydrated(true);
         };
       },
@@ -1385,6 +1556,7 @@ export const useFlowStore = create<FlowState>()(
         edges: state.edges,
         flow: state.flow,
         publishedFlows: state.publishedFlows,
+        modifiedFlows: state.modifiedFlows,
       }),
     }
   )

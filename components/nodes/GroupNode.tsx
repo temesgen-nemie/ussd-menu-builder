@@ -3,7 +3,7 @@ import { useFlowStore } from "../../store/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
 export default function GroupNode({ id, data, selected }: NodeProps) {
-  const { enterSubflow, refreshFlow, isLoading, publishedFlows } = useFlowStore();
+  const { enterSubflow, refreshFlow, isLoading, publishedFlows, modifiedFlows } = useFlowStore();
   
   // Get children count from store
   const { childrenCount, flowName } = useFlowStore(
@@ -20,6 +20,7 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
 
   const isMenuBranch = data.isMenuBranch === true;
   const isPublished = flowName && publishedFlows.includes(flowName);
+  const isModified = flowName && modifiedFlows.includes(flowName);
 
   return (
     <div
@@ -78,6 +79,13 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
 
           <div className="flex items-center gap-2">
             {isPublished ? (
+              <div className="flex items-center gap-1.5">
+                {isModified && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-bold animate-pulse shadow-sm">
+                    <span className="w-1 h-1 rounded-full bg-rose-500" />
+                    Changed
+                  </span>
+                )}
                 <button
                   onClick={(e) => {
                       if (flowName) {
@@ -93,6 +101,7 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                    </svg>
                 </button>
+              </div>
             ) : (
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">
                  Unpublished
