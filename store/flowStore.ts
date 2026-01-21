@@ -53,6 +53,29 @@ export type FlowJson = {
   };
 };
 
+/**
+ * Traces up the parent hierarchy of a node to find the nearest ancestor
+ * container that defines a flow (contains a Start node).
+ */
+const getParentFlowName = (nodes: Node[], nodeId: string): string | null => {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return null;
+
+  // We are looking for the flow name of the group this node belongs to.
+  // We need to look at the DIRECT children of this node's parent.
+  const parentId = node.parentNode;
+  if (!parentId) return null;
+
+  const children = nodes.filter(n => n.parentNode === parentId);
+  const startNode = children.find(n => n.type === 'start');
+  if (startNode) {
+    return (startNode.data.flowName as string) || null;
+  }
+
+  // If not found in immediate parent, trace up recursively
+  return getParentFlowName(nodes, parentId);
+};
+
 const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
@@ -556,47 +579,77 @@ export const useFlowStore = create<FlowState>()(
 
           let backendNodes: Node[] = [];
           let backendEdges: Edge[] = [];
+          const allLogicalDataMap = new Map<string, FlowNode>();
 
-          // Flatten all backend flows
+          // Flatten all backend flows and collect logical data
           flows.forEach((f) => {
             if (f.visualState) {
               backendNodes = [...backendNodes, ...f.visualState.nodes];
               backendEdges = [...backendEdges, ...f.visualState.edges];
             }
+            f.nodes.forEach(fn => allLogicalDataMap.set(fn.id, fn));
           });
+
+          // Create Maps for fast lookup of backend items
+          const backendNodeMap = new Map(backendNodes.map((n) => [n.id, n]));
+          const backendEdgeMap = new Map(backendEdges.map((e) => [e.id, e]));
 
           // Get current local state
           const { nodes: currentNodes, edges: currentEdges } = get();
 
-          // Create Maps/Sets for fast lookup of current local items
-          const currentNodeIds = new Set(currentNodes.map((n) => n.id));
-          const currentEdgeIds = new Set(currentEdges.map((e) => e.id));
-
-          // Filter backend items to ONLY those missing locally ("Local Wins")
-          const newNodes = backendNodes.filter(
-            (bn) => !currentNodeIds.has(bn.id)
-          );
-          const newEdges = backendEdges.filter(
-            (be) => !currentEdgeIds.has(be.id)
-          );
-
-          if (newNodes.length === 0 && newEdges.length === 0) {
-            // Even if nothing new, we might initially have empty state if it's a fresh load?
-            // If currentNodes is empty, we effectively load everything.
-            if (currentNodes.length === 0) {
-              // Proceed with backend nodes as "new"
-            } else {
-              // Nothing to add
-              // We still might want to re-calculate flow object just in case
+          // Merge Nodes:
+          // 1. Update existing nodes with backend data (rehydrated)
+          const updatedNodes = currentNodes.map((node) => {
+            const backendNode = backendNodeMap.get(node.id);
+            if (backendNode) {
+              const freshLogicalData = allLogicalDataMap.get(node.id);
+              // Preserve important local UI state like selection
+              return {
+                ...backendNode,
+                data: { ...backendNode.data, ...freshLogicalData },
+                selected: node.selected,
+              } as Node;
             }
-          }
+            return node;
+          });
 
-          // Merge
-          const mergedNodes = [...currentNodes, ...newNodes];
-          const mergedEdges = [...currentEdges, ...newEdges];
+          // 2. Add nodes that are in backend but not present locally (rehydrated)
+          const currentNodeIds = new Set(currentNodes.map((n) => n.id));
+          const missingNodes = backendNodes
+            .filter((bn) => !currentNodeIds.has(bn.id))
+            .map(bn => {
+              const freshLogicalData = allLogicalDataMap.get(bn.id);
+              if (freshLogicalData) {
+                return { ...bn, data: { ...bn.data, ...freshLogicalData } };
+              }
+              return bn;
+            });
+
+          const mergedNodes = [...updatedNodes, ...missingNodes];
+
+          // Merge Edges:
+          // 1. Update existing edges with backend data
+          const updatedEdges = currentEdges.map((edge) => {
+            const backendEdge = backendEdgeMap.get(edge.id);
+            if (backendEdge) {
+              return {
+                ...backendEdge,
+                selected: edge.selected,
+              };
+            }
+            return edge;
+          });
+
+          // 2. Add edges that are in backend but not present locally
+          const currentEdgeIds = new Set(currentEdges.map((e) => e.id));
+          const missingEdges = backendEdges.filter((be) => !currentEdgeIds.has(be.id));
+
+          const mergedEdges = [...updatedEdges, ...missingEdges];
+
+          // Combine names from existing published backend flows
+          const allBackendFlowNames = flows.map((f) => f.flowName).filter(Boolean);
 
           // Re-apply orphan fixing on the MERGED set (safety net)
-          // We can reuse the existing logic but applied to the map of everything
           const nodeMap = new Map(mergedNodes.map((n) => [n.id, n]));
 
           // Fix Orphan Nodes
@@ -623,18 +676,24 @@ export const useFlowStore = create<FlowState>()(
           // Sometimes edge IDs might regenerate or differ? ReactFlow usually relies on ID.
           // Let's rely on ID uniqueness.
 
-          // Combine names from existing published backend flows
-          const backendNames = flows.map((f) => f.flowName).filter(Boolean);
 
           set({
             nodes: finalNodes,
             edges: mergedEdges,
             flow: buildFlowJson(finalNodes, mergedEdges),
-            publishedFlows: backendNames,
+            publishedFlows: allBackendFlowNames,
+            modifiedFlows: get().modifiedFlows.filter(flowName => {
+              if (!allBackendFlowNames.includes(flowName)) return true;
+              // Only clear if no nodes in this flow are "local-only"
+              const hasLocalOnly = finalNodes.some(n =>
+                getParentFlowName(finalNodes, n.id) === flowName && !backendNodeMap.has(n.id)
+              );
+              return hasLocalOnly;
+            }),
           });
 
           toast.success(
-            `Loaded flows: ${newNodes.length} new nodes added from backend.`
+            `Loaded flows: ${missingNodes.length} new nodes added from backend.`
           );
         } catch (error) {
           console.error("Failed to load flows", error);
@@ -658,80 +717,74 @@ export const useFlowStore = create<FlowState>()(
             return;
           }
 
-          const { nodes, edges } = get();
+          const { nodes, edges, publishedFlows } = get();
 
-          // Actually, we only care about the direct children for the merge usually,
-          // but since the backend returns a flattened list of visualState,
-          // we should look at IDs.
+          // Create a Map of fresh logical data
+          const logicalDataMap = new Map(flow.nodes.map(fn => [fn.id, fn]));
 
-          // 1. Keep ALL current nodes/edges (modified or not).
-          // 2. Add ANY node/edge from backend that is NOT present locally.
+          // NON-RECURSIVE REFRESH: Only affect direct children of this group
+          const directChildrenIds = new Set(nodes.filter(n => n.parentNode === groupId).map(n => n.id));
 
-          // We only care about nodes/edges relevant to this specific subflow/group context if we want to be strict,
-          // OR we can just merge blindly if the backend visualState contains everything for that flow.
-          // The backend usually returns the whole flow's nodes/edges.
-          // BUT, we might be inside a "GroupNode" which corresponds to that Flow.
+          // 1. Keep nodes that are NOT direct children of this group
+          const otherNodes = nodes.filter(n => n.parentNode !== groupId);
 
-          // Backend Nodes for this flow
-          const backendNodes = flow.visualState.nodes;
-          const backendEdges = flow.visualState.edges;
+          // 2. Identify local-only children (added locally, not in backend)
+          const backendNodeIds = new Set(flow.visualState.nodes.map(bn => bn.id));
+          const localOnlyChildren = nodes.filter(n => n.parentNode === groupId && !backendNodeIds.has(n.id));
 
-          // Create Sets for fast lookup of existing local IDs
-          const existingNodeIds = new Set(nodes.map((n) => n.id));
-          const existingEdgeIds = new Set(edges.map((e) => e.id));
-
-          // Find missing nodes (present in backend but not locally)
-          // We need to be careful about parenting.
-          // If the backend node is a child of the flow's main group, we need to map that to our current `groupId`.
-          // HOWEVER, usually when we "enter" a subflow, the nodes are children of that groupId.
-          // The backend might store them with `parentNode: null` if it's a root flow there,
-          // OR `parentNode: 'some-group-id'` if it's a subflow.
-
-          // If we are "refreshing" a flow that is embedded as a GroupNode (id=groupId),
-          // the backend nodes for that flow likely don't know about our `groupId`.
-          // We need to reparent them to `groupId`.
-
-          const nodesToAdd = backendNodes
-            .filter((bn) => !existingNodeIds.has(bn.id))
-            .map((bn) => {
-              // If the backend node is a "root" node in its own context,
-              // it should probably be a child of our `groupId` here.
-              // But wait, if the backend flow IS the subflow, its nodes are likely root nodes relative to that flow.
-              // So we should assign `parentNode: groupId`.
-
-              // If the backend node ALREADY has a parent, we preserve strict hierarchy relative to the flow?
-              // VisualState usually captures absolute structure.
-              // Let's assume for now we just want to bring them in.
-              // If it's a flat flow being imported into a group:
-              if (!bn.parentNode) {
-                return {
-                  ...bn,
-                  parentNode: groupId,
-                  extent: "parent" as const,
-                };
-              }
-              return bn;
+          // 2. Prepare backend nodes (rehydrated from logical data)
+          const backendGroupNode = flow.visualState.nodes.find(bn => bn.id === groupId);
+          const nextFlowNodes = flow.visualState.nodes
+            .filter(bn => bn.id !== groupId)
+            .map(bn => {
+              const freshLogicalData = logicalDataMap.get(bn.id);
+              const parentNode = bn.parentNode || groupId;
+              return {
+                ...bn,
+                data: { ...bn.data, ...freshLogicalData },
+                parentNode,
+                selected: false,
+                extent: parentNode ? ("parent" as const) : undefined,
+              } as Node;
             });
 
-          const edgesToAdd = backendEdges.filter(
-            (be) => !existingEdgeIds.has(be.id)
-          );
+          // Sync the group node's own data with backend (e.g. if it was renamed)
+          const finalOtherNodes = otherNodes.map(n => {
+            if (n.id === groupId && backendGroupNode) {
+              const freshLogicalData = logicalDataMap.get(n.id);
+              return {
+                ...n,
+                data: { ...n.data, ...backendGroupNode.data, ...freshLogicalData }
+              };
+            }
+            return n;
+          });
 
-          if (nodesToAdd.length === 0 && edgesToAdd.length === 0) {
-            toast.info("Flow is up to date. No new items from backend.");
-          } else {
-            const nextNodes = [...nodes, ...nodesToAdd];
-            const nextEdges = [...edges, ...edgesToAdd];
+          // 3. Handle Edges (Replace only edges where at least one end is a direct child)
+          const otherEdges = edges.filter(e => !directChildrenIds.has(e.source) && !directChildrenIds.has(e.target));
 
-            set({
-              nodes: nextNodes,
-              edges: nextEdges,
-              flow: buildFlowJson(nextNodes, nextEdges),
-            });
-            toast.success(
-              `Refreshed: Added ${nodesToAdd.length} nodes, ${edgesToAdd.length} edges.`
-            );
+          const nextNodes = [...finalOtherNodes, ...nextFlowNodes, ...localOnlyChildren];
+          const nextEdges = [...otherEdges, ...flow.visualState.edges];
+
+          // 4. Ensure this flow is marked as published in our local state
+          let nextPublishedFlows = publishedFlows;
+          if (flowName && !publishedFlows.includes(flowName)) {
+            nextPublishedFlows = [...publishedFlows, flowName];
           }
+
+          set({
+            nodes: nextNodes,
+            edges: nextEdges,
+            flow: buildFlowJson(nextNodes, nextEdges),
+            publishedFlows: nextPublishedFlows,
+            modifiedFlows: (publishedFlows.includes(flowName) && localOnlyChildren.length === 0)
+              ? get().modifiedFlows.filter(f => f !== flowName)
+              : get().modifiedFlows,
+          });
+
+          toast.success(
+            `Refreshed flow '${flowName}': Synchronized ${nextFlowNodes.length} nodes.`
+          );
         } catch (error) {
           console.error("Failed to refresh flow", error);
           toast.error(`Failed to refresh flow '${flowName}'`);
@@ -757,9 +810,24 @@ export const useFlowStore = create<FlowState>()(
             }
             return n;
           });
+
+          // Change Detection: If any node moved, find its parent flow and mark as modified
+          let nextModifiedFlows = state.modifiedFlows;
+          correctedNodes.forEach((n) => {
+            const existing = state.nodes.find((e) => e.id === n.id);
+            if (existing && (existing.position.x !== n.position.x || existing.position.y !== n.position.y)) {
+              // Node moved! Trace up to find if it's in a published flow
+              const flowName = getParentFlowName(state.nodes, n.id);
+              if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
+                nextModifiedFlows = [...nextModifiedFlows, flowName];
+              }
+            }
+          });
+
           return {
             nodes: correctedNodes,
             flow: buildFlowJson(correctedNodes, state.edges),
+            modifiedFlows: nextModifiedFlows,
           };
         }),
 
@@ -781,14 +849,9 @@ export const useFlowStore = create<FlowState>()(
           // Tracking modifications
           let nextModifiedFlows = state.modifiedFlows;
           if (state.currentSubflowId) {
-            const parentGroup = state.nodes.find(n => n.id === state.currentSubflowId);
-            if (parentGroup) {
-              const children = state.nodes.filter(n => n.parentNode === parentGroup.id);
-              const startNode = children.find(n => n.type === 'start');
-              const flowName = startNode ? (startNode.data.flowName as string) : null;
-              if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
-                nextModifiedFlows = [...nextModifiedFlows, flowName];
-              }
+            const flowName = getParentFlowName(nextNodes, newNode.id);
+            if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
+              nextModifiedFlows = [...nextModifiedFlows, flowName];
             }
           }
 
@@ -808,16 +871,9 @@ export const useFlowStore = create<FlowState>()(
           let flowToMark: string | null = null;
           const node = state.nodes.find(n => n.id === id);
           if (node?.parentNode) {
-            const parent = state.nodes.find(pn => pn.id === node.parentNode);
-            if (parent?.type === 'group') {
-              const children = state.nodes.filter(cn => cn.parentNode === parent.id);
-              const startNode = children.find(sn => sn.type === 'start');
-              if (startNode) {
-                const fn = startNode.data.flowName as string;
-                if (fn && state.publishedFlows.includes(fn)) {
-                  flowToMark = fn;
-                }
-              }
+            const fn = getParentFlowName(state.nodes, node.id);
+            if (fn && state.publishedFlows.includes(fn)) {
+              flowToMark = fn;
             }
           }
 
@@ -940,16 +996,9 @@ export const useFlowStore = create<FlowState>()(
           let flowToMark: string | null = null;
           const node = state.nodes.find(n => n.id === id);
           if (node?.parentNode) {
-            const parent = state.nodes.find(pn => pn.id === node.parentNode);
-            if (parent?.type === 'group') {
-              const children = state.nodes.filter(cn => cn.parentNode === parent.id);
-              const startNode = children.find(sn => sn.type === 'start');
-              if (startNode) {
-                const fn = startNode.data.flowName as string;
-                if (fn && state.publishedFlows.includes(fn)) {
-                  flowToMark = fn;
-                }
-              }
+            const fn = getParentFlowName(state.nodes, node.id);
+            if (fn && state.publishedFlows.includes(fn)) {
+              flowToMark = fn;
             }
           }
 
