@@ -47,7 +47,10 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
   useEffect(() => {
     if (!open) return;
 
-    const socket = new WebSocket("ws://ussdtool.profilesage.com/admin/logs/stream");
+    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const socket = new WebSocket(
+      `${wsProtocol}://ussdtool.profilesage.com/admin/logs/stream`
+    );
 
     socket.addEventListener("open", () => {
       setIsLiveConnected(true);
