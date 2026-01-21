@@ -22,10 +22,16 @@ type LogsFiltersProps = {
   fromDate: Date | null;
   toDate: Date | null;
   limit: number;
+  query: string;
+  sessionId: string;
+  status: string;
   isLoading: boolean;
   onFromChange: (value: Date | null) => void;
   onToChange: (value: Date | null) => void;
   onLimitChange: (value: number) => void;
+  onQueryChange: (value: string) => void;
+  onSessionIdChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
   onRefresh: () => void;
 };
 
@@ -33,10 +39,16 @@ export default function LogsFilters({
   fromDate,
   toDate,
   limit,
+  query,
+  sessionId,
+  status,
   isLoading,
   onFromChange,
   onToChange,
   onLimitChange,
+  onQueryChange,
+  onSessionIdChange,
+  onStatusChange,
   onRefresh,
 }: LogsFiltersProps) {
   const [fromOpen, setFromOpen] = React.useState(false);
@@ -129,6 +141,45 @@ export default function LogsFilters({
           >
             {isLoading ? "Loading..." : "Fetch Logs"}
           </Button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,2fr)_repeat(2,minmax(0,1fr))]">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="search-query" className="px-1 text-xs uppercase text-muted-foreground">
+            Search (Lucene)
+          </Label>
+          <input
+            id="search-query"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search any log content..."
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="session-id" className="px-1 text-xs uppercase text-muted-foreground">
+            Session ID
+          </Label>
+          <input
+            id="session-id"
+            value={sessionId}
+            onChange={(event) => onSessionIdChange(event.target.value)}
+            placeholder="879197"
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="status" className="px-1 text-xs uppercase text-muted-foreground">
+            Status
+          </Label>
+          <input
+            id="status"
+            value={status}
+            onChange={(event) => onStatusChange(event.target.value)}
+            placeholder="200"
+            inputMode="numeric"
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
         </div>
       </div>
     </div>

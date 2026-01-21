@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getLogs } from "@/lib/api";
+import { getLogs, searchLogs } from "@/lib/api";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsFilters from "@/components/logs/LogsFilters";
 
@@ -29,14 +29,30 @@ export default function LogsTable() {
   const [fromDate, setFromDate] = useState<Date | null>(initialRange.from);
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
   const [limit, setLimit] = useState(100);
+  const [query, setQuery] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [status, setStatus] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchLogs = useCallback(async () => {
-    const from = toIsoRange(fromDate, false);
-    const to = toIsoRange(toDate, true);
-    if (!from || !to) {
+    const trimmedQuery = query.trim();
+    const trimmedSession = sessionId.trim();
+    const trimmedStatus = status.trim();
+    const hasSearch =
+      Boolean(trimmedQuery) ||
+      Boolean(trimmedSession) ||
+      Boolean(trimmedStatus);
+
+    const from = fromDate ? toIsoRange(fromDate, false) : "";
+    const to = toDate ? toIsoRange(toDate, true) : "";
+    if ((fromDate && !from) || (toDate && !to)) {
+      setError("Please select a valid date range.");
+      return;
+    }
+
+    if (!hasSearch && (!from || !to)) {
       setError("Please select a valid date range.");
       return;
     }
@@ -44,7 +60,17 @@ export default function LogsTable() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getLogs({ from, to, limit });
+      const data = hasSearch
+        ? await searchLogs({
+            q: trimmedQuery || undefined,
+            from: from || undefined,
+            to: to || undefined,
+            session_id: trimmedSession || undefined,
+            status: trimmedStatus || undefined,
+            limit,
+            offset: 0,
+          })
+        : await getLogs({ from, to, limit });
       const entries = Array.isArray(data?.data) ? data.data : [];
       setLogs(entries);
     } catch (err) {
@@ -52,27 +78,42 @@ export default function LogsTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [fromDate, limit, toDate]);
+  }, [fromDate, limit, query, sessionId, status, toDate]);
 
   useEffect(() => {
-    fetchLogs();
+    const timeout = window.setTimeout(() => {
+      fetchLogs();
+    }, 400);
+    return () => window.clearTimeout(timeout);
   }, [fetchLogs]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <LogsFilters
         fromDate={fromDate}
         toDate={toDate}
         limit={limit}
+        query={query}
+        sessionId={sessionId}
+        status={status}
         isLoading={isLoading}
         onFromChange={setFromDate}
         onToChange={setToDate}
         onLimitChange={setLimit}
+        onQueryChange={setQuery}
+        onSessionIdChange={setSessionId}
+        onStatusChange={setStatus}
         onRefresh={fetchLogs}
       />
       {error && <div className="text-sm text-destructive">{error}</div>}
-      <div className="max-h-[60vh] overflow-auto">
-        <LogsAccordion logs={logs} isLoading={isLoading} />
+      <div className="flex-1 min-h-0 overflow-auto">
+        {isLoading && logs.length === 0 ? (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 text-sm text-muted-foreground">
+            Loading logs...
+          </div>
+        ) : (
+          <LogsAccordion logs={logs} isLoading={isLoading} />
+        )}
       </div>
     </div>
   );
