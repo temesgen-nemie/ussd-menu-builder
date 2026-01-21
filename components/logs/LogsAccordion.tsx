@@ -23,11 +23,9 @@ export type LogEntry = {
   service_name?: string;
   environment?: string;
   session_id?: string | null;
-  trace_id?: string | null;
-  user_id?: string | null;
   Request?: unknown;
   Response?: unknown;
-  device_info?: unknown;
+  [key: string]: unknown;
 };
 
 type LogsAccordionProps = {
@@ -42,10 +40,51 @@ const formatTime = (value?: string) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+const normalizePayload = (value: unknown) => {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value;
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.body === "string") {
+    const trimmed = record.body.trim();
+    if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+      return { ...record, body: formatXml(trimmed) };
+    }
+    try {
+      const parsedBody = JSON.parse(record.body);
+      return { ...record, body: parsedBody };
+    } catch {
+      return value;
+    }
+  }
+  return value;
+};
+
+const formatXml = (xml: string) => {
+  const formatted = xml
+    .replace(/>\s*</g, "><")
+    .replace(/></g, ">\n<");
+
+  const lines = formatted.split("\n");
+  let indent = 0;
+  return lines
+    .map((line) => {
+      if (/^<\/.+>/.test(line)) {
+        indent = Math.max(indent - 1, 0);
+      }
+      const pad = "  ".repeat(indent);
+      if (/^<[^!?/][^>]*[^/]>$/.test(line)) {
+        indent += 1;
+      }
+      return `${pad}${line}`;
+    })
+    .join("\n");
+};
+
 const formatValue = (value: unknown) => {
   if (value === null || value === undefined || value === "") return "--";
   if (typeof value === "string" || typeof value === "number") return String(value);
-  return JSON.stringify(value, null, 2);
+  return JSON.stringify(normalizePayload(value), null, 2);
 };
 
 const formatTimestamp = (value: unknown) => {
@@ -110,7 +149,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
         <Accordion type="single" collapsible>
           {logs.length === 0 && !isLoading ? (
             <div className="py-10 text-center text-muted-foreground">
-              No logs found for this range.
+              No logs found.
             </div>
           ) : (
             logs.map((log, index) => {
@@ -120,6 +159,29 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 typeof log.durationMs === "number"
                   ? `${log.durationMs}ms`
                   : "--";
+
+              const knownKeys = new Set([
+                "timestamp",
+                "level",
+                "method",
+                "path",
+                "status",
+                "statusCode",
+                "durationMs",
+                "ip",
+                "ip_address",
+                "message",
+                "Message",
+                "action",
+                "service_name",
+                "environment",
+                "session_id",
+                "Request",
+                "Response",
+              ]);
+              const extraDetails = Object.entries(log)
+                .filter(([key, value]) => !knownKeys.has(key) && value !== undefined)
+                .map<[string, unknown]>(([key, value]) => [key, value]);
 
               const details: Array<[string, unknown]> = [
                 ["Timestamp", formatTimestamp(log.timestamp)],
@@ -135,11 +197,9 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 ["Service", log.service_name],
                 ["Environment", log.environment],
                 ["Session ID", log.session_id],
-                ["Trace ID", log.trace_id],
-                ["User ID", log.user_id],
                 ["Request", log.Request],
                 ["Response", log.Response],
-                ["Device Info", log.device_info],
+                ...extraDetails,
               ];
 
               return (
@@ -224,7 +284,13 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                               </span>
                             </div>
                           ) : (
-                            <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-foreground">
+                            <pre
+                              className={`mt-2 whitespace-pre-wrap break-words text-xs text-foreground ${
+                                ["Request", "Response", "Device Info"].includes(label)
+                                  ? "max-h-56 overflow-auto"
+                                  : ""
+                              }`}
+                            >
                               {formatValue(value)}
                             </pre>
                           )}

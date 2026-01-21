@@ -207,4 +207,33 @@ export const getLogs = async (params: {
     }
 };
 
+export const searchLogs = async (params: {
+    q?: string;
+    from?: string;
+    to?: string;
+    session_id?: string;
+    user_id?: string;
+    action?: string;
+    status?: string | number;
+    limit?: number;
+    offset?: number;
+}) => {
+    try {
+        const response = await api.get("/admin/logs/search", { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to search logs (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
 export default api;
