@@ -23,11 +23,8 @@ export type LogEntry = {
   service_name?: string;
   environment?: string;
   session_id?: string | null;
-  trace_id?: string | null;
-  user_id?: string | null;
   Request?: unknown;
   Response?: unknown;
-  device_info?: unknown;
   [key: string]: unknown;
 };
 
@@ -179,11 +176,8 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 "service_name",
                 "environment",
                 "session_id",
-                "trace_id",
-                "user_id",
                 "Request",
                 "Response",
-                "device_info",
               ]);
               const extraDetails = Object.entries(log)
                 .filter(([key, value]) => !knownKeys.has(key) && value !== undefined)
@@ -203,11 +197,8 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 ["Service", log.service_name],
                 ["Environment", log.environment],
                 ["Session ID", log.session_id],
-                ["Trace ID", log.trace_id],
-                ["User ID", log.user_id],
                 ["Request", log.Request],
                 ["Response", log.Response],
-                ["Device Info", log.device_info],
                 ...extraDetails,
               ];
 
