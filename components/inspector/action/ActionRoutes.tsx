@@ -6,7 +6,7 @@ import TargetNodeDisplay from "../TargetNodeDisplay";
 type ActionRoutesProps = {
   routes: ActionRoute[];
   options: string[];
-  defaultNextNode: string;
+  defaultNextNode: any;
   onAddRoute: () => void;
   onRemoveRoute: (index: number) => void;
   onUpdateRoute: (index: number, route: ActionRoute) => void;
@@ -91,10 +91,10 @@ export default function ActionRoutes({
           </p>
         </div>
         <TargetNodeDisplay
-          nodeId={defaultNextNode}
-          label="Default Next Node"
-          title="Connect nodes on the canvas to set this value"
-        />
+        nodeId={defaultNextNode}
+        label="Default Next Node"
+        title="Connect nodes on the canvas to set this value"
+      />
       </div>
 
       <div className="border-t pt-4">

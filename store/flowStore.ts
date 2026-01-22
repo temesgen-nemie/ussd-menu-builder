@@ -91,8 +91,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     }
   });
 
-  const resolveTarget = (value?: string) => {
-    if (!value) return { id: "", name: "" };
+  const resolveTarget = (value?: string | unknown) => {
+    if (typeof value !== "string" || !value) return { id: "", name: "" };
     if (nameById.has(value)) {
       return { id: value, name: nameById.get(value) || value };
     }
@@ -120,7 +120,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
 
       if (node.type === "prompt") {
         const message = String(data.message ?? "");
-        const routingMode = String(data.routingMode ?? "menu");
+        const routingMode = String(data.routingMode ?? "linear");
         const nextNode = data.nextNode;
         const persistSourceField = String(data.persistSourceField ?? "");
         const persistFieldName = String(data.persistFieldName ?? "");
@@ -148,51 +148,73 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
         };
 
-        if (routingMode === "linear" && typeof nextNode === "string") {
-          const resolved = resolveTarget(nextNode);
+        if (routingMode === "linear") {
+          // If in linear mode, nextNode should be a string (the target node Name/ID)
+          // If currently an object, try to extract 'default'
+          let targetStr = "";
+          if (typeof nextNode === "string") {
+            targetStr = nextNode;
+          } else if (nextNode && typeof nextNode === "object") {
+            targetStr = (nextNode as any).default || "";
+          }
+
+          const resolved = resolveTarget(targetStr);
           return {
             ...base,
             message,
             ...promptExtras,
-            nextNode: resolved.name,
-            nextNodeId: resolved.id,
+            nextNode: resolved.name || "",
+            nextNodeId: resolved.id || "",
           };
         }
+
+        // routingMode === "menu" (or fallback)
+        // Ensure we handle nextNode being either a string or an object
+        let routes: FlowRoute[] = [];
+        let defaultName = "";
+        let defaultId = "";
 
         if (nextNode && typeof nextNode === "object") {
           const nextObj = nextNode as {
             routes?: Array<{
               when?: Record<string, unknown>;
               gotoFlow?: string;
+              goto?: string;
+              gotoId?: string;
             }>;
             default?: string;
           };
-          const routes = (nextObj.routes || []).map((route) => {
-            const target = resolveTarget(route.gotoFlow || "");
+          routes = (nextObj.routes || []).map((route) => {
+            const target = resolveTarget(route.gotoFlow || route.goto || "");
             const targetType = typeById.get(target.id);
             const isGroup = targetType === "group";
 
             return {
               when: route.when,
               [isGroup ? "gotoFlow" : "goto"]:
-                target.name || route.gotoFlow || "",
-              gotoId: target.id,
+                target.name || route.gotoFlow || route.goto || "",
+              gotoId: target.id || "",
             } as FlowRoute;
           });
           const defaultResolved = resolveTarget(nextObj.default || "");
-          return {
-            ...base,
-            message,
-            ...promptExtras,
-            nextNode: {
-              routes,
-              default: defaultResolved.name,
-              defaultId: defaultResolved.id,
-            },
-          };
+          defaultName = defaultResolved.name || "";
+          defaultId = defaultResolved.id || "";
+        } else if (typeof nextNode === "string" && nextNode) {
+          const resolved = resolveTarget(nextNode);
+          defaultName = resolved.name || "";
+          defaultId = resolved.id || "";
         }
 
-        return { ...base, message, ...promptExtras };
+        return {
+          ...base,
+          message,
+          ...promptExtras,
+          nextNode: {
+            routes,
+            default: defaultName,
+            defaultId: defaultId,
+          },
+        };
       }
 
       if (node.type === "action") {
@@ -224,7 +246,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           };
         });
 
-        const defaultResolved = resolveTarget(String(data.nextNode ?? ""));
+        const nextNodeRaw = typeof data.nextNode === "string"
+          ? data.nextNode
+          : (data.nextNode && typeof data.nextNode === "object" ? (data.nextNode as any).default : "");
+        const defaultResolved = resolveTarget(nextNodeRaw || "");
 
         return {
           ...base,
@@ -241,8 +266,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           persistResponseMapping: Boolean(data.persistResponseMapping),
           nextNode: {
             routes,
-            default: defaultResolved.name,
-            defaultId: defaultResolved.id,
+            default: defaultResolved.name || "",
+            defaultId: defaultResolved.id || "",
           },
         };
       }

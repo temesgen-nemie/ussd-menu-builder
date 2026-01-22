@@ -80,7 +80,7 @@ export default function NodePalette() {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
-          ? { message: "" }
+          ? { message: "", routingMode: "linear" }
           : type === "action"
           ? { endpoint: "" }
           : { flowName: "", entryNode: "" };

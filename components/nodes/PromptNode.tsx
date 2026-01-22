@@ -44,7 +44,7 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
       </div>
 
       {/* Menu Mode: Show Logic Rules (No Handles) */}
-      {(!data.routingMode || data.routingMode === "menu") && (
+      {data.routingMode === "menu" && (
         <div className="mt-3 pt-2 border-t border-gray-100 space-y-1">
           {/* Check if nextNode has routes (Logic Mode) */}
           {data.nextNode &&
@@ -107,7 +107,7 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
       )}
 
       {/* Linear Mode Indicator */}
-      {data.routingMode === "linear" && (
+      {(data.routingMode === "linear" || !data.routingMode) && (
         <div className="mt-3 text-center">
           <div className="text-[10px] text-gray-400 mb-1">
             Input Collection Mode
@@ -118,7 +118,7 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
       <Handle type="target" position={Position.Top} />
 
       {/* Linear Mode: Default Bottom Handle */}
-      {data.routingMode === "linear" && (
+      {(data.routingMode === "linear" || !data.routingMode) && (
         <Handle type="source" position={Position.Bottom} />
       )}
 

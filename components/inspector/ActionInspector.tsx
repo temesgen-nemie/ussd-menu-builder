@@ -569,7 +569,7 @@ export default function ActionInspector({
                 <ActionRoutes
                   routes={node.data.routes || []}
                   options={responseOptions}
-                  defaultNextNode={String(node.data.nextNode ?? "")}
+                  defaultNextNode={node.data.nextNode}
                   onAddRoute={() => {
                     const currentRoutes = node.data.routes || [];
                     const defaultPath = responseOptions[0] || "";
@@ -680,7 +680,7 @@ export default function ActionInspector({
               </label>
               <input
                 className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-gray-50 shadow-sm text-sm text-gray-500"
-                value={String(node.data.nextNode ?? "")}
+                value={node.data.nextNode}
                 readOnly
                 placeholder="Connect on canvas"
                 title="Connect the default handle to set this value"
