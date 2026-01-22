@@ -236,4 +236,27 @@ export const searchLogs = async (params: {
     }
 };
 
+export const getAuditEvents = async (params: {
+    from: string;
+    to: string;
+    limit: number;
+}) => {
+    try {
+        const response = await axios.get("https://ussdtool.profilesage.com/audit-events", { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to fetch audit events (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
 export default api;

@@ -166,12 +166,12 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
 
   const modalStyle: CSSProperties = {
     position: "fixed",
-    left: `calc(50% + ${offset.x}px + 300px)`,
-    top: `calc(50% + ${offset.y}px + 450px)`,
+    left: `calc(50% + ${offset.x}px + clamp(80px, 12vw, 300px))`,
+    top: `calc(50% + ${offset.y}px + clamp(450px, 18vh, 450px))`,
     transform: "translate(-50%, -50%)",
     width: size.width > 0 ? size.width : undefined,
     height: size.height > 0 ? size.height : undefined,
-    maxHeight: "90vh",
+    maxHeight: "70vh",
     maxWidth: "95vw",
   };
 
