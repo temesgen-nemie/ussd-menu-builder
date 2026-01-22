@@ -17,7 +17,8 @@ export type ActionNodeData = {
   apiBody?: Record<string, unknown>;
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
-  persistResponseMapping?: boolean;
+  persistResponseMappingKeys?: string[];
+  encryptResponseMappingKeys?: string[];
   routes?: ActionRoute[];
   nextNode?: string;
 };
