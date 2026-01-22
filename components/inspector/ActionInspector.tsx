@@ -5,7 +5,7 @@ import ActionHeader from "./action/ActionHeader";
 import ActionRoutes from "./action/ActionRoutes";
 import BodyEditor from "./action/BodyEditor";
 import HeadersEditor from "./action/HeadersEditor";
-import PersistToggle from "./action/PersistToggle";
+
 import RequestBar from "./action/RequestBar";
 import ResponseViewer from "./action/ResponseViewer";
 import ResponseMappingEditor from "./action/ResponseMappingEditor";
@@ -35,13 +35,17 @@ export default function ActionInspector({
     }));
   });
   const [mappingPairs, setMappingPairs] = React.useState<
-    Array<{ id: string; key: string; value: string }>
+    Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>
   >(() => {
     const mapping = node.data.responseMapping || {};
+    const persisted = new Set(node.data.persistResponseMappingKeys || []);
+    const encrypted = new Set(node.data.encryptResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value]) => ({
       id: Math.random().toString(36).substr(2, 9),
       key,
       value: String(value),
+      persist: persisted.has(key),
+      encrypt: encrypted.has(key),
     }));
   });
   const [apiBodyError, setApiBodyError] = React.useState<string | null>(null);
@@ -54,7 +58,7 @@ export default function ActionInspector({
   const [responseError, setResponseError] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<
-    "params" | "headers" | "body" | "responseMapping" | "persist" | "routing"
+    "params" | "headers" | "body" | "responseMapping" | "routing"
   >("params");
   const [sourceMode, setSourceMode] = React.useState<"api" | "local">("api");
   const [curlText, setCurlText] = React.useState<string>("");
@@ -118,14 +122,22 @@ export default function ActionInspector({
   }, [responseBody, buildResponseOptions]);
 
   const syncResponseMapping = React.useCallback(
-    (pairs: Array<{ id: string; key: string; value: string }>) => {
+    (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
       const mapping: Record<string, string> = {};
+      const persistKeys: string[] = [];
+      const encryptKeys: string[] = [];
       pairs.forEach((pair) => {
         if (pair.key.trim()) {
           mapping[pair.key] = pair.value;
+          if (pair.persist) persistKeys.push(pair.key.trim());
+          if (pair.encrypt) encryptKeys.push(pair.key.trim());
         }
       });
-      updateNodeData(node.id, { responseMapping: mapping });
+      updateNodeData(node.id, { 
+        responseMapping: mapping,
+        persistResponseMappingKeys: persistKeys,
+        encryptResponseMappingKeys: encryptKeys
+      });
     },
     [node.id, updateNodeData]
   );
@@ -443,16 +455,6 @@ export default function ActionInspector({
               </button>
               <button
                 className={`px-3 py-1 text-xs font-medium rounded-md ${
-                  activeSection === "persist"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                onClick={() => setActiveSection("persist")}
-              >
-                Persist Response Mapping
-              </button>
-              <button
-                className={`px-3 py-1 text-xs font-medium rounded-md ${
                   activeSection === "routing"
                     ? "bg-indigo-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -537,7 +539,7 @@ export default function ActionInspector({
                   onAdd={() => {
                     const next = [
                       ...mappingPairs,
-                      { id: generateId(), key: "", value: "" },
+                      { id: generateId(), key: "", value: "", persist: false, encrypt: false },
                     ];
                     setMappingPairs(next);
                   }}
@@ -546,9 +548,9 @@ export default function ActionInspector({
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
-                  onUpdate={(id, key, value) => {
+                  onUpdate={(id, key, value, persist, encrypt) => {
                     const next = mappingPairs.map((pair) =>
-                      pair.id === id ? { ...pair, key, value } : pair
+                      pair.id === id ? { ...pair, key, value, persist, encrypt } : pair
                     );
                     setMappingPairs(next);
                     syncResponseMapping(next);
@@ -556,14 +558,7 @@ export default function ActionInspector({
                 />
               )}
 
-              {activeSection === "persist" && (
-                <PersistToggle
-                  persistResponseMapping={Boolean(node.data.persistResponseMapping)}
-                  onPersistResponseMappingChange={(value) =>
-                    updateNodeData(node.id, { persistResponseMapping: value })
-                  }
-                />
-              )}
+
 
               {activeSection === "routing" && (
                 <ActionRoutes

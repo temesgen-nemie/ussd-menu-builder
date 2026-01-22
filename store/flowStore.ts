@@ -263,7 +263,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
           responseMapping:
             (data.responseMapping as Record<string, unknown>) || undefined,
-          persistResponseMapping: Boolean(data.persistResponseMapping),
+          persistResponseMappingKeys: (data.persistResponseMappingKeys as string[]) || undefined,
+          encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
           nextNode: {
             routes,
             default: defaultResolved.name || "",
