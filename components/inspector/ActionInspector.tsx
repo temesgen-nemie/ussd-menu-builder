@@ -674,18 +674,6 @@ export default function ActionInspector({
                 <option value="singleValue">singleValue</option>
               </select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">
-                Next Node
-              </label>
-              <input
-                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-gray-50 shadow-sm text-sm text-gray-500"
-                value={node.data.nextNode}
-                readOnly
-                placeholder="Connect on canvas"
-                title="Connect the default handle to set this value"
-              />
-            </div>
           </div>
         </div>
       )}
