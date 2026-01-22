@@ -171,7 +171,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
     transform: "translate(-50%, -50%)",
     width: size.width > 0 ? size.width : undefined,
     height: size.height > 0 ? size.height : undefined,
-    maxHeight: "90vh",
+    maxHeight: "70vh",
     maxWidth: "95vw",
   };
 
