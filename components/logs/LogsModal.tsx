@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsTable from "@/components/logs/LogsTable";
 
@@ -11,14 +11,27 @@ type LogsModalProps = {
 
 type TabKey = "fetch" | "live";
 
-export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
+type LogsModalContentProps = {
+  onOpenChange: (open: boolean) => void;
+};
+
+const getInitialSize = () => {
+  if (typeof window === "undefined") {
+    return { width: 1100, height: 760 };
+  }
+  const width = Math.min(window.innerWidth * 0.9, 1100);
+  const height = Math.min(window.innerHeight * 0.85, 760);
+  return { width, height };
+};
+
+function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("fetch");
   const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
   const [liveRaw, setLiveRaw] = useState<string[]>([]);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [isTerminalMode, setIsTerminalMode] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [size, setSize] = useState(getInitialSize);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -28,25 +41,10 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
     width: 0,
     height: 0,
   });
-  const [isReady, setIsReady] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
-    if (!open) {
-      setIsReady(false);
-      return;
-    }
-    const width = Math.min(window.innerWidth * 0.9, 1100);
-    const height = Math.min(window.innerHeight * 0.85, 760);
-    setSize({ width, height });
-    setOffset({ x: 0, y: 0 });
-    setIsReady(true);
-  }, [open]);
-
   useEffect(() => {
-    if (!open) return;
-
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(
       `${wsProtocol}://ussdtool.profilesage.com/admin/logs/stream`
@@ -83,7 +81,7 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
     return () => {
       socket.close();
     };
-  }, [open]);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -123,8 +121,6 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
     if (!node) return;
     node.scrollTop = node.scrollHeight;
   }, [activeTab, isTerminalMode, liveRaw]);
-
-  if (!open || !isReady) return null;
 
   const parseNestedJson = (value: unknown, depth = 0): unknown => {
     if (depth > 4) return value;
@@ -170,8 +166,8 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
 
   const modalStyle: CSSProperties = {
     position: "fixed",
-    left: `calc(50% + ${offset.x}px)`,
-    top: `calc(50% + ${offset.y}px + 486px)`,
+    left: `calc(50% + ${offset.x}px + 300px)`,
+    top: `calc(50% + ${offset.y}px + 450px)`,
     transform: "translate(-50%, -50%)",
     width: size.width > 0 ? size.width : undefined,
     height: size.height > 0 ? size.height : undefined,
@@ -180,7 +176,7 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100000] pointer-events-none">
+    <div className="fixed inset-0 z-100000 pointer-events-none">
       <div
         ref={modalRef}
         style={modalStyle}
@@ -302,7 +298,7 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
                         .map((line, index) => (
                           <pre
                             key={`${index}-${line.slice(0, 24)}`}
-                            className="mb-3 whitespace-pre-wrap break-words rounded-lg border border-border/60 bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60"
+                            className="mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border border-border/60 bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60"
                           >
                             {formatTerminalLine(line)}
                           </pre>
@@ -335,4 +331,9 @@ export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
       </div>
     </div>
   );
+}
+
+export default function LogsModal({ open, onOpenChange }: LogsModalProps) {
+  if (!open) return null;
+  return <LogsModalContent onOpenChange={onOpenChange} />;
 }
