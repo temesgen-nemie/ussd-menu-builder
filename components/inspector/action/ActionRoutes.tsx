@@ -23,7 +23,7 @@ export default function ActionRoutes({
   const operatorOptions = [
     { value: "eq", label: "Equals" },
     { value: "ne", label: "Not Equals" },
-    { value: "contains", label: "Contains" },
+    { value: "like", label: "Like" },
   ];
 
   const coerceValue = (raw: string) => {
