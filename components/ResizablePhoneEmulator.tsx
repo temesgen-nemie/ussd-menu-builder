@@ -166,8 +166,8 @@ export default function ResizablePhoneEmulator({
       handle=".phone-frame" 
       nodeRef={nodeRef}
       defaultPosition={{
-        x: typeof window !== "undefined" ? (window.innerWidth - 500) / 2 : 0,
-        y: typeof window !== "undefined" ? (window.innerHeight - 600) / 2 : 100
+        x: 40,
+        y: typeof window !== "undefined" ? (window.innerHeight - 600) / 2 : 50
       }}
     >
       <div 

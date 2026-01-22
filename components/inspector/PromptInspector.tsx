@@ -67,7 +67,7 @@ export default function PromptInspector({
         </div>
 
         {/* Menu Mode: Logic Routing Rules */}
-        {(!node.data.routingMode || node.data.routingMode === "menu") && (
+        {node.data.routingMode === "menu" && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-gray-600">
@@ -229,9 +229,9 @@ export default function PromptInspector({
         )}
 
         {/* Linear Mode: Show Next Node ID */}
-        {node.data.routingMode === "linear" && (
+        {(node.data.routingMode === "linear" || !node.data.routingMode) && (
           <TargetNodeDisplay
-            nodeId={String(node.data.nextNode ?? "")}
+            nodeId={node.data.nextNode}
             label="Next Node"
             title="Connect the Prompt Node bottom handle on the canvas"
           />

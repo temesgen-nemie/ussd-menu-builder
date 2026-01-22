@@ -3,7 +3,7 @@
 import { useFlowStore } from "../../store/flowStore";
 
 type TargetNodeDisplayProps = {
-  nodeId: string;
+  nodeId: any;
   label: string;
   placeholder?: string;
   title?: string;
@@ -17,7 +17,19 @@ export default function TargetNodeDisplay({
   title,
   className = "" 
 }: TargetNodeDisplayProps) {
-  const targetNode = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId));
+  const safeNodeId = (id: any): string => {
+    if (typeof id !== "string") {
+      if (id && typeof id === "object") {
+        return (id.defaultId || id.default || "") as string;
+      }
+      return "";
+    }
+    if (id === "[object Object]" || id === "undefined" || id === "null") return "";
+    return id;
+  };
+
+  const cleanNodeId = safeNodeId(nodeId);
+  const targetNode = useFlowStore((s) => s.nodes.find((n) => n.id === cleanNodeId));
   const targetName = targetNode?.data?.name;
   const isGroup = targetNode?.type === "group";
 
@@ -29,20 +41,20 @@ export default function TargetNodeDisplay({
       <div className="flex items-center gap-2 group">
         <div className="flex-1 relative">
            <input
-             className={`w-full rounded-xl border border-gray-100 p-2.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-xs font-mono transition-all group-hover:bg-gray-50 ${nodeId ? 'pr-8' : ''}`}
-             value={nodeId || ""}
+             className={`w-full rounded-xl border border-gray-100 p-2.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-xs font-mono transition-all group-hover:bg-gray-50 ${cleanNodeId ? 'pr-8' : ''}`}
+             value={cleanNodeId}
              placeholder={placeholder}
              readOnly
              title={title}
            />
-           {nodeId && (
+           {cleanNodeId && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 font-bold">
                 ID
               </div>
            )}
         </div>
         
-        {nodeId && (
+        {cleanNodeId && (
           <div className="flex-[1.5] animate-in slide-in-from-left-2 fade-in duration-300">
              <div className={`w-full rounded-xl border p-2.5 shadow-sm flex items-center gap-2 ${
                isGroup 
