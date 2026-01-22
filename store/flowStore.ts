@@ -146,6 +146,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               ? data.PersistInput
               : undefined,
           PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
+          responseType: (data.responseType as string) || "CONTINUE",
         };
 
         if (routingMode === "linear") {

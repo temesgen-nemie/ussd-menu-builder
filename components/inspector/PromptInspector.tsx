@@ -32,6 +32,7 @@ type PromptNodeData = {
   emptyInputMessage?: string;
   PersistInput?: boolean;
   PersistInputAs?: string;
+  responseType?: "CONTINUE" | "END";
 };
 
 type PromptNode = {
@@ -253,6 +254,22 @@ export default function PromptInspector({
           >
             <option value="menu">Menu (Branching)</option>
             <option value="linear">Linear (Input Collection)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-gray-600">
+            Response Type
+          </label>
+          <select
+            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm text-gray-900"
+            value={node.data.responseType ?? "CONTINUE"}
+            onChange={(e) =>
+              updateNodeData(node.id, { responseType: e.target.value })
+            }
+          >
+            <option value="CONTINUE">CONTINUE</option>
+            <option value="END">END</option>
           </select>
         </div>
 
