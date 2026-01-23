@@ -3,7 +3,7 @@ import { useFlowStore } from "../../store/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
 export default function GroupNode({ id, data, selected }: NodeProps) {
-  const { enterSubflow, refreshFlow, isLoading, publishedFlows, modifiedFlows } = useFlowStore();
+  const { enterSubflow, refreshFlow, isLoading, publishedGroupIds, modifiedGroupIds } = useFlowStore();
   
   // Get children count from store
   const { childrenCount, flowName } = useFlowStore(
@@ -19,8 +19,8 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
   );
 
   const isMenuBranch = data.isMenuBranch === true;
-  const isPublished = flowName && publishedFlows.includes(flowName);
-  const isModified = flowName && modifiedFlows.includes(flowName);
+  const isPublished = publishedGroupIds.includes(id);
+  const isModified = modifiedGroupIds.includes(id);
 
   return (
     <div

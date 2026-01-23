@@ -2,7 +2,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3 } from "lucide-react";
+import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3, FileUp } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ModeToggle } from "./ModeToggle";
@@ -27,7 +27,7 @@ import LogsModal from "./logs/LogsModal";
 import { fetchSettings, saveSettings, SettingsPayload } from "../lib/api";
 
 export default function NodePalette() {
-  const { addNode, rfInstance, nodes, currentSubflowId } = useFlowStore();
+  const { addNode, rfInstance, nodes, currentSubflowId, importSubflow } = useFlowStore();
   const {
     endpoints: cachedEndpoints,
     lastFetched,
@@ -234,6 +234,33 @@ export default function NodePalette() {
               </span>
               Start
             </button>
+            <div className="h-6 w-px bg-border mx-1" />
+            <div className="relative group">
+              <input
+                type="file"
+                accept=".json"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const text = event.target?.result;
+                    if (typeof text === "string") {
+                      importSubflow(text, getCenteredPosition());
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value = ""; // Reset
+                }}
+              />
+              <button className="flex items-center gap-2 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-all shadow-sm group-hover:shadow group-active:scale-95">
+                <span className="rounded-sm bg-amber-700 p-1">
+                  <FileUp className="h-4 w-4 text-white" />
+                </span>
+                Import
+              </button>
+            </div>
           </div>
         </div>
 
