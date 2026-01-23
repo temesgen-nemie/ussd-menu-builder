@@ -830,14 +830,16 @@ export const useFlowStore = create<FlowState>()(
             flow: buildFlowJson(finalNodes, mergedEdges),
             publishedGroupIds: publishedGroupIdsFromBackend,
             modifiedGroupIds: get().modifiedGroupIds.filter(groupId => {
-              const info = getParentGroupInfo(finalNodes, groupId);
-              const flowName = info?.flowName;
+              // Find the flow name for THIS group by looking at its own Start node
+              const groupChildren = finalNodes.filter(n => n.parentNode === groupId);
+              const startNode = groupChildren.find(n => n.type === 'start');
+              const flowName = startNode?.data?.flowName;
+
               if (!flowName || !allBackendFlowNames.includes(flowName)) return true;
+
               // Only clear if no nodes in this flow are "local-only"
-              const hasLocalOnly = finalNodes.some(n => {
-                const nodeInfo = getParentGroupInfo(finalNodes, n.id);
-                return nodeInfo?.groupId === groupId && !backendNodeMap.has(n.id);
-              });
+              // (i.e., everything in the group exists in the backend)
+              const hasLocalOnly = groupChildren.some(n => !backendNodeMap.has(n.id));
               return hasLocalOnly;
             }),
           });
