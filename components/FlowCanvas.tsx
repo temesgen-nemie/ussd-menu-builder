@@ -84,8 +84,8 @@ export default function FlowCanvas() {
     copyNodes,
     pasteNodes,
     clipboard,
-    publishedFlows,
-    modifiedFlows,
+    publishedGroupIds,
+    modifiedGroupIds,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -124,14 +124,21 @@ export default function FlowCanvas() {
           left: event.clientX,
         });
       }
+      // Viewport-aware positioning
+      const menuWidth = 224; // w-56
+      const menuHeight = 350; // estimate
+      let left = event.clientX;
+      let top = event.clientY;
+
+      if (left + menuWidth > window.innerWidth) left -= menuWidth;
+      if (top + menuHeight > window.innerHeight) top -= menuHeight;
+
       // Show menu for all node types
-      else {
-        setMenu({
-          id: node.id,
-          top: event.clientY,
-          left: event.clientX,
-        });
-      }
+      setMenu({
+        id: node.id,
+        top,
+        left,
+      });
     },
     [visibleNodes, setMenu]
   );
@@ -141,19 +148,27 @@ export default function FlowCanvas() {
       event.preventDefault();
       const selectedNodes = visibleNodes.filter((n) => n.selected);
 
-      // Show grouping menu if multiple nodes are selected
+      // Viewport-aware positioning
+      const menuWidth = 224; // w-56
+      const menuHeight = 200; // estimate for pane menu
+      let left = event.clientX;
+      let top = event.clientY;
+
+      if (left + menuWidth > window.innerWidth) left -= menuWidth;
+      if (top + menuHeight > window.innerHeight) top -= menuHeight;
+
       if (selectedNodes.length > 1) {
         setMenu({
           id: "selection",
-          top: event.clientY,
-          left: event.clientX,
+          top,
+          left,
         });
       } else {
         // Show "Empty Group / Paste" menu
         setMenu({
           id: "pane",
-          top: event.clientY,
-          left: event.clientX,
+          top,
+          left,
         });
       }
     },
@@ -650,12 +665,12 @@ export default function FlowCanvas() {
         {menu && (
           <div
             style={{ top: menu.top, left: menu.left }}
-            className="fixed z-[1000] bg-white/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] rounded-2xl border border-indigo-50 py-2.5 w-64 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+            className="fixed z-[1000] bg-white/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-2xl border border-indigo-50 py-1.5 w-56 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
             onClick={() => setMenu(null)}
           >
             {menu.id === "selection" ? (
               <button
-                className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
                   const selectedIds = visibleNodes
                     .filter((n) => n.selected)
@@ -663,10 +678,10 @@ export default function FlowCanvas() {
                   openNamer(selectedIds);
                 }}
               >
-                <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
+                    className="h-3.5 w-3.5"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -684,16 +699,16 @@ export default function FlowCanvas() {
             ) : menu.id === "pane" ? (
               <div className="flex flex-col gap-0.5">
                 <button
-                  className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                   onClick={() => {
                     // Open namer with empty array to signify "Create Empty Group"
                     openNamer([]);
                   }}
                 >
-                  <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                  <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
+                      className="h-3.5 w-3.5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -710,16 +725,16 @@ export default function FlowCanvas() {
                 </button>
                 {clipboard && clipboard.length > 0 && (
                   <button
-                    className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                     onClick={() => {
                       pasteNodes();
                       setMenu(null);
                     }}
                   >
-                    <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                    <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
+                        className="h-3.5 w-3.5"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -741,13 +756,13 @@ export default function FlowCanvas() {
                 {nodes.find((n) => n.id === menu.id)?.type === "group" && (
                   <div className="flex flex-col gap-0.5">
                     <button
-                      className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                       onClick={() => enterSubflow(menu.id)}
                     >
-                      <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                      <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
+                          className="h-3.5 w-3.5"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -763,7 +778,7 @@ export default function FlowCanvas() {
                       Enter Group
                     </button>
                     <button
-                      className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-bold transition-all group/item ${
+                      className={`w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold transition-all group/item ${
                         nodes.find((n) => n.id === menu.id)?.data.isMenuBranch
                           ? "text-indigo-600 hover:bg-indigo-50"
                           : "text-emerald-600 hover:bg-emerald-50"
@@ -778,7 +793,7 @@ export default function FlowCanvas() {
                       }}
                     >
                       <div
-                        className={`p-2 rounded-xl group-hover/item:text-white transition-colors ${
+                        className={`p-1.5 rounded-lg group-hover/item:text-white transition-colors ${
                           nodes.find((n) => n.id === menu.id)?.data.isMenuBranch
                             ? "bg-indigo-100 group-hover/item:bg-indigo-600"
                             : "bg-emerald-100 group-hover/item:bg-emerald-600"
@@ -786,7 +801,7 @@ export default function FlowCanvas() {
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
+                          className="h-3.5 w-3.5"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -804,13 +819,13 @@ export default function FlowCanvas() {
                         : "Convert to Menu Branch"}
                     </button>
                     <button
-                      className="w-full flex items-center gap-3 px-5 py-3 text-sm text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item"
                       onClick={() => openGroupJson(menu.id)}
                     >
-                      <div className="p-2 bg-emerald-100 rounded-xl group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
+                      <div className="p-1.5 bg-emerald-100 rounded-lg group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
+                          className="h-3.5 w-3.5"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -834,20 +849,19 @@ export default function FlowCanvas() {
                         (n) => n.type === "start"
                       );
                       const flowName = (startNode?.data as any)?.flowName;
-                      const isPublished =
-                        flowName && publishedFlows.includes(flowName);
-                      const isModified = flowName && modifiedFlows.includes(flowName);
+                      const isPublished = publishedGroupIds.includes(menu.id);
+                      const isModified = modifiedGroupIds.includes(menu.id);
 
                       if (!isPublished) {
                         return (
                           <button
-                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
                             onClick={() => publishGroup(menu.id)}
                           >
-                            <div className="p-2 bg-violet-100 rounded-xl group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
+                            <div className="p-1.5 bg-violet-100 rounded-lg group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
+                                className="h-3.5 w-3.5"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
@@ -868,16 +882,16 @@ export default function FlowCanvas() {
                       return (
                         <div className="flex flex-col gap-0.5">
                           <button
-                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
                             onClick={() => {
                               useFlowStore.getState().updatePublishedFlow(menu.id);
                               setMenu(null);
                             }}
                           >
-                            <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                            <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
+                                className="h-3.5 w-3.5"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
@@ -890,24 +904,24 @@ export default function FlowCanvas() {
                                 />
                               </svg>
                             </div>
-                            <div className="flex flex-col items-start">
+                            <div className="flex flex-col items-start translate-y-[1px]">
                               <span>Update to Backend</span>
-                              <span className="text-[10px] text-indigo-400 font-medium">
+                              <span className="text-[9px] text-indigo-400 font-medium leading-none">
                                 {isModified ? `Sync changes for '${flowName}'` : `Re-sync '${flowName}'`}
                               </span>
                             </div>
                           </button>
                           <button
-                            className="w-full flex items-center gap-3 px-5 py-3 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-all group/item border-b border-gray-50"
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 font-bold transition-all group/item border-b border-gray-50"
                             onClick={() => {
                               setDeleteModal({ isOpen: true, flowName });
                               setMenu(null);
                             }}
                           >
-                            <div className="p-2 bg-rose-100 rounded-xl group-hover/item:bg-rose-600 group-hover/item:text-white transition-colors">
+                            <div className="p-1.5 bg-rose-100 rounded-lg group-hover/item:bg-rose-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
+                                className="h-3.5 w-3.5"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
@@ -945,7 +959,7 @@ export default function FlowCanvas() {
                       return (
                         <button
                           disabled={isUngroupBlocked}
-                          className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-bold transition-all group/item ${
+                          className={`w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold transition-all group/item ${
                             isUngroupBlocked
                               ? "text-gray-400 cursor-not-allowed bg-gray-50"
                               : "text-red-600 hover:bg-red-50"
@@ -953,7 +967,7 @@ export default function FlowCanvas() {
                           onClick={() => ungroupNodes(menu.id)}
                         >
                           <div
-                            className={`p-2 rounded-xl transition-colors ${
+                            className={`p-1.5 rounded-lg transition-colors ${
                               isUngroupBlocked
                                 ? "bg-gray-200 text-gray-400"
                                 : "bg-red-100 group-hover/item:bg-red-600 group-hover/item:text-white"
@@ -961,7 +975,7 @@ export default function FlowCanvas() {
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
+                              className="h-3.5 w-3.5"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -974,10 +988,10 @@ export default function FlowCanvas() {
                               />
                             </svg>
                           </div>
-                          <div className="flex flex-col items-start">
+                          <div className="flex flex-col items-start translate-y-[1px]">
                             <span>Ungroup Items</span>
                             {isUngroupBlocked && (
-                              <span className="text-[10px] font-medium text-red-500">
+                              <span className="text-[9px] font-medium text-red-500 leading-none">
                                 Parent level already has a Start node
                               </span>
                             )}
@@ -989,13 +1003,13 @@ export default function FlowCanvas() {
                 )}
                 {nodes.find((n) => n.id === menu.id)?.type !== "group" && (
                   <button
-                    className="w-full flex items-center gap-3 px-5 py-3 text-sm text-red-600 hover:bg-red-50 font-bold transition-all group/item"
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-bold transition-all group/item"
                     onClick={() => removeNode(menu.id)}
                   >
-                    <div className="p-2 bg-red-100 rounded-xl group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
+                    <div className="p-1.5 bg-red-100 rounded-lg group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
+                        className="h-3.5 w-3.5"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1013,16 +1027,16 @@ export default function FlowCanvas() {
                 )}
 
                 <button
-                  className="w-full flex items-center gap-3 px-5 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-t border-gray-50"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-t border-gray-50"
                   onClick={() => {
                     copyNodes([menu.id]);
                     setMenu(null);
                   }}
                 >
-                  <div className="p-2 bg-indigo-100 rounded-xl group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                  <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
+                      className="h-3.5 w-3.5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"

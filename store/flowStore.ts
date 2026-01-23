@@ -56,24 +56,26 @@ export type FlowJson = {
 /**
  * Traces up the parent hierarchy of a node to find the nearest ancestor
  * container that defines a flow (contains a Start node).
+ * Returns both the groupId and the flowName.
  */
-const getParentFlowName = (nodes: Node[], nodeId: string): string | null => {
+const getParentGroupInfo = (nodes: Node[], nodeId: string): { groupId: string, flowName: string } | null => {
   const node = nodes.find(n => n.id === nodeId);
   if (!node) return null;
 
-  // We are looking for the flow name of the group this node belongs to.
-  // We need to look at the DIRECT children of this node's parent.
   const parentId = node.parentNode;
   if (!parentId) return null;
 
   const children = nodes.filter(n => n.parentNode === parentId);
   const startNode = children.find(n => n.type === 'start');
   if (startNode) {
-    return (startNode.data.flowName as string) || null;
+    return {
+      groupId: parentId,
+      flowName: (startNode.data.flowName as string) || ""
+    };
   }
 
   // If not found in immediate parent, trace up recursively
-  return getParentFlowName(nodes, parentId);
+  return getParentGroupInfo(nodes, parentId);
 };
 
 const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
@@ -346,14 +348,16 @@ interface FlowState {
   deletePublishedFlow: (flowName: string) => Promise<void>;
   syncNodeWithBackend: (nodeId: string, previousName?: string) => Promise<void>;
   isLoading: boolean;
-  publishedFlows: string[];
+  publishedGroupIds: string[];
   clipboard: Node[] | null;
   copyNodes: (nodeIds: string[]) => void;
   pasteNodes: () => void;
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
-  modifiedFlows: string[];
+  modifiedGroupIds: string[];
   updatePublishedFlow: (groupId: string) => Promise<void>;
+  getRecursiveSubflowJson: (groupId: string) => string;
+  importSubflow: (jsonText: string, position?: { x: number; y: number }) => void;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -375,12 +379,12 @@ export const useFlowStore = create<FlowState>()(
       namerModal: null,
       groupJsonModal: null,
       isLoading: false,
-      publishedFlows: [],
-      modifiedFlows: [],
+      publishedGroupIds: [],
+      modifiedGroupIds: [],
       clipboard: null,
       _hasHydrated: false,
       updatePublishedFlow: async (groupId: string) => {
-        const { nodes, edges, modifiedFlows } = get();
+        const { nodes, edges, modifiedGroupIds } = get();
         const children = nodes.filter((n) => n.parentNode === groupId);
         const childIds = children.map((n) => n.id);
         const relevantEdges = edges.filter(
@@ -403,7 +407,7 @@ export const useFlowStore = create<FlowState>()(
             loading: `Updating flow '${flowName}'...`,
             success: () => {
               set({
-                modifiedFlows: modifiedFlows.filter((f) => f !== flowName),
+                modifiedGroupIds: modifiedGroupIds.filter((id) => id !== groupId),
               });
               return `Flow '${flowName}' updated successfully!`;
             },
@@ -415,6 +419,120 @@ export const useFlowStore = create<FlowState>()(
         } catch (error) {
           console.error("Failed to trigger update", error);
         }
+      },
+      getRecursiveSubflowJson: (groupId: string) => {
+        const { nodes, edges } = get();
+        const allDescendants: Node[] = [];
+
+        const collectDescendants = (pid: string) => {
+          const children = nodes.filter((n) => n.parentNode === pid);
+          children.forEach((child) => {
+            allDescendants.push(child);
+            if (child.type === "group") {
+              collectDescendants(child.id);
+            }
+          });
+        };
+
+        collectDescendants(groupId);
+
+        const groupNode = nodes.find((n) => n.id === groupId);
+        const nodesToExport = groupNode ? [groupNode, ...allDescendants] : allDescendants;
+        const descendantIds = new Set(nodesToExport.map((n) => n.id));
+        const relevantEdges = edges.filter(
+          (e) => descendantIds.has(e.source) && descendantIds.has(e.target)
+        );
+
+        return JSON.stringify(buildFlowJson(nodesToExport, relevantEdges), null, 2);
+      },
+      importSubflow: (jsonText: string, position?: { x: number; y: number }) => {
+        let parsed: FlowJson;
+        try {
+          parsed = JSON.parse(jsonText) as FlowJson;
+        } catch {
+          toast.error("Invalid JSON content.");
+          return;
+        }
+
+        if (!parsed.visualState) {
+          toast.error("JSON lacks visual layout data for import.");
+          return;
+        }
+
+        const { nodes: currentNodes, edges: currentEdges, currentSubflowId } = get();
+        const idMap = new Map<string, string>();
+
+        parsed.visualState.nodes.forEach((n) => idMap.set(n.id, uuidv4()));
+
+        const incomingIds = new Set(parsed.visualState.nodes.map((n) => n.id));
+        const roots = parsed.visualState.nodes.filter(
+          (n) => !n.parentNode || !incomingIds.has(n.parentNode)
+        );
+
+        let offsetX = 0;
+        let offsetY = 0;
+        if (position && roots.length > 0) {
+          const avgX = roots.reduce((sum, n) => sum + n.position.x, 0) / roots.length;
+          const avgY = roots.reduce((sum, n) => sum + n.position.y, 0) / roots.length;
+          offsetX = position.x - avgX;
+          offsetY = position.y - avgY;
+        }
+
+        const newNodes: Node[] = parsed.visualState.nodes.map((n) => {
+          const isRoot = !n.parentNode || !incomingIds.has(n.parentNode);
+          const newId = idMap.get(n.id)!;
+          let parentNode = n.parentNode ? idMap.get(n.parentNode) : undefined;
+
+          if (isRoot) parentNode = currentSubflowId ?? undefined;
+
+          const data = { ...(n.data as Record<string, any>) };
+
+          if (data.nextNode && typeof data.nextNode === "object") {
+            if (data.nextNode.defaultId) data.nextNode.defaultId = idMap.get(data.nextNode.defaultId) || data.nextNode.defaultId;
+            if (data.nextNode.routes) {
+              data.nextNode.routes = data.nextNode.routes.map((r: any) => ({
+                ...r,
+                gotoId: idMap.get(r.gotoId) || r.gotoId
+              }));
+            }
+          }
+          if (data.routes) {
+            data.routes = data.routes.map((r: any) => ({
+              ...r,
+              nextNodeId: idMap.get(r.nextNodeId) || r.nextNodeId
+            }));
+          }
+          ["nextNodeId", "defaultId"].forEach(key => {
+            if (data[key]) data[key] = idMap.get(data[key]) || data[key];
+          });
+
+          return {
+            ...n,
+            id: newId,
+            parentNode,
+            position: isRoot ? { x: n.position.x + offsetX, y: n.position.y + offsetY } : n.position,
+            data,
+            selected: false,
+            extent: parentNode ? "parent" : undefined,
+          } as Node;
+        });
+
+        const newEdges: Edge[] = parsed.visualState.edges
+          .filter(e => idMap.has(e.source) && idMap.has(e.target))
+          .map(e => ({
+            ...e,
+            id: uuidv4(),
+            source: idMap.get(e.source)!,
+            target: idMap.get(e.target)!,
+            selected: false,
+          }));
+
+        set({
+          nodes: [...currentNodes, ...newNodes],
+          edges: [...currentEdges, ...newEdges],
+        });
+
+        toast.success(`Imported ${newNodes.length} nodes successfully.`);
       },
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -698,23 +816,28 @@ export const useFlowStore = create<FlowState>()(
           }
 
           const finalNodes = Array.from(nodeMap.values());
-          // For edges, we just take the merged list.
-          // We could dedupe edges too if needed, but the ID check above handles it?
-          // Sometimes edge IDs might regenerate or differ? ReactFlow usually relies on ID.
-          // Let's rely on ID uniqueness.
 
+          // Identify group IDs for published flows
+          const publishedGroupIdsFromBackend = flows.map(f => {
+            if (!f.visualState) return null;
+            const startNode = f.visualState.nodes.find(n => n.type === 'start');
+            return startNode?.parentNode;
+          }).filter((id): id is string => !!id);
 
           set({
             nodes: finalNodes,
             edges: mergedEdges,
             flow: buildFlowJson(finalNodes, mergedEdges),
-            publishedFlows: allBackendFlowNames,
-            modifiedFlows: get().modifiedFlows.filter(flowName => {
-              if (!allBackendFlowNames.includes(flowName)) return true;
+            publishedGroupIds: publishedGroupIdsFromBackend,
+            modifiedGroupIds: get().modifiedGroupIds.filter(groupId => {
+              const info = getParentGroupInfo(finalNodes, groupId);
+              const flowName = info?.flowName;
+              if (!flowName || !allBackendFlowNames.includes(flowName)) return true;
               // Only clear if no nodes in this flow are "local-only"
-              const hasLocalOnly = finalNodes.some(n =>
-                getParentFlowName(finalNodes, n.id) === flowName && !backendNodeMap.has(n.id)
-              );
+              const hasLocalOnly = finalNodes.some(n => {
+                const nodeInfo = getParentGroupInfo(finalNodes, n.id);
+                return nodeInfo?.groupId === groupId && !backendNodeMap.has(n.id);
+              });
               return hasLocalOnly;
             }),
           });
@@ -744,7 +867,7 @@ export const useFlowStore = create<FlowState>()(
             return;
           }
 
-          const { nodes, edges, publishedFlows } = get();
+          const { nodes, edges, publishedGroupIds } = get();
 
           // Create a Map of fresh logical data
           const logicalDataMap = new Map(flow.nodes.map(fn => [fn.id, fn]));
@@ -794,19 +917,19 @@ export const useFlowStore = create<FlowState>()(
           const nextEdges = [...otherEdges, ...flow.visualState.edges];
 
           // 4. Ensure this flow is marked as published in our local state
-          let nextPublishedFlows = publishedFlows;
-          if (flowName && !publishedFlows.includes(flowName)) {
-            nextPublishedFlows = [...publishedFlows, flowName];
+          let nextPublishedGroupIds = publishedGroupIds;
+          if (groupId && !publishedGroupIds.includes(groupId)) {
+            nextPublishedGroupIds = [...publishedGroupIds, groupId];
           }
 
           set({
             nodes: nextNodes,
             edges: nextEdges,
             flow: buildFlowJson(nextNodes, nextEdges),
-            publishedFlows: nextPublishedFlows,
-            modifiedFlows: (publishedFlows.includes(flowName) && localOnlyChildren.length === 0)
-              ? get().modifiedFlows.filter(f => f !== flowName)
-              : get().modifiedFlows,
+            publishedGroupIds: nextPublishedGroupIds,
+            modifiedGroupIds: (publishedGroupIds.includes(groupId) && localOnlyChildren.length === 0)
+              ? get().modifiedGroupIds.filter(id => id !== groupId)
+              : get().modifiedGroupIds,
           });
 
           toast.success(
@@ -839,14 +962,14 @@ export const useFlowStore = create<FlowState>()(
           });
 
           // Change Detection: If any node moved, find its parent flow and mark as modified
-          let nextModifiedFlows = state.modifiedFlows;
+          let nextModifiedGroupIds = state.modifiedGroupIds;
           correctedNodes.forEach((n) => {
             const existing = state.nodes.find((e) => e.id === n.id);
             if (existing && (existing.position.x !== n.position.x || existing.position.y !== n.position.y)) {
               // Node moved! Trace up to find if it's in a published flow
-              const flowName = getParentFlowName(state.nodes, n.id);
-              if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
-                nextModifiedFlows = [...nextModifiedFlows, flowName];
+              const info = getParentGroupInfo(state.nodes, n.id);
+              if (info && state.publishedGroupIds.includes(info.groupId) && !nextModifiedGroupIds.includes(info.groupId)) {
+                nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
               }
             }
           });
@@ -854,7 +977,7 @@ export const useFlowStore = create<FlowState>()(
           return {
             nodes: correctedNodes,
             flow: buildFlowJson(correctedNodes, state.edges),
-            modifiedFlows: nextModifiedFlows,
+            modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
 
@@ -874,18 +997,18 @@ export const useFlowStore = create<FlowState>()(
           const nextNodes = [...state.nodes, newNode];
 
           // Tracking modifications
-          let nextModifiedFlows = state.modifiedFlows;
+          let nextModifiedGroupIds = state.modifiedGroupIds;
           if (state.currentSubflowId) {
-            const flowName = getParentFlowName(nextNodes, newNode.id);
-            if (flowName && state.publishedFlows.includes(flowName) && !nextModifiedFlows.includes(flowName)) {
-              nextModifiedFlows = [...nextModifiedFlows, flowName];
+            const info = getParentGroupInfo(nextNodes, newNode.id);
+            if (info && state.publishedGroupIds.includes(info.groupId) && !nextModifiedGroupIds.includes(info.groupId)) {
+              nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
             }
           }
 
           return {
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
-            modifiedFlows: nextModifiedFlows,
+            modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
 
@@ -895,12 +1018,12 @@ export const useFlowStore = create<FlowState>()(
           nodesToRemoveIds.add(id);
 
           // Identify the flow that might be modified BEFORE removing nodes
-          let flowToMark: string | null = null;
+          let groupIdToMark: string | null = null;
           const node = state.nodes.find(n => n.id === id);
           if (node?.parentNode) {
-            const fn = getParentFlowName(state.nodes, node.id);
-            if (fn && state.publishedFlows.includes(fn)) {
-              flowToMark = fn;
+            const info = getParentGroupInfo(state.nodes, node.id);
+            if (info && state.publishedGroupIds.includes(info.groupId)) {
+              groupIdToMark = info.groupId;
             }
           }
 
@@ -934,9 +1057,9 @@ export const useFlowStore = create<FlowState>()(
               !nodesToRemoveIds.has(e.source) && !nodesToRemoveIds.has(e.target)
           );
 
-          let nextModifiedFlows = state.modifiedFlows;
-          if (flowToMark && !nextModifiedFlows.includes(flowToMark)) {
-            nextModifiedFlows = [...nextModifiedFlows, flowToMark];
+          let nextModifiedGroupIds = state.modifiedGroupIds;
+          if (groupIdToMark && !nextModifiedGroupIds.includes(groupIdToMark)) {
+            nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
           }
 
           return {
@@ -947,7 +1070,7 @@ export const useFlowStore = create<FlowState>()(
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes, nextEdges),
-            modifiedFlows: nextModifiedFlows,
+            modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
 
@@ -1020,18 +1143,36 @@ export const useFlowStore = create<FlowState>()(
           );
 
           // Identify if this node belongs to a published flow
-          let flowToMark: string | null = null;
+          let groupIdToMark: string | null = null;
           const node = state.nodes.find(n => n.id === id);
           if (node?.parentNode) {
-            const fn = getParentFlowName(state.nodes, node.id);
-            if (fn && state.publishedFlows.includes(fn)) {
-              flowToMark = fn;
+            const info = getParentGroupInfo(state.nodes, node.id);
+            if (info && state.publishedGroupIds.includes(info.groupId)) {
+              groupIdToMark = info.groupId;
             }
           }
 
           // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
           const targetNode = nextNodes.find((n) => n.id === id);
-          if (targetNode && targetNode.type === "prompt" && data.nextNode) {
+          if (!targetNode) return state;
+
+          // SYNC LOGIC: Bi-directional name sync between Group and Start node
+          if (targetNode.type === "start" && data.flowName !== undefined) {
+            if (targetNode.parentNode) {
+              nextNodes = nextNodes.map((n) =>
+                n.id === targetNode.parentNode ? { ...n, data: { ...n.data, name: String(data.flowName) } } : n
+              );
+            }
+          } else if (targetNode.type === "group" && data.name !== undefined) {
+            nextNodes = nextNodes.map((n) =>
+              n.parentNode === targetNode.id && n.type === "start"
+                ? { ...n, data: { ...n.data, flowName: String(data.name) } }
+                : n
+            );
+          }
+
+          // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
+          if (targetNode.type === "prompt" && data.nextNode) {
             const nextNode = data.nextNode as FlowNode["nextNode"];
             if (typeof nextNode === "object" && nextNode && "routes" in nextNode) {
               const routes = nextNode.routes || [];
@@ -1087,15 +1228,15 @@ export const useFlowStore = create<FlowState>()(
             }
           }
 
-          let nextModifiedFlows = state.modifiedFlows;
-          if (flowToMark && !nextModifiedFlows.includes(flowToMark)) {
-            nextModifiedFlows = [...nextModifiedFlows, flowToMark];
+          let nextModifiedGroupIds = state.modifiedGroupIds;
+          if (groupIdToMark && !nextModifiedGroupIds.includes(groupIdToMark)) {
+            nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
           }
 
           return {
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
-            modifiedFlows: nextModifiedFlows,
+            modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
 
@@ -1167,7 +1308,18 @@ export const useFlowStore = create<FlowState>()(
             data: { name: name || "Empty Group" },
             parentNode: get().currentSubflowId || undefined,
           };
-          const nextNodes = [...nodes, newNode];
+
+          // Automatically add a Start node inside the empty group
+          const startNode: Node = {
+            id: uuidv4(),
+            type: "start",
+            position: { x: 50, y: 50 },
+            data: { flowName: newNode.data.name, entryNode: "" },
+            parentNode: groupId,
+            extent: "parent",
+          };
+
+          const nextNodes = [...nodes, newNode, startNode];
           set({
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, edges),
@@ -1209,11 +1361,38 @@ export const useFlowStore = create<FlowState>()(
         });
 
         const nextNodes = [...updatedNodes, newNode];
-        set({
-          nodes: nextNodes,
-          flow: buildFlowJson(nextNodes, edges),
-          selectedNodeId: groupId,
-        });
+
+        // Automatically handle Start node inside the new group
+        const existingStart = selectedNodes.find(n => n.type === 'start');
+        if (existingStart) {
+          // Update its name to match the group
+          const finalNodes = nextNodes.map(n =>
+            n.id === existingStart.id
+              ? { ...n, data: { ...n.data, flowName: newNode.data.name } }
+              : n
+          );
+          set({
+            nodes: finalNodes,
+            flow: buildFlowJson(finalNodes, edges),
+            selectedNodeId: groupId,
+          });
+        } else {
+          // Create a new Start node inside
+          const startNode: Node = {
+            id: uuidv4(),
+            type: "start",
+            position: { x: 50, y: 50 },
+            data: { flowName: newNode.data.name, entryNode: "" },
+            parentNode: groupId,
+            extent: "parent",
+          };
+          const finalNodes = [...nextNodes, startNode];
+          set({
+            nodes: finalNodes,
+            flow: buildFlowJson(finalNodes, edges),
+            selectedNodeId: groupId,
+          });
+        }
       },
 
       ungroupNodes: (groupId) => {
@@ -1506,18 +1685,9 @@ export const useFlowStore = create<FlowState>()(
             loading: "Publishing to backend...",
             success: (data: unknown) => {
               // Add to published list
-              const { publishedFlows } = get();
-              // Extract name from current subflow json or just use the logic
-              // The API usually returns the created flow. Assuming createFlow returns the flow object.
-              // Let's verify start node name
-              const startNode = nodesToSave.find((n) => n.type === "start");
-              if (startNode) {
-                const flowName = String(
-                  (startNode.data as Record<string, unknown>)?.flowName || ""
-                );
-                if (flowName && !publishedFlows.includes(flowName)) {
-                  set({ publishedFlows: [...publishedFlows, flowName] });
-                }
+              const { publishedGroupIds } = get();
+              if (groupId && !publishedGroupIds.includes(groupId)) {
+                set({ publishedGroupIds: [...publishedGroupIds, groupId] });
               }
               return "Subflow published successfully!";
             },
@@ -1543,9 +1713,19 @@ export const useFlowStore = create<FlowState>()(
         toast.promise(deleteFlow(flowName), {
           loading: `Deleting flow '${flowName}' from backend...`,
           success: () => {
-            const { publishedFlows } = get();
+            const { publishedGroupIds, nodes } = get();
+            // Find the group node with this flowName
+            const groupNode = nodes.find(n => {
+              if (n.type !== 'group') return false;
+              const children = nodes.filter(child => child.parentNode === n.id);
+              const startNode = children.find(child => child.type === 'start');
+              return startNode?.data.flowName === flowName;
+            });
+
             set({
-              publishedFlows: publishedFlows.filter((f) => f !== flowName),
+              publishedGroupIds: groupNode
+                ? publishedGroupIds.filter((id) => id !== groupNode.id)
+                : publishedGroupIds,
             });
             return `Flow '${flowName}' deleted successfully!`;
           },
@@ -1558,7 +1738,7 @@ export const useFlowStore = create<FlowState>()(
       },
 
       syncNodeWithBackend: async (nodeId: string, previousName?: string) => {
-        const { nodes, edges, publishedFlows } = get();
+        const { nodes, edges, publishedGroupIds } = get();
         const node = nodes.find((n) => n.id === nodeId);
         if (!node || !node.parentNode) return;
 
@@ -1578,7 +1758,7 @@ export const useFlowStore = create<FlowState>()(
         );
 
         // Only sync if it's in the published list
-        if (!flowName || !publishedFlows.includes(flowName)) return;
+        if (!flowName || !get().publishedGroupIds.includes(parentGroup.id)) return;
 
         // Get the processed FlowNode data
         const childIds = groupChildren.map((n) => n.id);
@@ -1602,9 +1782,9 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
             loading: `Syncing changes from '${currentName}'...`,
             success: () => {
-              const { modifiedFlows } = get();
+              const { modifiedGroupIds } = get();
               set({
-                modifiedFlows: modifiedFlows.filter((f) => f !== flowName),
+                modifiedGroupIds: modifiedGroupIds.filter((id) => id !== parentGroup.id),
               });
               return `Synced '${currentName}' with backend flow '${flowName}'`;
             },
@@ -1626,9 +1806,12 @@ export const useFlowStore = create<FlowState>()(
         return (rehydratedState, error) => {
           if (error || !rehydratedState) return;
 
-          // Safety Check: Ensure modifiedFlows is an array (migration from Record structure)
-          if (!Array.isArray(rehydratedState.modifiedFlows)) {
-            rehydratedState.modifiedFlows = [];
+          // Safety Check: Ensure modifiedGroupIds is an array
+          if (!Array.isArray(rehydratedState.modifiedGroupIds)) {
+            rehydratedState.modifiedGroupIds = [];
+          }
+          if (!Array.isArray(rehydratedState.publishedGroupIds)) {
+            rehydratedState.publishedGroupIds = [];
           }
 
           rehydratedState.setHasHydrated(true);
@@ -1638,8 +1821,8 @@ export const useFlowStore = create<FlowState>()(
         nodes: state.nodes,
         edges: state.edges,
         flow: state.flow,
-        publishedFlows: state.publishedFlows,
-        modifiedFlows: state.modifiedFlows,
+        publishedGroupIds: state.publishedGroupIds,
+        modifiedGroupIds: state.modifiedGroupIds,
       }),
     }
   )
