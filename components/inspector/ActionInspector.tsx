@@ -22,9 +22,13 @@ export default function ActionInspector({
   node,
   updateNodeData,
 }: ActionInspectorProps) {
-  const [apiBodyText, setApiBodyText] = React.useState<string>(() =>
-    JSON.stringify(node.data.apiBody ?? {}, null, 2)
-  );
+  const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
+  const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
+    if (bodyMode === "soap") {
+      return String(node.data.apiBodyRaw ?? "");
+    }
+    return JSON.stringify(node.data.apiBody ?? {}, null, 2);
+  });
   const [headerPairs, setHeaderPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
   >(() => {
@@ -123,15 +127,58 @@ export default function ActionInspector({
     return Array.from(paths);
   }, []);
 
-  const responseOptions = React.useMemo(() => {
-    if (!storedResponse.body.trim()) return [];
-    try {
-      const parsed = JSON.parse(storedResponse.body);
-      return buildResponseOptions(parsed);
-    } catch {
+  const buildXmlResponseOptions = React.useCallback((xmlText: string) => {
+    if (typeof window === "undefined") return [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, "text/xml");
+    if (doc.getElementsByTagName("parsererror").length > 0) {
       return [];
     }
-  }, [storedResponse.body, buildResponseOptions]);
+
+    const paths = new Set<string>();
+    const walk = (node: Element, prefix: string) => {
+      const children = Array.from(node.children);
+      if (children.length === 0) {
+        if (prefix) paths.add(prefix);
+        return;
+      }
+      children.forEach((child) => {
+        const tag = child.tagName;
+        const next = prefix ? `${prefix}.${tag}` : tag;
+        paths.add(next);
+        walk(child, next);
+      });
+    };
+
+    const root = doc.documentElement;
+    if (!root) return [];
+    walk(root, root.tagName);
+    return Array.from(paths);
+  }, []);
+
+  const responseOptions = React.useMemo(() => {
+    const body = storedResponse.body.trim();
+    if (!body) return [];
+    try {
+      const parsed = JSON.parse(body);
+      return buildResponseOptions(parsed);
+    } catch {
+      if (body.startsWith("<")) {
+        return buildXmlResponseOptions(body);
+      }
+      return [];
+    }
+  }, [storedResponse.body, buildResponseOptions, buildXmlResponseOptions]);
+
+  React.useEffect(() => {
+    if (bodyMode === "soap") {
+      setApiBodyText(String(node.data.apiBodyRaw ?? ""));
+      setApiBodyError(null);
+      return;
+    }
+    setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
+    setApiBodyError(null);
+  }, [bodyMode, node.id]);
 
   const syncResponseMapping = React.useCallback(
     (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
@@ -355,15 +402,27 @@ export default function ActionInspector({
                 syncHeaders(pairs);
 
                 if (parsed.body) {
-                  setApiBodyText(parsed.body);
-                  try {
-                    const parsedBody = JSON.parse(parsed.body);
+                  const trimmed = parsed.body.trim();
+                  const looksXml = trimmed.startsWith("<");
+                  if (looksXml) {
+                    updateNodeData(node.id, {
+                      bodyMode: "soap",
+                      apiBodyRaw: parsed.body,
+                    });
+                    setApiBodyText(parsed.body);
                     setApiBodyError(null);
-                    updateNodeData(node.id, { apiBody: parsedBody });
-                  } catch (err) {
-                    setApiBodyError(
-                      err instanceof Error ? err.message : "Invalid JSON"
-                    );
+                  } else {
+                    updateNodeData(node.id, { bodyMode: "json" });
+                    setApiBodyText(parsed.body);
+                    try {
+                      const parsedBody = JSON.parse(parsed.body);
+                      setApiBodyError(null);
+                      updateNodeData(node.id, { apiBody: parsedBody });
+                    } catch (err) {
+                      setApiBodyError(
+                        err instanceof Error ? err.message : "Invalid JSON"
+                      );
+                    }
                   }
                 }
               }}
@@ -536,8 +595,31 @@ export default function ActionInspector({
                 <BodyEditor
                   apiBodyText={apiBodyText}
                   apiBodyError={apiBodyError}
+                  bodyMode={bodyMode}
+                  onBodyModeChange={(value) => {
+                    updateNodeData(node.id, { bodyMode: value });
+                    if (value === "soap") {
+                      updateNodeData(node.id, { apiBodyRaw: apiBodyText });
+                      setApiBodyError(null);
+                      return;
+                    }
+                    try {
+                      const parsed = JSON.parse(apiBodyText || "{}");
+                      setApiBodyError(null);
+                      updateNodeData(node.id, { apiBody: parsed });
+                    } catch (err) {
+                      setApiBodyError(
+                        err instanceof Error ? err.message : "Invalid JSON"
+                      );
+                    }
+                  }}
                   onApiBodyChange={(value) => {
                     setApiBodyText(value);
+                    if (bodyMode === "soap") {
+                      updateNodeData(node.id, { apiBodyRaw: value });
+                      setApiBodyError(null);
+                      return;
+                    }
                     try {
                       const parsed = JSON.parse(value || "{}");
                       setApiBodyError(null);
