@@ -11,6 +11,7 @@ import ResponseViewer from "./action/ResponseViewer";
 import ResponseMappingEditor from "./action/ResponseMappingEditor";
 import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
+import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -49,19 +50,30 @@ export default function ActionInspector({
     }));
   });
   const [apiBodyError, setApiBodyError] = React.useState<string | null>(null);
-  const [responseStatus, setResponseStatus] = React.useState<number | null>(null);
-  const [responseStatusText, setResponseStatusText] = React.useState<string>("");
-  const [responseHeaders, setResponseHeaders] = React.useState<
-    Record<string, string>
-  >({});
-  const [responseBody, setResponseBody] = React.useState<string>("");
-  const [responseError, setResponseError] = React.useState<string | null>(null);
+  const {
+    curlTextByNodeId,
+    responsesByNodeId,
+    setCurlText,
+    setResponse,
+    updateResponse,
+  } = useActionRequestStore();
+  const storedResponse = React.useMemo<StoredResponse>(
+    () =>
+      responsesByNodeId[node.id] ?? {
+        status: null,
+        statusText: "",
+        headers: {},
+        body: "",
+        error: null,
+      },
+    [node.id, responsesByNodeId]
+  );
   const [isSending, setIsSending] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<
     "params" | "headers" | "body" | "responseMapping" | "routing"
   >("params");
   const [sourceMode, setSourceMode] = React.useState<"api" | "local">("api");
-  const [curlText, setCurlText] = React.useState<string>("");
+  const curlText = curlTextByNodeId[node.id] ?? "";
 
   const [paramPairs, setParamPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
@@ -112,14 +124,14 @@ export default function ActionInspector({
   }, []);
 
   const responseOptions = React.useMemo(() => {
-    if (!responseBody.trim()) return [];
+    if (!storedResponse.body.trim()) return [];
     try {
-      const parsed = JSON.parse(responseBody);
+      const parsed = JSON.parse(storedResponse.body);
       return buildResponseOptions(parsed);
     } catch {
       return [];
     }
-  }, [responseBody, buildResponseOptions]);
+  }, [storedResponse.body, buildResponseOptions]);
 
   const syncResponseMapping = React.useCallback(
     (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
@@ -293,7 +305,7 @@ export default function ActionInspector({
           }`}
           onClick={() => setSourceMode("api")}
         >
-          From API
+          From REST API
         </button>
         <button
           className={`px-3 py-1 text-xs font-medium rounded-md ${
@@ -320,13 +332,14 @@ export default function ActionInspector({
               onEndpointChange={(value) =>
                 updateNodeData(node.id, { endpoint: value })
               }
-              onCurlChange={(value) => setCurlText(value)}
+              onCurlChange={(value) => setCurlText(node.id, value)}
               onImportCurl={() => {
                 const parsed = parseCurl(curlText);
                 if (!parsed) {
-                  setResponseError(
-                    "Invalid curl input. Paste a curl command that starts with 'curl'."
-                  );
+                  updateResponse(node.id, {
+                    error:
+                      "Invalid curl input. Paste a curl command that starts with 'curl'.",
+                  });
                   return;
                 }
 
@@ -355,16 +368,20 @@ export default function ActionInspector({
                 }
               }}
               onSend={async () => {
-                setResponseError(null);
-                setResponseStatus(null);
-                setResponseStatusText("");
-                setResponseHeaders({});
-                setResponseBody("");
+                setResponse(node.id, {
+                  status: null,
+                  statusText: "",
+                  headers: {},
+                  body: "",
+                  error: null,
+                });
                 setIsSending(true);
 
                 const endpoint = String(node.data.endpoint ?? "").trim();
                 if (!endpoint) {
-                  setResponseError("Endpoint URL is required.");
+                  updateResponse(node.id, {
+                    error: "Endpoint URL is required.",
+                  });
                   setIsSending(false);
                   return;
                 }
@@ -389,21 +406,23 @@ export default function ActionInspector({
                     body,
                   });
 
-                  setResponseStatus(response.status);
-                  setResponseStatusText(response.statusText);
+                  updateResponse(node.id, {
+                    status: response.status,
+                    statusText: response.statusText,
+                  });
 
                   const headerRecord: Record<string, string> = {};
                   response.headers.forEach((value, key) => {
                     headerRecord[key] = value;
                   });
-                  setResponseHeaders(headerRecord);
+                  updateResponse(node.id, { headers: headerRecord });
 
                   const text = await response.text();
-                  setResponseBody(text);
+                  updateResponse(node.id, { body: text });
                 } catch (err) {
-                  setResponseError(
-                    err instanceof Error ? err.message : "Request failed."
-                  );
+                  updateResponse(node.id, {
+                    error: err instanceof Error ? err.message : "Request failed.",
+                  });
                 } finally {
                   setIsSending(false);
                 }
@@ -601,11 +620,11 @@ export default function ActionInspector({
           </div>
 
           <ResponseViewer
-            status={responseStatus}
-            statusText={responseStatusText}
-            headers={responseHeaders}
-            body={responseBody}
-            error={responseError}
+            status={storedResponse.status}
+            statusText={storedResponse.statusText}
+            headers={storedResponse.headers}
+            body={storedResponse.body}
+            error={storedResponse.error}
           />
         </>
       )}
