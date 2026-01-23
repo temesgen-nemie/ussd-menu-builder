@@ -15,6 +15,8 @@ export type ActionNodeData = {
   outputVar?: string;
   format?: "indexedList" | "singleValue";
   apiBody?: Record<string, unknown>;
+  apiBodyRaw?: string;
+  bodyMode?: "json" | "soap";
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
   persistResponseMappingKeys?: string[];

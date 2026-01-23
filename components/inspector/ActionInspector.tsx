@@ -11,6 +11,7 @@ import ResponseViewer from "./action/ResponseViewer";
 import ResponseMappingEditor from "./action/ResponseMappingEditor";
 import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
+import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -21,9 +22,13 @@ export default function ActionInspector({
   node,
   updateNodeData,
 }: ActionInspectorProps) {
-  const [apiBodyText, setApiBodyText] = React.useState<string>(() =>
-    JSON.stringify(node.data.apiBody ?? {}, null, 2)
-  );
+  const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
+  const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
+    if (bodyMode === "soap") {
+      return String(node.data.apiBodyRaw ?? "");
+    }
+    return JSON.stringify(node.data.apiBody ?? {}, null, 2);
+  });
   const [headerPairs, setHeaderPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
   >(() => {
@@ -49,19 +54,30 @@ export default function ActionInspector({
     }));
   });
   const [apiBodyError, setApiBodyError] = React.useState<string | null>(null);
-  const [responseStatus, setResponseStatus] = React.useState<number | null>(null);
-  const [responseStatusText, setResponseStatusText] = React.useState<string>("");
-  const [responseHeaders, setResponseHeaders] = React.useState<
-    Record<string, string>
-  >({});
-  const [responseBody, setResponseBody] = React.useState<string>("");
-  const [responseError, setResponseError] = React.useState<string | null>(null);
+  const {
+    curlTextByNodeId,
+    responsesByNodeId,
+    setCurlText,
+    setResponse,
+    updateResponse,
+  } = useActionRequestStore();
+  const storedResponse = React.useMemo<StoredResponse>(
+    () =>
+      responsesByNodeId[node.id] ?? {
+        status: null,
+        statusText: "",
+        headers: {},
+        body: "",
+        error: null,
+      },
+    [node.id, responsesByNodeId]
+  );
   const [isSending, setIsSending] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<
     "params" | "headers" | "body" | "responseMapping" | "routing"
   >("params");
   const [sourceMode, setSourceMode] = React.useState<"api" | "local">("api");
-  const [curlText, setCurlText] = React.useState<string>("");
+  const curlText = curlTextByNodeId[node.id] ?? "";
 
   const [paramPairs, setParamPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
@@ -111,15 +127,58 @@ export default function ActionInspector({
     return Array.from(paths);
   }, []);
 
-  const responseOptions = React.useMemo(() => {
-    if (!responseBody.trim()) return [];
-    try {
-      const parsed = JSON.parse(responseBody);
-      return buildResponseOptions(parsed);
-    } catch {
+  const buildXmlResponseOptions = React.useCallback((xmlText: string) => {
+    if (typeof window === "undefined") return [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, "text/xml");
+    if (doc.getElementsByTagName("parsererror").length > 0) {
       return [];
     }
-  }, [responseBody, buildResponseOptions]);
+
+    const paths = new Set<string>();
+    const walk = (node: Element, prefix: string) => {
+      const children = Array.from(node.children);
+      if (children.length === 0) {
+        if (prefix) paths.add(prefix);
+        return;
+      }
+      children.forEach((child) => {
+        const tag = child.tagName;
+        const next = prefix ? `${prefix}.${tag}` : tag;
+        paths.add(next);
+        walk(child, next);
+      });
+    };
+
+    const root = doc.documentElement;
+    if (!root) return [];
+    walk(root, root.tagName);
+    return Array.from(paths);
+  }, []);
+
+  const responseOptions = React.useMemo(() => {
+    const body = storedResponse.body.trim();
+    if (!body) return [];
+    try {
+      const parsed = JSON.parse(body);
+      return buildResponseOptions(parsed);
+    } catch {
+      if (body.startsWith("<")) {
+        return buildXmlResponseOptions(body);
+      }
+      return [];
+    }
+  }, [storedResponse.body, buildResponseOptions, buildXmlResponseOptions]);
+
+  React.useEffect(() => {
+    if (bodyMode === "soap") {
+      setApiBodyText(String(node.data.apiBodyRaw ?? ""));
+      setApiBodyError(null);
+      return;
+    }
+    setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
+    setApiBodyError(null);
+  }, [bodyMode, node.id]);
 
   const syncResponseMapping = React.useCallback(
     (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
@@ -293,7 +352,7 @@ export default function ActionInspector({
           }`}
           onClick={() => setSourceMode("api")}
         >
-          From API
+          From REST API
         </button>
         <button
           className={`px-3 py-1 text-xs font-medium rounded-md ${
@@ -320,13 +379,14 @@ export default function ActionInspector({
               onEndpointChange={(value) =>
                 updateNodeData(node.id, { endpoint: value })
               }
-              onCurlChange={(value) => setCurlText(value)}
+              onCurlChange={(value) => setCurlText(node.id, value)}
               onImportCurl={() => {
                 const parsed = parseCurl(curlText);
                 if (!parsed) {
-                  setResponseError(
-                    "Invalid curl input. Paste a curl command that starts with 'curl'."
-                  );
+                  updateResponse(node.id, {
+                    error:
+                      "Invalid curl input. Paste a curl command that starts with 'curl'.",
+                  });
                   return;
                 }
 
@@ -342,29 +402,45 @@ export default function ActionInspector({
                 syncHeaders(pairs);
 
                 if (parsed.body) {
-                  setApiBodyText(parsed.body);
-                  try {
-                    const parsedBody = JSON.parse(parsed.body);
+                  const trimmed = parsed.body.trim();
+                  const looksXml = trimmed.startsWith("<");
+                  if (looksXml) {
+                    updateNodeData(node.id, {
+                      bodyMode: "soap",
+                      apiBodyRaw: parsed.body,
+                    });
+                    setApiBodyText(parsed.body);
                     setApiBodyError(null);
-                    updateNodeData(node.id, { apiBody: parsedBody });
-                  } catch (err) {
-                    setApiBodyError(
-                      err instanceof Error ? err.message : "Invalid JSON"
-                    );
+                  } else {
+                    updateNodeData(node.id, { bodyMode: "json" });
+                    setApiBodyText(parsed.body);
+                    try {
+                      const parsedBody = JSON.parse(parsed.body);
+                      setApiBodyError(null);
+                      updateNodeData(node.id, { apiBody: parsedBody });
+                    } catch (err) {
+                      setApiBodyError(
+                        err instanceof Error ? err.message : "Invalid JSON"
+                      );
+                    }
                   }
                 }
               }}
               onSend={async () => {
-                setResponseError(null);
-                setResponseStatus(null);
-                setResponseStatusText("");
-                setResponseHeaders({});
-                setResponseBody("");
+                setResponse(node.id, {
+                  status: null,
+                  statusText: "",
+                  headers: {},
+                  body: "",
+                  error: null,
+                });
                 setIsSending(true);
 
                 const endpoint = String(node.data.endpoint ?? "").trim();
                 if (!endpoint) {
-                  setResponseError("Endpoint URL is required.");
+                  updateResponse(node.id, {
+                    error: "Endpoint URL is required.",
+                  });
                   setIsSending(false);
                   return;
                 }
@@ -389,21 +465,23 @@ export default function ActionInspector({
                     body,
                   });
 
-                  setResponseStatus(response.status);
-                  setResponseStatusText(response.statusText);
+                  updateResponse(node.id, {
+                    status: response.status,
+                    statusText: response.statusText,
+                  });
 
                   const headerRecord: Record<string, string> = {};
                   response.headers.forEach((value, key) => {
                     headerRecord[key] = value;
                   });
-                  setResponseHeaders(headerRecord);
+                  updateResponse(node.id, { headers: headerRecord });
 
                   const text = await response.text();
-                  setResponseBody(text);
+                  updateResponse(node.id, { body: text });
                 } catch (err) {
-                  setResponseError(
-                    err instanceof Error ? err.message : "Request failed."
-                  );
+                  updateResponse(node.id, {
+                    error: err instanceof Error ? err.message : "Request failed.",
+                  });
                 } finally {
                   setIsSending(false);
                 }
@@ -517,8 +595,31 @@ export default function ActionInspector({
                 <BodyEditor
                   apiBodyText={apiBodyText}
                   apiBodyError={apiBodyError}
+                  bodyMode={bodyMode}
+                  onBodyModeChange={(value) => {
+                    updateNodeData(node.id, { bodyMode: value });
+                    if (value === "soap") {
+                      updateNodeData(node.id, { apiBodyRaw: apiBodyText });
+                      setApiBodyError(null);
+                      return;
+                    }
+                    try {
+                      const parsed = JSON.parse(apiBodyText || "{}");
+                      setApiBodyError(null);
+                      updateNodeData(node.id, { apiBody: parsed });
+                    } catch (err) {
+                      setApiBodyError(
+                        err instanceof Error ? err.message : "Invalid JSON"
+                      );
+                    }
+                  }}
                   onApiBodyChange={(value) => {
                     setApiBodyText(value);
+                    if (bodyMode === "soap") {
+                      updateNodeData(node.id, { apiBodyRaw: value });
+                      setApiBodyError(null);
+                      return;
+                    }
                     try {
                       const parsed = JSON.parse(value || "{}");
                       setApiBodyError(null);
@@ -599,11 +700,11 @@ export default function ActionInspector({
           </div>
 
           <ResponseViewer
-            status={responseStatus}
-            statusText={responseStatusText}
-            headers={responseHeaders}
-            body={responseBody}
-            error={responseError}
+            status={storedResponse.status}
+            statusText={storedResponse.statusText}
+            headers={storedResponse.headers}
+            body={storedResponse.body}
+            error={storedResponse.error}
           />
         </>
       )}
