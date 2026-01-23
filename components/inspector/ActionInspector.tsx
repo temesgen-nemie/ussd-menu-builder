@@ -178,7 +178,7 @@ export default function ActionInspector({
     }
     setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
     setApiBodyError(null);
-  }, [bodyMode, node.id]);
+  }, [bodyMode, node.data.apiBody, node.data.apiBodyRaw, node.id]);
 
   const syncResponseMapping = React.useCallback(
     (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
