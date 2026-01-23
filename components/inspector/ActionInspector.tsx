@@ -568,11 +568,9 @@ export default function ActionInspector({
                   onAddRoute={() => {
                     const currentRoutes = node.data.routes || [];
                     const defaultPath = responseOptions[0] || "";
-                    const condition = defaultPath
-                      ? JSON.stringify({
-                          eq: [`{{response.${defaultPath}}}`, ""],
-                        })
-                      : "";
+                    const condition = JSON.stringify({
+                      eq: [`{{response.${defaultPath}}}`, ""],
+                    });
                     updateNodeData(node.id, {
                       routes: [
                         ...currentRoutes,
