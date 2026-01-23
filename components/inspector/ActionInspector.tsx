@@ -76,7 +76,9 @@ export default function ActionInspector({
   const [activeSection, setActiveSection] = React.useState<
     "params" | "headers" | "body" | "responseMapping" | "routing"
   >("params");
-  const [sourceMode, setSourceMode] = React.useState<"api" | "local">("api");
+  const [sourceMode, setSourceMode] = React.useState<"api" | "local">(
+    (node.data.requestSource as "api" | "local") ?? "api"
+  );
   const curlText = curlTextByNodeId[node.id] ?? "";
 
   const [paramPairs, setParamPairs] = React.useState<
@@ -179,6 +181,19 @@ export default function ActionInspector({
     setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
     setApiBodyError(null);
   }, [bodyMode, node.data.apiBody, node.data.apiBodyRaw, node.id]);
+
+  React.useEffect(() => {
+    const current = String(node.data.dataSource ?? "").trim();
+    if (!current) {
+      updateNodeData(node.id, { dataSource: "Input Manager" });
+    }
+  }, [node.data.dataSource, node.id, updateNodeData]);
+
+  React.useEffect(() => {
+    if (!node.data.requestSource) {
+      updateNodeData(node.id, { requestSource: "api" });
+    }
+  }, [node.data.requestSource, node.id, updateNodeData]);
 
   const syncResponseMapping = React.useCallback(
     (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
@@ -350,9 +365,12 @@ export default function ActionInspector({
               ? "bg-indigo-600 text-white"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
-          onClick={() => setSourceMode("api")}
+          onClick={() => {
+            setSourceMode("api");
+            updateNodeData(node.id, { requestSource: "api" });
+          }}
         >
-          From REST API
+          From API
         </button>
         <button
           className={`px-3 py-1 text-xs font-medium rounded-md ${
@@ -360,7 +378,10 @@ export default function ActionInspector({
               ? "bg-indigo-600 text-white"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
-          onClick={() => setSourceMode("local")}
+          onClick={() => {
+            setSourceMode("local");
+            updateNodeData(node.id, { requestSource: "local" });
+          }}
         >
           From Local Storage
         </button>
@@ -718,7 +739,7 @@ export default function ActionInspector({
               </label>
               <input
                 className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                placeholder="e.g. inputManager"
+                placeholder="source"
                 value={String(node.data.dataSource ?? "")}
                 onChange={(e) =>
                   updateNodeData(node.id, { dataSource: e.target.value })
