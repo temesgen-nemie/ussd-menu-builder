@@ -136,8 +136,8 @@ const durationStyle = (value: unknown) => {
 export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
   return (
     <div className="rounded-2xl border border-border bg-slate-50/80 text-card-foreground shadow-sm dark:bg-slate-900/40">
-      <div className="min-w-[900px]">
-        <div className="grid grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 border-b border-border px-4 py-3 text-xs font-medium uppercase text-left bg-gradient-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40">
+      <div className="min-w-225">
+        <div className="grid grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 border-b border-border px-4 py-3 text-xs font-medium uppercase text-left bg-linear-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40">
           <div>Time</div>
           <div>Level</div>
           <div>Method</div>
@@ -285,7 +285,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                             </div>
                           ) : (
                             <pre
-                              className={`mt-2 whitespace-pre-wrap break-words text-xs text-foreground ${
+                              className={`mt-2 whitespace-pre-wrap wrap-break-word text-xs text-foreground ${
                                 ["Request", "Response", "Device Info"].includes(label)
                                   ? "max-h-56 overflow-auto"
                                   : ""

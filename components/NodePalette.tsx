@@ -2,7 +2,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3, FileUp } from "lucide-react";
+import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3, FileUp, ShieldCheck } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ModeToggle } from "./ModeToggle";
@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 import LogsModal from "./logs/LogsModal";
+import AuditModal from "./audit/AuditModal";
 import { fetchSettings, saveSettings, SettingsPayload } from "../lib/api";
 
 export default function NodePalette() {
@@ -41,6 +42,7 @@ export default function NodePalette() {
   const [endpoints, setLocalEndpoints] = useState<string[]>([]);
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   const isStale = useMemo(() => {
     if (!lastFetched) return true;
@@ -296,6 +298,15 @@ export default function NodePalette() {
             </span>
             Logs
           </button>
+          <button
+            onClick={() => setAuditOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
+          >
+            <span className="rounded-sm bg-white/20 p-1">
+              <ShieldCheck className="h-4 w-4 text-white" />
+            </span>
+            Audit Events
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -401,6 +412,7 @@ export default function NodePalette() {
         onClose={() => setSimulatorOpen(false)}
       />
       <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
+      <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
     </nav>
   );
 }
