@@ -30,8 +30,8 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
-  PersistInput?: boolean;
-  PersistInputAs?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
   hasMultiplePage?: boolean;
@@ -307,9 +307,9 @@ export default function PromptInspector({
             <label className="flex items-center gap-2 text-xs text-gray-700">
               <input
                 type="checkbox"
-                checked={Boolean(node.data.PersistInput)}
+                checked={Boolean(node.data.persistInput)}
                 onChange={(e) =>
-                  updateNodeData(node.id, { PersistInput: e.target.checked })
+                  updateNodeData(node.id, { persistInput: e.target.checked })
                 }
               />
               Persist Input
@@ -329,7 +329,7 @@ export default function PromptInspector({
             </label>
           </div>
 
-          {(node.data.persistByIndex || node.data.PersistInput) && (
+          {(node.data.persistByIndex || node.data.persistInput) && (
             <div className="space-y-3 pt-2 border-t border-gray-50">
               {node.data.persistByIndex && (
                 <div className="grid grid-cols-2 gap-3">
@@ -364,16 +364,16 @@ export default function PromptInspector({
                 </div>
               )}
 
-              {node.data.PersistInput && (
+              {node.data.persistInput && (
                 <div>
                   <label className="text-[10px] text-gray-500 block uppercase mb-1">
                     Persist Input As
                   </label>
                   <input
                     className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                    value={String(node.data.PersistInputAs ?? "")}
+                    value={String(node.data.persistInputAs ?? "")}
                     onChange={(e) =>
-                      updateNodeData(node.id, { PersistInputAs: e.target.value })
+                      updateNodeData(node.id, { persistInputAs: e.target.value })
                     }
                     placeholder="receiverAccountNumber"
                   />

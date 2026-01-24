@@ -22,8 +22,8 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
-  PersistInput?: boolean;
-  PersistInputAs?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
   hasMultiplePage?: boolean;

@@ -23,8 +23,8 @@ export type FlowNode = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
-  PersistInput?: boolean;
-  PersistInputAs?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -157,11 +157,11 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
-          PersistInput:
-            typeof data.PersistInput === "boolean"
-              ? data.PersistInput
+          persistInput:
+            typeof data.persistInput === "boolean"
+              ? data.persistInput
               : undefined,
-          PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
+          persistInputAs: String(data.persistInputAs ?? "") || undefined,
           responseType: (data.responseType as any) || "CONTINUE",
           encryptInput:
             typeof data.encryptInput === "boolean"
