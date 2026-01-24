@@ -1,10 +1,12 @@
 import { Handle, Position, NodeProps } from 'reactflow';
+import { Badge } from '@/components/ui/badge';
 import type { ActionRoute } from '../inspector/action/types';
 
 type ActionNodeData = {
   name?: string;
   endpoint?: string;
   routes?: ActionRoute[];
+  requestSource?: "api" | "local";
 };
 
 type ActionNodeProps = NodeProps<ActionNodeData>;
@@ -42,8 +44,20 @@ export default function ActionNode({ data, selected }: ActionNodeProps) {
         selected ? 'border-green-400 ring-2 ring-green-300' : 'border-gray-700'
       }`}
     >
-      <div className='font-bold text-green-400 mb-2'>
-        {data.name || 'API Action'}
+      <div className="flex items-center justify-between">
+        <div className='font-bold text-green-400'>
+          {data.name || 'API Action'}
+        </div>
+        <Badge
+          variant="secondary"
+          className={`text-[9px] font-semibold uppercase tracking-wide pt-1 ${
+            data.requestSource === "local"
+              ? "bg-amber-500/20 text-amber-300 border-transparent"
+              : "bg-emerald-500/20 text-emerald-300 border-transparent"
+          }`}
+        >
+          {data.requestSource === "local" ? "local storage" : "api"}
+        </Badge>
       </div>
 
       {/* Dynamic Handles for Routes */}
@@ -63,7 +77,7 @@ export default function ActionNode({ data, selected }: ActionNodeProps) {
               type='source'
               position={Position.Right}
               id={route.id}
-              style={{ top: 'auto', right: -22, border: '2px solid #a78bfa' }} // purple ring for routes
+              style={{ top: 'auto', right: -22, border: '2px solid #a78bfa' }}
             />
           </div>
         ))}
