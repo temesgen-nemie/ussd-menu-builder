@@ -36,6 +36,9 @@ export type FlowNode = {
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
   encryptInput?: boolean;
+  responseType?: "CONTINUE" | "END";
+  hasMultiplePage?: boolean;
+  indexPerPage?: number;
   pagination?: {
     enabled: boolean;
     actionNode: string;
@@ -141,7 +144,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(data.invalidInputMessage ?? "");
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
-        const promptExtras = {
+        const promptExtras: Partial<FlowNode> = {
           persistByIndex:
             typeof data.persistByIndex === "boolean"
               ? data.persistByIndex
@@ -160,17 +163,23 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               ? data.PersistInput
               : undefined,
           PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
-          responseType: (data.responseType as string) || "CONTINUE",
+          responseType: (data.responseType as any) || "CONTINUE",
           encryptInput:
             typeof data.encryptInput === "boolean"
               ? data.encryptInput
+              : undefined,
+          hasMultiplePage:
+            typeof data.hasMultiplePage === "boolean"
+              ? data.hasMultiplePage
+              : undefined,
+          indexPerPage:
+            typeof data.indexPerPage === "number"
+              ? data.indexPerPage
               : undefined,
           pagination: data.pagination as FlowNode["pagination"] || undefined,
         };
 
         if (routingMode === "linear") {
-          // If in linear mode, nextNode should be a string (the target node Name/ID)
-          // If currently an object, try to extract 'default'
           let targetStr = "";
           if (typeof nextNode === "string") {
             targetStr = nextNode;
@@ -188,8 +197,6 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           };
         }
 
-        // routingMode === "menu" (or fallback)
-        // Ensure we handle nextNode being either a string or an object
         let routes: FlowRoute[] = [];
         let defaultName = "";
         let defaultId = "";
