@@ -11,7 +11,6 @@ export type FlowRoute = {
   goto?: string;
   gotoId?: string;
 };
-
 export type FlowNode = {
   id: string;
   name?: string;
@@ -36,6 +35,19 @@ export type FlowNode = {
   apiBody?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
+  encryptInput?: boolean;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    hasNextField: string;
+    hasPrevField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
   nextNode?:
   | string
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
@@ -149,6 +161,11 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               : undefined,
           PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
           responseType: (data.responseType as string) || "CONTINUE",
+          encryptInput:
+            typeof data.encryptInput === "boolean"
+              ? data.encryptInput
+              : undefined,
+          pagination: data.pagination as FlowNode["pagination"] || undefined,
         };
 
         if (routingMode === "linear") {
@@ -1531,6 +1548,10 @@ export const useFlowStore = create<FlowState>()(
               flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
             nextData.emptyInputMessage =
               flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
+            nextData.encryptInput =
+              typeof flowNode.encryptInput === "boolean"
+                ? flowNode.encryptInput
+                : nextData.encryptInput;
 
             if (
               flowNode.nextNode &&

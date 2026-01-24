@@ -33,6 +33,19 @@ type PromptNodeData = {
   PersistInput?: boolean;
   PersistInputAs?: string;
   responseType?: "CONTINUE" | "END";
+  encryptInput?: boolean;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    hasNextField: string;
+    hasPrevField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
 };
 
 type PromptNode = {
@@ -302,6 +315,19 @@ export default function PromptInspector({
             </label>
           </div>
 
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.encryptInput)}
+                onChange={(e) =>
+                  updateNodeData(node.id, { encryptInput: e.target.checked })
+                }
+              />
+              Encrypt Input
+            </label>
+          </div>
+
           {(node.data.persistByIndex || node.data.PersistInput) && (
             <div className="space-y-3 pt-2 border-t border-gray-50">
               {node.data.persistByIndex && (
@@ -410,6 +436,190 @@ export default function PromptInspector({
               }
               placeholder="Please try again..."
             />
+          </div>
+
+          <div className="space-y-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-gray-600">
+                Pagination Settings
+              </div>
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(node.data.pagination?.enabled)}
+                  onChange={(e) => {
+                    const currentPag = node.data.pagination || {
+                      enabled: false,
+                      actionNode: "",
+                      pageField: "",
+                      hasNextField: "",
+                      hasPrevField: "",
+                      nextInput: "#",
+                      prevInput: "##",
+                      nextLabel: "#. Next Page",
+                      prevLabel: "##. Previous Page",
+                      controlsVar: "paginationControls",
+                    };
+                    updateNodeData(node.id, {
+                      pagination: { ...currentPag, enabled: e.target.checked },
+                    });
+                  }}
+                />
+                Enabled
+              </label>
+            </div>
+
+            {node.data.pagination?.enabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Action Node
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.actionNode}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, actionNode: e.target.value },
+                        })
+                      }
+                      placeholder="loadBanksPage"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Page Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.pageField}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, pageField: e.target.value },
+                        })
+                      }
+                      placeholder="banksPage"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Has Next Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.hasNextField}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, hasNextField: e.target.value },
+                        })
+                      }
+                      placeholder="banksHasNext"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Has Prev Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.hasPrevField}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, hasPrevField: e.target.value },
+                        })
+                      }
+                      placeholder="banksHasPrev"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Next Input
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.nextInput}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, nextInput: e.target.value },
+                        })
+                      }
+                      placeholder="#"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Prev Input
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.prevInput}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, prevInput: e.target.value },
+                        })
+                      }
+                      placeholder="##"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Next Label
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.nextLabel}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, nextLabel: e.target.value },
+                        })
+                      }
+                      placeholder="#. Next Page"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Prev Label
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.prevLabel}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, prevLabel: e.target.value },
+                        })
+                      }
+                      placeholder="##. Previous Page"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                    Controls Variable
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                    value={node.data.pagination.controlsVar}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        pagination: { ...node.data.pagination!, controlsVar: e.target.value },
+                      })
+                    }
+                    placeholder="paginationControls"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
