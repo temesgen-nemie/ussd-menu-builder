@@ -43,8 +43,7 @@ export type FlowNode = {
     enabled: boolean;
     actionNode: string;
     pageField: string;
-    hasNextField: string;
-    hasPrevField: string;
+    totalPagesField: string;
     nextInput: string;
     prevInput: string;
     nextLabel: string;
@@ -176,7 +175,19 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             typeof data.indexPerPage === "number"
               ? data.indexPerPage
               : undefined,
-          pagination: data.pagination as FlowNode["pagination"] || undefined,
+          pagination: data.pagination
+            ? {
+              enabled: Boolean((data.pagination as any).enabled),
+              actionNode: String((data.pagination as any).actionNode ?? ""),
+              pageField: String((data.pagination as any).pageField ?? ""),
+              totalPagesField: String((data.pagination as any).totalPagesField ?? ""),
+              nextInput: String((data.pagination as any).nextInput ?? ""),
+              prevInput: String((data.pagination as any).prevInput ?? ""),
+              nextLabel: String((data.pagination as any).nextLabel ?? ""),
+              prevLabel: String((data.pagination as any).prevLabel ?? ""),
+              controlsVar: String((data.pagination as any).controlsVar ?? ""),
+            }
+            : undefined,
         };
 
         if (routingMode === "linear") {
