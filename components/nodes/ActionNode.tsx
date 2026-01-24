@@ -77,7 +77,7 @@ export default function ActionNode({ data, selected }: ActionNodeProps) {
               type='source'
               position={Position.Right}
               id={route.id}
-              style={{ top: 'auto', right: -22, border: '2px solid #a78bfa' }} // purple ring for routes
+              style={{ top: 'auto', right: -22, border: '2px solid #a78bfa' }}
             />
           </div>
         ))}

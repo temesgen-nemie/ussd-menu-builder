@@ -314,16 +314,17 @@ export default function ActionInspector({
     [node.id, updateNodeData]
   );
 
-  const syncParamsToUrl = (pairs: Array<{ id: string; key: string; value: string }>) => {
+  const syncParamsToUrl = (
+    pairs: Array<{ id: string; key: string; value: string }>
+  ) => {
     const currentEp = String(node.data.endpoint ?? "");
     const baseUrl = currentEp.split("?")[0];
-    const searchParams = new URLSearchParams();
-    
-    pairs.forEach(p => {
-      if (p.key.trim()) searchParams.append(p.key, p.value);
-    });
 
-    const queryString = searchParams.toString();
+    const queryString = pairs
+      .filter((p) => p.key.trim())
+      .map((p) => `${p.key}=${p.value ?? ""}`)
+      .join("&");
+
     const newEndpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
     updateNodeData(node.id, { endpoint: newEndpoint });
   };
@@ -332,12 +333,17 @@ export default function ActionInspector({
     try {
       if (newUrl.includes("?")) {
         const query = newUrl.split("?")[1];
-        const searchParams = new URLSearchParams(query);
-        const newPairs = Array.from(searchParams.entries()).map(([key, value]) => ({
-          id: generateId(),
-          key,
-          value,
-        }));
+        const newPairs = query
+          .split("&")
+          .filter((pair) => pair !== "")
+          .map((pair) => {
+            const [rawKey, ...rest] = pair.split("=");
+            return {
+              id: generateId(),
+              key: rawKey ?? "",
+              value: rest.join("=") ?? "",
+            };
+          });
         setParamPairs(newPairs);
       } else {
         setParamPairs([]);
