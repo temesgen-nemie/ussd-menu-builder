@@ -17,6 +17,7 @@ export type ActionNodeData = {
   apiBody?: Record<string, unknown>;
   apiBodyRaw?: string;
   bodyMode?: "json" | "soap";
+  requestSource?: "api" | "local";
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
   persistResponseMappingKeys?: string[];
