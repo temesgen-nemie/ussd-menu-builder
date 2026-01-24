@@ -22,7 +22,23 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  PersistInput?: boolean;
+  PersistInputAs?: string;
+  responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
+  hasMultiplePage?: boolean;
+  indexPerPage?: number;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    totalPagesField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
 };
 
 type PromptNodeProps = NodeProps<PromptNodeData>;
