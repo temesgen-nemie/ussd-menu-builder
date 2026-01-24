@@ -35,33 +35,33 @@ export default function TargetNodeDisplay({
 
   return (
     <div className={className}>
-      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
+      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">
         {label}
       </label>
-      <div className="flex items-center gap-2 group">
+      <div className="flex items-center gap-1.5 group">
         <div className="flex-1 relative">
            <input
-             className={`w-full rounded-xl border border-gray-100 p-2.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-xs font-mono transition-all group-hover:bg-gray-50 ${cleanNodeId ? 'pr-8' : ''}`}
+             className={`w-full rounded-lg border border-gray-100 p-1.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-[10px] font-mono transition-all group-hover:bg-gray-50 ${cleanNodeId ? 'pr-6' : ''}`}
              value={cleanNodeId}
              placeholder={placeholder}
              readOnly
              title={title}
            />
            {cleanNodeId && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 font-bold">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-300 font-bold">
                 ID
               </div>
            )}
         </div>
         
         {cleanNodeId && (
-          <div className="flex-[1.5] animate-in slide-in-from-left-2 fade-in duration-300">
-             <div className={`w-full rounded-xl border p-2.5 shadow-sm flex items-center gap-2 ${
+          <div className="flex-[1.2] animate-in slide-in-from-left-2 fade-in duration-300 min-w-0">
+             <div className={`w-full rounded-lg border p-1.5 shadow-sm flex items-center gap-1.5 ${
                isGroup 
                  ? "bg-purple-50 border-purple-100 text-purple-700" 
                  : "bg-indigo-50 border-indigo-100 text-indigo-700"
              }`}>
-               <div className={`p-1 rounded-md ${isGroup ? 'bg-purple-600' : 'bg-indigo-600'} text-white`}>
+               <div className={`p-1 rounded-md ${isGroup ? 'bg-purple-600' : 'bg-indigo-600'} text-white flex-shrink-0`}>
                  {isGroup ? (
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                      <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
@@ -72,11 +72,11 @@ export default function TargetNodeDisplay({
                    </svg>
                  )}
                </div>
-               <span className="text-xs font-black truncate max-w-[120px]">
+               <span className="text-[11px] font-bold truncate">
                  {targetName || "Unnamed Node"}
                </span>
                {isGroup && (
-                 <span className="text-[9px] font-bold bg-white/50 px-1.5 py-0.5 rounded-full uppercase">Group</span>
+                 <span className="text-[8px] font-bold bg-white/50 px-1 py-0.5 rounded-full uppercase leading-none">Group</span>
                )}
              </div>
           </div>

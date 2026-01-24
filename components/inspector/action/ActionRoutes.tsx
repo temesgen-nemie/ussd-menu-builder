@@ -49,7 +49,7 @@ export default function ActionRoutes({
       return {
         mode: "and" as const,
         conditions: [
-          { id: Math.random().toString(36).substr(2, 9), source: "response" as const, path: "", operator: "eq", valueText: "" }
+          { id: "row-0", source: "response" as const, path: "", operator: "eq", valueText: "" }
         ]
       };
     }
@@ -58,7 +58,7 @@ export default function ActionRoutes({
       const mode = parsed.or ? ("or" as const) : ("and" as const);
       const items = (parsed.and || parsed.or || [parsed]) as any[];
       
-      const conditions: ConditionRow[] = items.map((item) => {
+      const conditions: ConditionRow[] = items.map((item, rowIdx) => {
         const operator = Object.keys(item)[0] || "eq";
         const operands = item[operator] as unknown[];
         const left = String(operands?.[0] ?? "");
@@ -83,7 +83,7 @@ export default function ActionRoutes({
             : "";
             
         return {
-          id: Math.random().toString(36).substr(2, 9),
+          id: `row-${rowIdx}`,
           source,
           path,
           operator,
@@ -275,7 +275,7 @@ export default function ActionRoutes({
                       + OR
                     </button>
                     <div className="flex-1" />
-                    <div className="w-[140px]">
+                    <div className="min-w-[170px] flex justify-end">
                       <TargetNodeDisplay
                         nodeId={route.nextNodeId || ""}
                         label=""
