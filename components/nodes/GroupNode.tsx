@@ -56,8 +56,8 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
 
       <div className="flex flex-col gap-3">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 min-w-0">
              <div className={`p-2 rounded-lg ${isMenuBranch ? "bg-emerald-100 text-emerald-600" : "bg-indigo-100 text-indigo-600"}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   {isMenuBranch ? (
@@ -67,8 +67,8 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
                   )}
                 </svg>
              </div>
-             <div>
-                <h3 className="font-bold text-gray-800 tracking-tight">
+             <div className="min-w-0">
+                <h3 className="font-bold text-gray-800 tracking-tight truncate" title={data.name || "Untitled Group"}>
                   {data.name || "Untitled Group"}
                 </h3>
                 <p className={`text-[10px] uppercase font-bold tracking-widest ${isMenuBranch ? "text-emerald-400" : "text-indigo-400"}`}>
