@@ -308,8 +308,21 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
-          responseMapping:
-            (data.responseMapping as Record<string, unknown>) || undefined,
+          responseMapping: data.responseMapping
+            ? Object.fromEntries(
+              Object.entries(data.responseMapping as Record<string, string>).map(
+                ([k, v]) => {
+                  if (typeof v === "string") {
+                    // Unconditionally inject .data after response.
+                    // Handles both plain "response.field" and templated "{{response.field}}"
+                    // If input is "response.data.errors", output becomes "response.data.data.errors"
+                    return [k, v.replace(/(\{\{)?response\./g, "$1response.data.")];
+                  }
+                  return [k, v];
+                }
+              )
+            )
+            : undefined,
           persistResponseMappingKeys: (data.persistResponseMappingKeys as string[]) || undefined,
           encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
           nextNode: {
