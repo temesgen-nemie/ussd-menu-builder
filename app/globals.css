@@ -119,7 +119,81 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Enhanced React Flow Handles */
+.react-flow__handle {
+  width: 14px !important;
+  height: 14px !important;
+  transition: all 0.2s ease-in-out !important;
+  border-width: 3px !important;
+  background-color: white !important;
+  border-color: #6366f1 !important;
+  /* Indigo default */
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  filter: brightness(1.1);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+  cursor: crosshair;
+}
+
+/* Position-specific adjustments to keep handles centered on borders */
+.react-flow__handle-top {
+  top: -7px !important;
+}
+
+.react-flow__handle-bottom {
+  bottom: -7px !important;
+}
+
+.react-flow__handle-left {
+  left: -7px !important;
+}
+
+.react-flow__handle-right {
+  right: -7px !important;
+}
+
+/* Specific colors for handle types if needed */
+.react-flow__handle-source {
+  border-color: #6366f1;
+}
+
+.react-flow__handle-target {
+  border-color: #94a3b8;
+}
+
+/* Enhanced React Flow Edges */
+.react-flow__edge-path {
+  stroke-width: 3px !important;
+  stroke: #94a3b8 !important;
+  /* Slate 400 */
+  transition: stroke-width 0.2s ease-in-out, stroke 0.2s ease-in-out !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #6366f1 !important;
+  /* Indigo 500 */
+  stroke-width: 4px !important;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #475569 !important;
+  /* Slate 600 */
+  stroke-width: 4px !important;
+}
+
+/* Ensure arrows (markers) are also visible and scale with edges */
+.react-flow__arrowhead path {
+  fill: #94a3b8 !important;
+}
+
+.react-flow__edge.selected .react-flow__arrowhead path {
+  fill: #6366f1 !important;
 }

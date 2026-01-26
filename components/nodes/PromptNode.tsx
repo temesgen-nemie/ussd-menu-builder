@@ -102,7 +102,7 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
                     type="source"
                     position={Position.Right}
                     id={`route-${idx}`}
-                    className="!w-3 !h-3 !bg-indigo-500 border-2 border-white -right-3"
+                    className="-right-2 border-indigo-500"
                   />
                 </div>
               );
