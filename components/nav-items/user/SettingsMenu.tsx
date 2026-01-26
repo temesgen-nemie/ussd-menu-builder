@@ -1,13 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Menu } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +14,12 @@ import { Input } from "@/components/ui/input";
 import { useSettingsStore } from "@/store/settingsStore";
 import { fetchSettings, saveSettings, SettingsPayload } from "@/lib/api";
 
-export default function SettingsMenu() {
-  const [open, setOpen] = useState(false);
+type SettingsMenuProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) {
   const {
     endpoints: cachedEndpoints,
     lastFetched,
@@ -108,7 +105,7 @@ export default function SettingsMenu() {
       await saveSettings(settingsPayload);
       setEndpoints(cleanedEndpoints);
       setLastFetched(Date.now());
-      setOpen(false);
+      onOpenChange(false);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to save settings."
@@ -119,27 +116,7 @@ export default function SettingsMenu() {
   };
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
-            aria-label="Open menu"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={() => setOpen(true)}>
-            Parameter Context
-          </DropdownMenuItem>
-          <DropdownMenuItem>Controller Settings</DropdownMenuItem>
-          <DropdownMenuItem>Other</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Parameter Context</DialogTitle>
@@ -210,6 +187,5 @@ export default function SettingsMenu() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
   );
 }

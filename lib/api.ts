@@ -10,6 +10,34 @@ const api = axios.create({
     },
 });
 
+api.interceptors.request.use((config) => {
+    if (typeof window !== "undefined") {
+        const token = window.localStorage.getItem("ussd-auth-token");
+        if (token) {
+            config.headers = config.headers ?? {};
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
+export type AuthUser = {
+    userId?: string;
+    username: string;
+    isAdmin: boolean;
+    createdAt?: number;
+    lastActivity?: number;
+};
+
+export type LoginResponse = {
+    user: AuthUser;
+    sessionId: string;
+};
+
+export type MeResponse = {
+    user: AuthUser;
+};
+
 export const createFlow = async (payload: FlowJson) => {
     try {
         const response = await api.post("/flows", payload);
@@ -18,6 +46,130 @@ export const createFlow = async (payload: FlowJson) => {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
             throw new Error(axiosError.response?.data?.error || "Backend error");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const login = async (payload: {
+    username: string;
+    password: string;
+}): Promise<LoginResponse> => {
+    try {
+        const response = await api.post<LoginResponse>("/auth/login", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Login failed");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const getCurrentUser = async (): Promise<MeResponse> => {
+    try {
+        const response = await api.get<MeResponse>("/auth/me");
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to fetch user");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const getUsers = async (params?: { page?: number; pageSize?: number }) => {
+    try {
+        const response = await api.get("/admin/users", {
+            headers: { "Content-Type": "text/plain" },
+            params,
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to fetch users");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const createUser = async (payload: {
+    username: string;
+    password: string;
+}) => {
+    try {
+        const response = await api.post("/admin/users", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to create user");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const suspendUser = async (payload: {
+    userId: string;
+    suspensionReason: string;
+}) => {
+    try {
+        const response = await api.post("/admin/users/suspend", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to suspend user");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const unsuspendUser = async (payload: { userId: string }) => {
+    try {
+        const response = await api.post("/admin/unsuspend", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to unsuspend user");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const unlockUser = async (payload: { userId: string }) => {
+    try {
+        const response = await api.post("/admin/user/unlock", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to unlock user");
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {
@@ -251,7 +403,7 @@ export const getAuditEvents = async (params: {
     limit: number;
 }) => {
     try {
-        const response = await axios.get("https://ussdtool.profilesage.com/audit-events", { params });
+        const response = await api.get("/audit-events", { params });
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {

@@ -7,13 +7,15 @@ import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 import LogsModal from "./logs/LogsModal";
 import AuditModal from "./audit/AuditModal";
 import QrScanDialog from "./nav-items/QrScanDialog";
-import SettingsMenu from "./nav-items/SettingsMenu";
 import NodeToolbar from "./nav-items/NodeToolbar";
+import UserMenu from "./nav-items/UserMenu";
+import { useAuthStore } from "@/store/authStore";
 
 export default function Navbar() {
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const { user } = useAuthStore();
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
@@ -51,21 +53,23 @@ export default function Navbar() {
             </span>
             Logs
           </button>
-          <button
-            onClick={() => setAuditOpen(true)}
-            className="flex items-center gap-2 rounded-md bg-linear-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
-          >
-            <span className="rounded-sm bg-white/20 p-1">
-              <ShieldCheck className="h-4 w-4 text-white" />
-            </span>
-            Audit Events
-          </button>
+          {user?.isAdmin && (
+            <button
+              onClick={() => setAuditOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-linear-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
+            >
+              <span className="rounded-sm bg-white/20 p-1">
+                <ShieldCheck className="h-4 w-4 text-white" />
+              </span>
+              Audit Events
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* <QrScanDialog /> */}
           <ModeToggle />
-          <SettingsMenu />
+          <UserMenu />
         </div>
       </div>
 
@@ -75,7 +79,9 @@ export default function Navbar() {
         onClose={() => setSimulatorOpen(false)}
       />
       <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
-      <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
+      {user?.isAdmin && (
+        <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
+      )}
     </nav>
   );
 }
