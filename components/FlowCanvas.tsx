@@ -63,6 +63,8 @@ export default function FlowCanvas() {
     setSelectedNodeId,
     selectedNodeId,
     removeNode,
+    removeNodes,
+    removeEdges,
     addNode,
     openInspector,
     updateNodeData,
@@ -185,95 +187,113 @@ export default function FlowCanvas() {
         // 1. Prompt Options
         if (sourceNode && sourceNode.type === "prompt") {
           const handleId = params.sourceHandle;
-          const targetNode = nodes.find((n) => n.id === params.target);
 
-          // VALIDATION: If connecting to a Menu Branch Group, check for Start node
-          if (
-            targetNode &&
-            targetNode.type === "group" &&
-            targetNode.data.isMenuBranch
-          ) {
-            const children = nodes.filter(
-              (n) => n.parentNode === targetNode.id
-            );
-            const hasStartNode = children.some((n) => n.type === "start");
+          // Handle Prompt Node "default" handle (Linear Mode)
+          if (!handleId || handleId === "default") {
+            updateNodeData(sourceNode.id, { 
+              nextNode: params.target,
+              routingMode: sourceNode.data.routingMode || "linear"
+            });
+          } else {
+            const targetNode = nodes.find((n) => n.id === params.target);
 
-            if (!hasStartNode) {
-              toast.error("Invalid Menu Branch", {
-                description: `Target group '${
-                  targetNode.data.name || "Untitled"
-                }' must contain a Start node to be used as a menu branch destination.`,
-                duration: 5000,
-              });
-              return; // REJECT CONNECTION
-            }
-          }
+            // VALIDATION: If connecting to a Menu Branch Group, check for Start node
+            if (
+              targetNode &&
+              targetNode.type === "group" &&
+              targetNode.data.isMenuBranch
+            ) {
+              const children = nodes.filter(
+                (n) => n.parentNode === targetNode.id
+              );
+              const hasStartNode = children.some((n) => n.type === "start");
 
-          interface PromptNextNode {
-            routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
-            default?: string;
-          }
-          const nextNode = sourceNode.data.nextNode as PromptNextNode;
-          if (nextNode && typeof nextNode === "object" && nextNode.routes) {
-            const routeIdx = parseInt(handleId.split("-")[1]);
-            const newRoutes = [...nextNode.routes];
-            const route = newRoutes[routeIdx];
-
-            if (route) {
-              let finalName = "";
-
-              // SYNC LOGIC: If connecting to a Menu Branch Group
-              if (
-                targetNode &&
-                targetNode.type === "group" &&
-                targetNode.data.isMenuBranch
-              ) {
-                // 1. Prioritize any explicitly set gotoFlow in the prompt
-                // 2. Fallback to existing Group name (if it's not default)
-                // 3. Last fallback: use the prompt input value
-                const targetName = targetNode.data.name;
-                const isDefaultTargetName =
-                  !targetName || targetName === "Untitled Group";
-
-                finalName =
-                  route.gotoFlow ||
-                  (!isDefaultTargetName ? targetName : "") ||
-                  route.when?.eq?.[1] ||
-                  "Branch";
-
-                // Update Group Name (Sync)
-                updateNodeData(targetNode.id, { name: finalName });
-
-                // Update Internal Start Node flowName
-                const children = nodes.filter(
-                  (n) => n.parentNode === targetNode.id
-                );
-                const startNode = children.find((n) => n.type === "start");
-                if (startNode) {
-                  updateNodeData(startNode.id, { flowName: finalName });
-                }
-              } else if (targetNode && targetNode.type !== "group") {
-                // NEW: Rename non-group target node to match the route's value
-                finalName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
-                updateNodeData(targetNode.id, { name: finalName });
-              } else {
-                // Fallback / legacy non-branch
-                finalName =
-                  route.gotoFlow ||
-                  (targetNode?.data.name &&
-                  targetNode.data.name !== "Untitled Group"
-                    ? targetNode.data.name
-                    : "");
+              if (!hasStartNode) {
+                toast.error("Invalid Menu Branch", {
+                  description: `Target group '${
+                    targetNode.data.name || "Untitled"
+                  }' must contain a Start node to be used as a menu branch destination.`,
+                  duration: 5000,
+                });
+                return; // REJECT CONNECTION
               }
+            }
 
-              // Update the route itself with the final name (without goto prefix)
-              newRoutes[routeIdx] = {
-                ...route,
-                gotoFlow: finalName || targetNode?.id || "",
-              };
-              updateNodeData(sourceNode.id, {
-                nextNode: { ...nextNode, routes: newRoutes },
-              });
+            interface PromptNextNode {
+              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
+              default?: string;
+            }
+            const nextNode = sourceNode.data.nextNode as PromptNextNode;
+            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
+              const routeIdx = parseInt(handleId.split("-")[1]);
+              const newRoutes = [...nextNode.routes];
+              const route = newRoutes[routeIdx];
+
+              if (route) {
+                let finalName = "";
+
+                // SYNC LOGIC: If connecting to a Menu Branch Group
+                if (
+                  targetNode &&
+                  targetNode.type === "group" &&
+                  targetNode.data.isMenuBranch
+                ) {
+                  // 1. Prioritize any explicitly set gotoFlow in the prompt
+                  // 2. Fallback to existing Group name (if it's not default)
+                  // 3. Last fallback: use the prompt input value
+                  const targetName = targetNode.data.name;
+                  const isDefaultTargetName =
+                    !targetName || targetName === "Untitled Group";
+
+                  finalName =
+                    route.gotoFlow ||
+                    (!isDefaultTargetName ? targetName : "") ||
+                    route.when?.eq?.[1] ||
+                    "Branch";
+
+                  // Update Group Name (Sync)
+                  updateNodeData(targetNode.id, { name: finalName });
+
+                  // Update Internal Start Node flowName
+                  const children = nodes.filter(
+                    (n) => n.parentNode === targetNode.id
+                  );
+                  const startNode = children.find((n) => n.type === "start");
+                  if (startNode) {
+                    updateNodeData(startNode.id, { flowName: finalName });
+                  }
+                } else if (targetNode && targetNode.type !== "group") {
+                  // NEW: Rename non-group target node to match the route's value
+                  const newName = route.gotoFlow || route.when?.eq?.[1];
+
+                  if (!newName) {
+                    toast.error("Invalid Branch", {
+                      description: "Please define a name in the branch.",
+                      duration: 4000,
+                    });
+                    return; // REJECT/ABORT SYNC if no name
+                  }
+                  finalName = newName;
+                  updateNodeData(targetNode.id, { name: finalName });
+                } else {
+                  // Fallback / legacy non-branch
+                  finalName =
+                    route.gotoFlow ||
+                    (targetNode?.data.name &&
+                    targetNode.data.name !== "Untitled Group"
+                      ? targetNode.data.name
+                      : "");
+                }
+
+                // Update the route itself with the final name (without goto prefix)
+                newRoutes[routeIdx] = {
+                  ...route,
+                  gotoFlow: finalName || targetNode?.id || "",
+                };
+                updateNodeData(sourceNode.id, {
+                  nextNode: { ...nextNode, routes: newRoutes },
+                });
+              }
             }
           }
         }
@@ -325,71 +345,12 @@ export default function FlowCanvas() {
     [edges, setEdges, nodes, updateNodeData]
   );
 
-  // Handle edge deletion to clear the nextNode mapping
+  // Handle edge deletion logic via store action
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
-      deletedEdges.forEach((edge) => {
-        if (edge.sourceHandle) {
-          const sourceNode = nodes.find((n) => n.id === edge.source);
-
-          // 1. Prompt Options
-          if (sourceNode && sourceNode.type === "prompt") {
-            interface PromptNextNode {
-              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
-              default?: string;
-            }
-            const nextNode = sourceNode.data.nextNode as PromptNextNode;
-            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
-              const routeIdx = parseInt(edge.sourceHandle.split("-")[1]);
-              const newRoutes = [...nextNode.routes];
-              if (newRoutes[routeIdx]) {
-                newRoutes[routeIdx] = { ...newRoutes[routeIdx], gotoFlow: "" };
-                updateNodeData(sourceNode.id, {
-                  nextNode: { ...nextNode, routes: newRoutes },
-                });
-              }
-            }
-          }
-          // 2. Action Routes
-          else if (sourceNode && sourceNode.type === "action") {
-            if (edge.sourceHandle === "default") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else {
-              interface ActionRoute {
-                id: string;
-                nextNodeId?: string;
-              }
-              const routes = (sourceNode.data.routes as ActionRoute[]) || [];
-              const routeIndex = routes.findIndex(
-                (r) => r.id === edge.sourceHandle
-              );
-              if (routeIndex !== -1) {
-                const newRoutes = [...routes];
-                newRoutes[routeIndex] = {
-                  ...newRoutes[routeIndex],
-                  nextNodeId: "",
-                };
-                updateNodeData(sourceNode.id, { routes: newRoutes });
-              }
-            }
-          }
-        } else {
-          // If no specific handle ID is used (legacy)
-          const sourceNode = nodes.find((n) => n.id === edge.source);
-
-          if (sourceNode) {
-            if (sourceNode.type === "prompt") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else if (sourceNode.type === "action") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else if (sourceNode.type === "start") {
-              updateNodeData(sourceNode.id, { entryNode: "" });
-            }
-          }
-        }
-      });
+      removeEdges(deletedEdges.map((e) => e.id));
     },
-    [nodes, updateNodeData]
+    [removeEdges]
   );
 
   // node drag / move / selection: apply change objects to current `nodes`
@@ -547,8 +508,19 @@ export default function FlowCanvas() {
       if (e.repeat) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedNodeId) {
-          removeNode(selectedNodeId);
+        const selectedNodeIds = visibleNodes
+          .filter((n) => n.selected)
+          .map((n) => n.id);
+        const selectedEdges = visibleEdges.filter((edge) => edge.selected);
+
+        // Handle Node Deletion
+        if (selectedNodeIds.length > 0) {
+          removeNodes(selectedNodeIds);
+        }
+
+        // Handle Edge Deletion
+        if (selectedEdges.length > 0) {
+          removeEdges(selectedEdges.map((edge) => edge.id));
         }
       } else if (e.key === "Escape") {
         // Close the inspector if open
@@ -574,12 +546,13 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [
     selectedNodeId,
-    removeNode,
+    removeNodes,
+    removeEdges,
     closeInspector,
-    nodes,
     copyNodes,
     pasteNodes,
     visibleNodes,
+    visibleEdges,
   ]);
 
   // Auto-load flows on mount
@@ -588,6 +561,20 @@ export default function FlowCanvas() {
       loadAllFlows();
     }
   }, [loadAllFlows, _hasHydrated]);
+
+  // Auto-center/fit view when navigating subflows
+  useEffect(() => {
+    if (_hasHydrated && rfInstanceRef.current && nodes.length > 0) {
+      // Small timeout to ensure visibleNodes have updated and rendered
+      const timer = setTimeout(() => {
+        rfInstanceRef.current?.fitView({
+          duration: 400,
+          padding: 0.2,
+        });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [currentSubflowId, _hasHydrated, nodes.length]);
 
   return (
     <div

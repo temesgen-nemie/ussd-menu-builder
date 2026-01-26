@@ -185,7 +185,7 @@ export default function ActionInspector({
   React.useEffect(() => {
     const current = String(node.data.dataSource ?? "").trim();
     if (!current) {
-      updateNodeData(node.id, { dataSource: "Input Manager" });
+      updateNodeData(node.id, { dataSource: "" });
     }
   }, [node.data.dataSource, node.id, updateNodeData]);
 

@@ -11,7 +11,6 @@ export type FlowRoute = {
   goto?: string;
   gotoId?: string;
 };
-
 export type FlowNode = {
   id: string;
   name?: string;
@@ -24,8 +23,8 @@ export type FlowNode = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
-  PersistInput?: boolean;
-  PersistInputAs?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -36,6 +35,21 @@ export type FlowNode = {
   apiBody?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
+  encryptInput?: boolean;
+  responseType?: "CONTINUE" | "END";
+  hasMultiplePage?: boolean;
+  indexPerPage?: number;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    totalPagesField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
   nextNode?:
   | string
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
@@ -87,20 +101,27 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     if (node.type === "start") return;
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
     typeById.set(node.id, node.type || "");
+    // Always map ID to name (or empty string/Unnamed)
+    nameById.set(node.id, name || "");
     if (name) {
-      nameById.set(node.id, name);
       idByName.set(name, node.id);
     }
   });
 
   const resolveTarget = (value?: string | unknown) => {
     if (typeof value !== "string" || !value) return { id: "", name: "" };
+
+    // 1. Check if the value is a known ID
     if (nameById.has(value)) {
-      return { id: value, name: nameById.get(value) || value };
+      return { id: value, name: nameById.get(value) || "" };
     }
+
+    // 2. Check if the value is a known Name
     if (idByName.has(value)) {
       return { id: idByName.get(value) || "", name: value };
     }
+
+    // 3. Fallback: treat as name but ID unknown
     return { id: "", name: value };
   };
 
@@ -129,7 +150,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(data.invalidInputMessage ?? "");
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
-        const promptExtras = {
+        const promptExtras: Partial<FlowNode> = {
           persistByIndex:
             typeof data.persistByIndex === "boolean"
               ? data.persistByIndex
@@ -143,36 +164,59 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
-          PersistInput:
-            typeof data.PersistInput === "boolean"
-              ? data.PersistInput
+          persistInput:
+            typeof data.persistInput === "boolean"
+              ? data.persistInput
               : undefined,
-          PersistInputAs: String(data.PersistInputAs ?? "") || undefined,
-          responseType: (data.responseType as string) || "CONTINUE",
+          persistInputAs: String(data.persistInputAs ?? "") || undefined,
+          responseType: (data.responseType as any) || "CONTINUE",
+          encryptInput:
+            typeof data.encryptInput === "boolean"
+              ? data.encryptInput
+              : undefined,
+          hasMultiplePage:
+            typeof data.hasMultiplePage === "boolean"
+              ? data.hasMultiplePage
+              : undefined,
+          indexPerPage:
+            typeof data.indexPerPage === "number"
+              ? data.indexPerPage
+              : undefined,
+          pagination: data.pagination
+            ? {
+              enabled: Boolean((data.pagination as any).enabled),
+              actionNode: String((data.pagination as any).actionNode ?? ""),
+              pageField: String((data.pagination as any).pageField ?? ""),
+              totalPagesField: String((data.pagination as any).totalPagesField ?? ""),
+              nextInput: String((data.pagination as any).nextInput ?? ""),
+              prevInput: String((data.pagination as any).prevInput ?? ""),
+              nextLabel: String((data.pagination as any).nextLabel ?? ""),
+              prevLabel: String((data.pagination as any).prevLabel ?? ""),
+              controlsVar: String((data.pagination as any).controlsVar ?? ""),
+            }
+            : undefined,
         };
 
         if (routingMode === "linear") {
-          // If in linear mode, nextNode should be a string (the target node Name/ID)
-          // If currently an object, try to extract 'default'
           let targetStr = "";
           if (typeof nextNode === "string") {
             targetStr = nextNode;
           } else if (nextNode && typeof nextNode === "object") {
-            targetStr = (nextNode as any).default || "";
+            targetStr = (nextNode as any).defaultId || (nextNode as any).default || "";
           }
 
           const resolved = resolveTarget(targetStr);
+          const finalId = resolved.id || (targetStr && nameById.has(targetStr) ? targetStr : "") || targetStr || "";
+
           return {
             ...base,
             message,
             ...promptExtras,
-            nextNode: resolved.name || "",
-            nextNodeId: resolved.id || "",
+            nextNode: resolved.name || targetStr || "",
+            nextNodeId: finalId,
           };
         }
 
-        // routingMode === "menu" (or fallback)
-        // Ensure we handle nextNode being either a string or an object
         let routes: FlowRoute[] = [];
         let defaultName = "";
         let defaultId = "";
@@ -264,8 +308,21 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
-          responseMapping:
-            (data.responseMapping as Record<string, unknown>) || undefined,
+          responseMapping: data.responseMapping
+            ? Object.fromEntries(
+              Object.entries(data.responseMapping as Record<string, string>).map(
+                ([k, v]) => {
+                  if (typeof v === "string") {
+                    // Unconditionally inject .data after response.
+                    // Handles both plain "response.field" and templated "{{response.field}}"
+                    // If input is "response.data.errors", output becomes "response.data.data.errors"
+                    return [k, v.replace(/(\{\{)?response\./g, "$1response.data.")];
+                  }
+                  return [k, v];
+                }
+              )
+            )
+            : undefined,
           persistResponseMappingKeys: (data.persistResponseMappingKeys as string[]) || undefined,
           encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
           nextNode: {
@@ -304,6 +361,8 @@ interface FlowState {
   setEdges: (edges: Edge[]) => void;
   addNode: (node: Node) => void;
   removeNode: (id: string) => void;
+  removeNodes: (ids: string[]) => void;
+  removeEdges: (ids: string[]) => void;
   setSelectedNodeId: (id: string | null) => void;
   openInspector: (id: string) => void;
   closeInspector: () => void;
@@ -830,14 +889,16 @@ export const useFlowStore = create<FlowState>()(
             flow: buildFlowJson(finalNodes, mergedEdges),
             publishedGroupIds: publishedGroupIdsFromBackend,
             modifiedGroupIds: get().modifiedGroupIds.filter(groupId => {
-              const info = getParentGroupInfo(finalNodes, groupId);
-              const flowName = info?.flowName;
+              // Find the flow name for THIS group by looking at its own Start node
+              const groupChildren = finalNodes.filter(n => n.parentNode === groupId);
+              const startNode = groupChildren.find(n => n.type === 'start');
+              const flowName = startNode?.data?.flowName;
+
               if (!flowName || !allBackendFlowNames.includes(flowName)) return true;
+
               // Only clear if no nodes in this flow are "local-only"
-              const hasLocalOnly = finalNodes.some(n => {
-                const nodeInfo = getParentGroupInfo(finalNodes, n.id);
-                return nodeInfo?.groupId === groupId && !backendNodeMap.has(n.id);
-              });
+              // (i.e., everything in the group exists in the backend)
+              const hasLocalOnly = groupChildren.some(n => !backendNodeMap.has(n.id));
               return hasLocalOnly;
             }),
           });
@@ -1012,22 +1073,25 @@ export const useFlowStore = create<FlowState>()(
           };
         }),
 
-      removeNode: (id) =>
+      removeNode: (id) => get().removeNodes([id]),
+
+      removeNodes: (ids) =>
         set((state) => {
-          const nodesToRemoveIds = new Set<string>();
-          nodesToRemoveIds.add(id);
+          const nodesToRemoveIds = new Set<string>(ids);
 
-          // Identify the flow that might be modified BEFORE removing nodes
-          let groupIdToMark: string | null = null;
-          const node = state.nodes.find(n => n.id === id);
-          if (node?.parentNode) {
-            const info = getParentGroupInfo(state.nodes, node.id);
-            if (info && state.publishedGroupIds.includes(info.groupId)) {
-              groupIdToMark = info.groupId;
+          // Identify all flows that might be modified BEFORE removing nodes
+          const groupIdsToMark = new Set<string>();
+          ids.forEach((id) => {
+            const node = state.nodes.find((n) => n.id === id);
+            if (node?.parentNode) {
+              const info = getParentGroupInfo(state.nodes, node.id);
+              if (info && state.publishedGroupIds.includes(info.groupId)) {
+                groupIdsToMark.add(info.groupId);
+              }
             }
-          }
+          });
 
-          // Iterative approach to identify all descendants at any depth
+          // Iterative approach to identify all descendants at any depth for all starting IDs
           let changed = true;
           while (changed) {
             changed = false;
@@ -1057,10 +1121,12 @@ export const useFlowStore = create<FlowState>()(
               !nodesToRemoveIds.has(e.source) && !nodesToRemoveIds.has(e.target)
           );
 
-          let nextModifiedGroupIds = state.modifiedGroupIds;
-          if (groupIdToMark && !nextModifiedGroupIds.includes(groupIdToMark)) {
-            nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
-          }
+          let nextModifiedGroupIds = [...state.modifiedGroupIds];
+          groupIdsToMark.forEach((groupId) => {
+            if (!nextModifiedGroupIds.includes(groupId)) {
+              nextModifiedGroupIds.push(groupId);
+            }
+          });
 
           return {
             nodes: nextNodes,
@@ -1071,6 +1137,17 @@ export const useFlowStore = create<FlowState>()(
             currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes, nextEdges),
             modifiedGroupIds: nextModifiedGroupIds,
+          };
+        }),
+
+      removeEdges: (ids) =>
+        set((state) => {
+          const edgeIdsToRemove = new Set(ids);
+          const nextEdges = state.edges.filter((e) => !edgeIdsToRemove.has(e.id));
+
+          return {
+            edges: nextEdges,
+            flow: buildFlowJson(state.nodes, nextEdges),
           };
         }),
 
@@ -1214,8 +1291,16 @@ export const useFlowStore = create<FlowState>()(
                   } else if (connectedNode && connectedNode.type !== "group") {
                     // NEW: Sync name for non-group nodes
                     const when = route.when as { eq?: string[] } | undefined;
-                    const newName =
-                      route.gotoFlow || when?.eq?.[1] || "transfer";
+                    const newName = route.gotoFlow || when?.eq?.[1];
+
+                    if (!newName) {
+                      toast.error("Invalid Branch", {
+                        description: "Please define a name in the branch.",
+                        duration: 4000
+                      });
+                      return;
+                    }
+
                     nextNodes = nextNodes.map((n) => {
                       if (n.id === connectedNode.id) {
                         return { ...n, data: { ...n.data, name: newName } };
@@ -1529,6 +1614,10 @@ export const useFlowStore = create<FlowState>()(
               flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
             nextData.emptyInputMessage =
               flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
+            nextData.encryptInput =
+              typeof flowNode.encryptInput === "boolean"
+                ? flowNode.encryptInput
+                : nextData.encryptInput;
 
             if (
               flowNode.nextNode &&

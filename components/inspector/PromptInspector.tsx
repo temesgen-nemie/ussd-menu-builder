@@ -30,9 +30,23 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
-  PersistInput?: boolean;
-  PersistInputAs?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
+  encryptInput?: boolean;
+  hasMultiplePage?: boolean;
+  indexPerPage?: number;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    totalPagesField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
 };
 
 type PromptNode = {
@@ -44,6 +58,36 @@ export default function PromptInspector({
   node,
   updateNodeData,
 }: PromptInspectorProps) {
+  const syncMessage = (
+    currentMessage: string,
+    routes: PromptRoute[]
+  ): string => {
+    // 1. Identify existing routing lines (starts with "N. ")
+    const lines = currentMessage.split("\n");
+    const introLines: string[] = [];
+
+    for (const line of lines) {
+      if (!/^\d+\.\s/.test(line.trim())) {
+        introLines.push(line);
+      } else {
+        // Stop at the first routing line to preserve only the intro
+        break;
+      }
+    }
+
+    const intro = introLines.join("\n").trim();
+
+    // 2. Generate new routing lines
+    const routingLines = routes.map(
+      (r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`
+    );
+
+    // 3. Combine intro and routes
+    return intro
+      ? `${intro}\n\n${routingLines.join("\n")}`
+      : routingLines.join("\n");
+  };
+
   return (
     <div className="grid grid-cols-2 gap-6">
       {/* Left Column: Basic Info + Routing */}
@@ -83,14 +127,19 @@ export default function PromptInspector({
                   }
 
                   const routes = currentNextNode.routes || [];
+                  const newRoutes = [
+                    ...routes,
+                    { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
+                  ];
+
+                  // Auto-sync message
+                  const newMessage = syncMessage(node.data.message || "", newRoutes);
 
                   updateNodeData(node.id, {
+                    message: newMessage,
                     nextNode: {
                       ...currentNextNode,
-                      routes: [
-                        ...routes,
-                        { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
-                      ],
+                      routes: newRoutes,
                     },
                   });
                 }}
@@ -125,7 +174,9 @@ export default function PromptInspector({
                           const newRoutes = (nextNode.routes || []).filter(
                             (_, i) => i !== idx
                           );
+                          const newMessage = syncMessage(node.data.message || "", newRoutes);
                           updateNodeData(node.id, {
+                            message: newMessage,
                             nextNode: { ...nextNode, routes: newRoutes },
                           });
                         }}
@@ -158,12 +209,13 @@ export default function PromptInspector({
                               const nextNode = node.data
                                 .nextNode as PromptNextNode;
                               const newRoutes = [...(nextNode.routes || [])];
-                              // Update specific deep property structure
                               newRoutes[idx] = {
                                 ...newRoutes[idx],
                                 when: { eq: ["{{input}}", e.target.value] },
                               };
+                              const newMessage = syncMessage(node.data.message || "", newRoutes);
                               updateNodeData(node.id, {
+                                message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
                               });
                             }}
@@ -185,7 +237,9 @@ export default function PromptInspector({
                                 ...newRoutes[idx],
                                 gotoFlow: e.target.value,
                               };
+                              const newMessage = syncMessage(node.data.message || "", newRoutes);
                               updateNodeData(node.id, {
+                                message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
                               });
                             }}
@@ -293,16 +347,29 @@ export default function PromptInspector({
             <label className="flex items-center gap-2 text-xs text-gray-700">
               <input
                 type="checkbox"
-                checked={Boolean(node.data.PersistInput)}
+                checked={Boolean(node.data.persistInput)}
                 onChange={(e) =>
-                  updateNodeData(node.id, { PersistInput: e.target.checked })
+                  updateNodeData(node.id, { persistInput: e.target.checked })
                 }
               />
               Persist Input
             </label>
           </div>
 
-          {(node.data.persistByIndex || node.data.PersistInput) && (
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.encryptInput)}
+                onChange={(e) =>
+                  updateNodeData(node.id, { encryptInput: e.target.checked })
+                }
+              />
+              Encrypt Input
+            </label>
+          </div>
+
+          {(node.data.persistByIndex || node.data.persistInput) && (
             <div className="space-y-3 pt-2 border-t border-gray-50">
               {node.data.persistByIndex && (
                 <div className="grid grid-cols-2 gap-3">
@@ -337,16 +404,16 @@ export default function PromptInspector({
                 </div>
               )}
 
-              {node.data.PersistInput && (
+              {node.data.persistInput && (
                 <div>
                   <label className="text-[10px] text-gray-500 block uppercase mb-1">
                     Persist Input As
                   </label>
                   <input
                     className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                    value={String(node.data.PersistInputAs ?? "")}
+                    value={String(node.data.persistInputAs ?? "")}
                     onChange={(e) =>
-                      updateNodeData(node.id, { PersistInputAs: e.target.value })
+                      updateNodeData(node.id, { persistInputAs: e.target.value })
                     }
                     placeholder="receiverAccountNumber"
                   />
@@ -410,6 +477,204 @@ export default function PromptInspector({
               }
               placeholder="Please try again..."
             />
+          </div>
+
+          <div className="space-y-3 pt-3 border-t border-gray-100">
+            <div className="text-xs font-semibold text-gray-600 mb-2">
+              Page Metadata
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(node.data.hasMultiplePage)}
+                  onChange={(e) =>
+                    updateNodeData(node.id, { hasMultiplePage: e.target.checked })
+                  }
+                />
+                Has Multiple Page
+              </label>
+              <div>
+                <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                  Index Per Page
+                </label>
+                <input
+                  type="number"
+                  className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                  value={node.data.indexPerPage ?? ""}
+                  onChange={(e) =>
+                    updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })
+                  }
+                  placeholder="3"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-gray-600">
+                Pagination Settings
+              </div>
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(node.data.pagination?.enabled)}
+                  onChange={(e) => {
+                    const currentPag = node.data.pagination || {
+                      enabled: false,
+                      actionNode: "",
+                      pageField: "",
+                      totalPagesField: "totalPages",
+                      nextInput: "#",
+                      prevInput: "##",
+                      nextLabel: "#. Next Page",
+                      prevLabel: "##. Previous Page",
+                      controlsVar: "paginationControls",
+                    };
+                    updateNodeData(node.id, {
+                      pagination: { ...currentPag, enabled: e.target.checked },
+                    });
+                  }}
+                />
+                Enabled
+              </label>
+            </div>
+
+            {node.data.pagination?.enabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Action Node
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.actionNode}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, actionNode: e.target.value },
+                        })
+                      }
+                      placeholder="loadBanksPage"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Page Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.pageField}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, pageField: e.target.value },
+                        })
+                      }
+                      placeholder="banksPage"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Total Pages Field
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.totalPagesField}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, totalPagesField: e.target.value },
+                        })
+                      }
+                      placeholder="totalPages"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Next Input
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.nextInput}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, nextInput: e.target.value },
+                        })
+                      }
+                      placeholder="#"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Prev Input
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.prevInput}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, prevInput: e.target.value },
+                        })
+                      }
+                      placeholder="##"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Next Label
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.nextLabel}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, nextLabel: e.target.value },
+                        })
+                      }
+                      placeholder="#. Next Page"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                      Prev Label
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                      value={node.data.pagination.prevLabel}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          pagination: { ...node.data.pagination!, prevLabel: e.target.value },
+                        })
+                      }
+                      placeholder="##. Previous Page"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                    Controls Variable
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                    value={node.data.pagination.controlsVar}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        pagination: { ...node.data.pagination!, controlsVar: e.target.value },
+                      })
+                    }
+                    placeholder="paginationControls"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { Handle, Position, NodeProps } from "reactflow";
+import { useFlowStore } from "@/store/flowStore";
 
 type PromptRoute = {
   when?: { eq?: string[] };
@@ -22,30 +23,58 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  persistInput?: boolean;
+  persistInputAs?: string;
+  responseType?: "CONTINUE" | "END";
+  encryptInput?: boolean;
+  hasMultiplePage?: boolean;
+  indexPerPage?: number;
+  pagination?: {
+    enabled: boolean;
+    actionNode: string;
+    pageField: string;
+    totalPagesField: string;
+    nextInput: string;
+    prevInput: string;
+    nextLabel: string;
+    prevLabel: string;
+    controlsVar: string;
+  };
 };
 
 type PromptNodeProps = NodeProps<PromptNodeData>;
 
-export default function PromptNode({ data, selected }: PromptNodeProps) {
+export default function PromptNode({ id, data, selected }: PromptNodeProps) {
+  const edges = useFlowStore((s) => s.edges);
+
   return (
     <div
-      className={`rounded-xl p-4 w-64 bg-white shadow-md border
+      className={`group rounded-xl p-4 w-64 bg-white shadow-md border transition-all duration-200
       ${
         selected
-          ? "border-indigo-500 ring-2 ring-indigo-300"
+          ? "border-indigo-500 ring-2 ring-indigo-300 scale-[1.02]"
           : "border-gray-300"
       }`}
     >
-      <div className="font-bold text-indigo-600 mb-2">
-        {data.name || "Prompt"}
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-bold text-indigo-600 truncate max-w-[180px]">
+          {data.name || "Prompt"}
+        </div>
+        {data.encryptInput && (
+          <div title="Encrypted Input Active" className="bg-amber-100 p-1 rounded text-amber-600">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
       </div>
-      <div className="text-sm text-gray-700">
+      <div className="text-sm text-gray-700 break-all whitespace-pre-wrap transition-all duration-300">
         {data.message || "No message"}
       </div>
 
       {/* Menu Mode: Show Logic Rules (No Handles) */}
       {data.routingMode === "menu" && (
-        <div className="mt-3 pt-2 border-t border-gray-100 space-y-1">
+        <div className="mt-3 pt-2 border-t border-gray-100 space-y-1.5">
           {/* Check if nextNode has routes (Logic Mode) */}
           {data.nextNode &&
             typeof data.nextNode === "object" &&
@@ -53,21 +82,34 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
             data.nextNode.routes.map((route, idx: number) => {
               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
               const matchVal = route.when?.eq?.[1] || "?";
+              const handleId = `route-${idx}`;
+              const isActuallyConnected = edges.some(e => e.source === id && e.sourceHandle === handleId);
+
               return (
                 <div
                   key={idx}
-                  className="relative flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-100"
+                  className={`relative flex items-center justify-between text-xs p-1.5 rounded border transition-colors ${
+                    isActuallyConnected 
+                      ? "bg-gray-50 border-gray-100" 
+                      : "bg-amber-50 border-amber-100"
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono bg-white px-1.5 py-0.5 border rounded text-indigo-600 font-bold">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className={`font-mono bg-white px-1.5 py-0.5 border rounded font-bold shrink-0 ${
+                      isActuallyConnected ? "text-indigo-600" : "text-amber-600"
+                    }`}>
                       {matchVal}
                     </span>
-                    <span className="text-gray-400">→</span>
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isActuallyConnected ? "bg-emerald-500/60" : "bg-amber-500/80 animate-pulse"
+                    }`} />
                     <span
-                      className="text-gray-700 font-medium truncate max-w-[100px]"
+                      className={`font-medium truncate max-w-[80px] ${
+                         isActuallyConnected ? "text-gray-700" : "text-amber-700/80"
+                      }`}
                       title={route.gotoFlow}
                     >
-                      {route.gotoFlow || "Select Target..."}
+                      {route.gotoFlow || "Target"}
                     </span>
                   </div>
                   
@@ -75,8 +117,10 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
                   <Handle
                     type="source"
                     position={Position.Right}
-                    id={`route-${idx}`}
-                    className="!w-3 !h-3 !bg-indigo-500 border-2 border-white -right-3"
+                    id={handleId}
+                    className={`!-right-1.5 !w-2.5 !h-2.5 !border-2 ${
+                      isActuallyConnected ? "!border-indigo-500 !bg-white" : "!border-amber-500 !bg-white"
+                    }`}
                   />
                 </div>
               );
@@ -106,24 +150,23 @@ export default function PromptNode({ data, selected }: PromptNodeProps) {
         </div>
       )}
 
-      {/* Linear Mode Indicator */}
+      {/* Linear Mode: Centered bottom handle */}
       {(data.routingMode === "linear" || !data.routingMode) && (
-        <div className="mt-3 text-center">
-          <div className="text-[10px] text-gray-400 mb-1">
-            Input Collection Mode
-          </div>
+        <div className="mt-2 flex justify-center relative">
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="default"
+            className={`!w-2.5 !h-2.5 !border-2 !static !translate-x-0 ${
+              edges.some(e => e.source === id && (!e.sourceHandle || e.sourceHandle === 'default')) 
+                ? "!border-indigo-500 !bg-white" 
+                : "!border-amber-500 !bg-white"
+            }`}
+          />
         </div>
       )}
 
       <Handle type="target" position={Position.Top} />
-
-      {/* Linear Mode: Default Bottom Handle */}
-      {(data.routingMode === "linear" || !data.routingMode) && (
-        <Handle type="source" position={Position.Bottom} />
-      )}
-
-      {/* Legacy/Fallback: Show bottom handle if menu mode but no options? (Optional, maybe keep it clean) */}
-      {/* For now, strict: If menu mode, no bottom handle. User must add options. */}
     </div>
   );
 }
