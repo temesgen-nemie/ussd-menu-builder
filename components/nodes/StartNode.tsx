@@ -35,7 +35,7 @@ export default function StartNode({ data, selected }: StartNodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!bg-blue-500"
+        className="border-blue-500"
       />
     </div>
   );

@@ -43,7 +43,7 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-4 !h-4 !bg-emerald-500 border-2 border-white -top-2"
+          className="border-emerald-500"
         />
       )}
 
