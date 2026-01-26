@@ -58,6 +58,36 @@ export default function PromptInspector({
   node,
   updateNodeData,
 }: PromptInspectorProps) {
+  const syncMessage = (
+    currentMessage: string,
+    routes: PromptRoute[]
+  ): string => {
+    // 1. Identify existing routing lines (starts with "N. ")
+    const lines = currentMessage.split("\n");
+    const introLines: string[] = [];
+
+    for (const line of lines) {
+      if (!/^\d+\.\s/.test(line.trim())) {
+        introLines.push(line);
+      } else {
+        // Stop at the first routing line to preserve only the intro
+        break;
+      }
+    }
+
+    const intro = introLines.join("\n").trim();
+
+    // 2. Generate new routing lines
+    const routingLines = routes.map(
+      (r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`
+    );
+
+    // 3. Combine intro and routes
+    return intro
+      ? `${intro}\n\n${routingLines.join("\n")}`
+      : routingLines.join("\n");
+  };
+
   return (
     <div className="grid grid-cols-2 gap-6">
       {/* Left Column: Basic Info + Routing */}
@@ -103,9 +133,7 @@ export default function PromptInspector({
                   ];
 
                   // Auto-sync message
-                  const newMessage = newRoutes
-                    .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
-                    .join("\n");
+                  const newMessage = syncMessage(node.data.message || "", newRoutes);
 
                   updateNodeData(node.id, {
                     message: newMessage,
@@ -146,9 +174,7 @@ export default function PromptInspector({
                           const newRoutes = (nextNode.routes || []).filter(
                             (_, i) => i !== idx
                           );
-                          const newMessage = newRoutes
-                            .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
-                            .join("\n");
+                          const newMessage = syncMessage(node.data.message || "", newRoutes);
                           updateNodeData(node.id, {
                             message: newMessage,
                             nextNode: { ...nextNode, routes: newRoutes },
@@ -187,9 +213,7 @@ export default function PromptInspector({
                                 ...newRoutes[idx],
                                 when: { eq: ["{{input}}", e.target.value] },
                               };
-                              const newMessage = newRoutes
-                                .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
-                                .join("\n");
+                              const newMessage = syncMessage(node.data.message || "", newRoutes);
                               updateNodeData(node.id, {
                                 message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
@@ -213,9 +237,7 @@ export default function PromptInspector({
                                 ...newRoutes[idx],
                                 gotoFlow: e.target.value,
                               };
-                              const newMessage = newRoutes
-                                .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
-                                .join("\n");
+                              const newMessage = syncMessage(node.data.message || "", newRoutes);
                               updateNodeData(node.id, {
                                 message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
