@@ -139,7 +139,7 @@ export default function ResizablePhoneEmulator({
       setMessageInput("");
     } catch (error) {
       console.error("USSD Request Error:", error);
-      toast.error("Failed to send USSD request. Is the server running?");
+      toast.error("Failed to send USSD request.");
     } finally {
       setIsLoading(false);
     }
@@ -425,10 +425,10 @@ export default function ResizablePhoneEmulator({
                             ? 'max-h-[240px] mb-2' 
                             : 'max-h-[180px] mb-3'
                         }`}>
-                          <p className="text-[14.5px] font-medium leading-[1.35] select-none whitespace-pre-wrap text-left">
+                          <p className="text-[14.5px] font-medium leading-[1.35] select-none whitespace-pre-wrap text-left break-all">
                             {messages.length > 0 
                               ? messages[messages.length - 1].type === 'system' 
-                                 ? messages[messages.length - 1].content 
+                                 ? messages[messages.length - 1].content.substring(0, 172)
                                  : "Enter Response"
                               : "Enter USSD Code to start session (e.g. *123#)"}
                           </p>

@@ -97,14 +97,21 @@ export default function PromptInspector({
                   }
 
                   const routes = currentNextNode.routes || [];
+                  const newRoutes = [
+                    ...routes,
+                    { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
+                  ];
+
+                  // Auto-sync message
+                  const newMessage = newRoutes
+                    .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
+                    .join("\n");
 
                   updateNodeData(node.id, {
+                    message: newMessage,
                     nextNode: {
                       ...currentNextNode,
-                      routes: [
-                        ...routes,
-                        { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
-                      ],
+                      routes: newRoutes,
                     },
                   });
                 }}
@@ -139,7 +146,11 @@ export default function PromptInspector({
                           const newRoutes = (nextNode.routes || []).filter(
                             (_, i) => i !== idx
                           );
+                          const newMessage = newRoutes
+                            .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
+                            .join("\n");
                           updateNodeData(node.id, {
+                            message: newMessage,
                             nextNode: { ...nextNode, routes: newRoutes },
                           });
                         }}
@@ -172,12 +183,15 @@ export default function PromptInspector({
                               const nextNode = node.data
                                 .nextNode as PromptNextNode;
                               const newRoutes = [...(nextNode.routes || [])];
-                              // Update specific deep property structure
                               newRoutes[idx] = {
                                 ...newRoutes[idx],
                                 when: { eq: ["{{input}}", e.target.value] },
                               };
+                              const newMessage = newRoutes
+                                .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
+                                .join("\n");
                               updateNodeData(node.id, {
+                                message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
                               });
                             }}
@@ -199,7 +213,11 @@ export default function PromptInspector({
                                 ...newRoutes[idx],
                                 gotoFlow: e.target.value,
                               };
+                              const newMessage = newRoutes
+                                .map((r, i) => `${r.when?.eq?.[1] || i + 1}. ${r.gotoFlow || "..."}`)
+                                .join("\n");
                               updateNodeData(node.id, {
+                                message: newMessage,
                                 nextNode: { ...nextNode, routes: newRoutes },
                               });
                             }}
