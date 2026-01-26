@@ -187,95 +187,105 @@ export default function FlowCanvas() {
         // 1. Prompt Options
         if (sourceNode && sourceNode.type === "prompt") {
           const handleId = params.sourceHandle;
-          const targetNode = nodes.find((n) => n.id === params.target);
 
-          // VALIDATION: If connecting to a Menu Branch Group, check for Start node
-          if (
-            targetNode &&
-            targetNode.type === "group" &&
-            targetNode.data.isMenuBranch
-          ) {
-            const children = nodes.filter(
-              (n) => n.parentNode === targetNode.id
-            );
-            const hasStartNode = children.some((n) => n.type === "start");
+          // Handle Prompt Node "default" handle (Linear Mode)
+          if (!handleId || handleId === "default") {
+            updateNodeData(sourceNode.id, { 
+              nextNode: params.target,
+              routingMode: sourceNode.data.routingMode || "linear"
+            });
+          } else {
+            const targetNode = nodes.find((n) => n.id === params.target);
 
-            if (!hasStartNode) {
-              toast.error("Invalid Menu Branch", {
-                description: `Target group '${
-                  targetNode.data.name || "Untitled"
-                }' must contain a Start node to be used as a menu branch destination.`,
-                duration: 5000,
-              });
-              return; // REJECT CONNECTION
-            }
-          }
+            // VALIDATION: If connecting to a Menu Branch Group, check for Start node
+            if (
+              targetNode &&
+              targetNode.type === "group" &&
+              targetNode.data.isMenuBranch
+            ) {
+              const children = nodes.filter(
+                (n) => n.parentNode === targetNode.id
+              );
+              const hasStartNode = children.some((n) => n.type === "start");
 
-          interface PromptNextNode {
-            routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
-            default?: string;
-          }
-          const nextNode = sourceNode.data.nextNode as PromptNextNode;
-          if (nextNode && typeof nextNode === "object" && nextNode.routes) {
-            const routeIdx = parseInt(handleId.split("-")[1]);
-            const newRoutes = [...nextNode.routes];
-            const route = newRoutes[routeIdx];
-
-            if (route) {
-              let finalName = "";
-
-              // SYNC LOGIC: If connecting to a Menu Branch Group
-              if (
-                targetNode &&
-                targetNode.type === "group" &&
-                targetNode.data.isMenuBranch
-              ) {
-                // 1. Prioritize any explicitly set gotoFlow in the prompt
-                // 2. Fallback to existing Group name (if it's not default)
-                // 3. Last fallback: use the prompt input value
-                const targetName = targetNode.data.name;
-                const isDefaultTargetName =
-                  !targetName || targetName === "Untitled Group";
-
-                finalName =
-                  route.gotoFlow ||
-                  (!isDefaultTargetName ? targetName : "") ||
-                  route.when?.eq?.[1] ||
-                  "Branch";
-
-                // Update Group Name (Sync)
-                updateNodeData(targetNode.id, { name: finalName });
-
-                // Update Internal Start Node flowName
-                const children = nodes.filter(
-                  (n) => n.parentNode === targetNode.id
-                );
-                const startNode = children.find((n) => n.type === "start");
-                if (startNode) {
-                  updateNodeData(startNode.id, { flowName: finalName });
-                }
-              } else if (targetNode && targetNode.type !== "group") {
-                // NEW: Rename non-group target node to match the route's value
-                finalName = route.gotoFlow || route.when?.eq?.[1] || "transfer";
-                updateNodeData(targetNode.id, { name: finalName });
-              } else {
-                // Fallback / legacy non-branch
-                finalName =
-                  route.gotoFlow ||
-                  (targetNode?.data.name &&
-                  targetNode.data.name !== "Untitled Group"
-                    ? targetNode.data.name
-                    : "");
+              if (!hasStartNode) {
+                toast.error("Invalid Menu Branch", {
+                  description: `Target group '${
+                    targetNode.data.name || "Untitled"
+                  }' must contain a Start node to be used as a menu branch destination.`,
+                  duration: 5000,
+                });
+                return; // REJECT CONNECTION
               }
+            }
 
-              // Update the route itself with the final name (without goto prefix)
-              newRoutes[routeIdx] = {
-                ...route,
-                gotoFlow: finalName || targetNode?.id || "",
-              };
-              updateNodeData(sourceNode.id, {
-                nextNode: { ...nextNode, routes: newRoutes },
-              });
+            interface PromptNextNode {
+              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
+              default?: string;
+            }
+            const nextNode = sourceNode.data.nextNode as PromptNextNode;
+            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
+              const routeIdx = parseInt(handleId.split("-")[1]);
+              const newRoutes = [...nextNode.routes];
+              const route = newRoutes[routeIdx];
+
+              if (route) {
+                let finalName = "";
+
+                // SYNC LOGIC: If connecting to a Menu Branch Group
+                if (
+                  targetNode &&
+                  targetNode.type === "group" &&
+                  targetNode.data.isMenuBranch
+                ) {
+                  // 1. Prioritize any explicitly set gotoFlow in the prompt
+                  // 2. Fallback to existing Group name (if it's not default)
+                  // 3. Last fallback: use the prompt input value
+                  const targetName = targetNode.data.name;
+                  const isDefaultTargetName =
+                    !targetName || targetName === "Untitled Group";
+
+                  finalName =
+                    route.gotoFlow ||
+                    (!isDefaultTargetName ? targetName : "") ||
+                    route.when?.eq?.[1] ||
+                    "Branch";
+
+                  // Update Group Name (Sync)
+                  updateNodeData(targetNode.id, { name: finalName });
+
+                  // Update Internal Start Node flowName
+                  const children = nodes.filter(
+                    (n) => n.parentNode === targetNode.id
+                  );
+                  const startNode = children.find((n) => n.type === "start");
+                  if (startNode) {
+                    updateNodeData(startNode.id, { flowName: finalName });
+                  }
+                } else if (targetNode && targetNode.type !== "group") {
+                  // NEW: Rename non-group target node to match the route's value
+                  finalName =
+                    route.gotoFlow || route.when?.eq?.[1] || "transfer";
+                  updateNodeData(targetNode.id, { name: finalName });
+                } else {
+                  // Fallback / legacy non-branch
+                  finalName =
+                    route.gotoFlow ||
+                    (targetNode?.data.name &&
+                    targetNode.data.name !== "Untitled Group"
+                      ? targetNode.data.name
+                      : "");
+                }
+
+                // Update the route itself with the final name (without goto prefix)
+                newRoutes[routeIdx] = {
+                  ...route,
+                  gotoFlow: finalName || targetNode?.id || "",
+                };
+                updateNodeData(sourceNode.id, {
+                  nextNode: { ...nextNode, routes: newRoutes },
+                });
+              }
             }
           }
         }

@@ -101,20 +101,27 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     if (node.type === "start") return;
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
     typeById.set(node.id, node.type || "");
+    // Always map ID to name (or empty string/Unnamed)
+    nameById.set(node.id, name || "");
     if (name) {
-      nameById.set(node.id, name);
       idByName.set(name, node.id);
     }
   });
 
   const resolveTarget = (value?: string | unknown) => {
     if (typeof value !== "string" || !value) return { id: "", name: "" };
+
+    // 1. Check if the value is a known ID
     if (nameById.has(value)) {
-      return { id: value, name: nameById.get(value) || value };
+      return { id: value, name: nameById.get(value) || "" };
     }
+
+    // 2. Check if the value is a known Name
     if (idByName.has(value)) {
       return { id: idByName.get(value) || "", name: value };
     }
+
+    // 3. Fallback: treat as name but ID unknown
     return { id: "", name: value };
   };
 
@@ -195,16 +202,18 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           if (typeof nextNode === "string") {
             targetStr = nextNode;
           } else if (nextNode && typeof nextNode === "object") {
-            targetStr = (nextNode as any).default || "";
+            targetStr = (nextNode as any).defaultId || (nextNode as any).default || "";
           }
 
           const resolved = resolveTarget(targetStr);
+          const finalId = resolved.id || (targetStr && nameById.has(targetStr) ? targetStr : "") || targetStr || "";
+
           return {
             ...base,
             message,
             ...promptExtras,
-            nextNode: resolved.name || "",
-            nextNodeId: resolved.id || "",
+            nextNode: resolved.name || targetStr || "",
+            nextNodeId: finalId,
           };
         }
 

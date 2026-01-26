@@ -18,14 +18,15 @@ export default function TargetNodeDisplay({
   className = "" 
 }: TargetNodeDisplayProps) {
   const safeNodeId = (id: any): string => {
-    if (typeof id !== "string") {
-      if (id && typeof id === "object") {
-        return (id.defaultId || id.default || "") as string;
-      }
-      return "";
+    if (!id) return "";
+    if (typeof id === "string") {
+      if (id === "[object Object]" || id === "undefined" || id === "null") return "";
+      return id;
     }
-    if (id === "[object Object]" || id === "undefined" || id === "null") return "";
-    return id;
+    if (typeof id === "object") {
+      return (id.defaultId || id.default || id.gotoId || id.gotoFlow || id.goto || "") as string;
+    }
+    return "";
   };
 
   const cleanNodeId = safeNodeId(nodeId);
