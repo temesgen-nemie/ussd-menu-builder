@@ -2,7 +2,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3, FileUp, ShieldCheck } from "lucide-react";
+import { Bolt, Menu, MessageSquare, PlayCircle, BarChart3, FileUp, ShieldCheck, QrCode } from "lucide-react";
 import { useFlowStore } from "../store/flowStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ModeToggle } from "./ModeToggle";
@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 import LogsModal from "./logs/LogsModal";
 import AuditModal from "./audit/AuditModal";
@@ -43,6 +42,9 @@ export default function NodePalette() {
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrBaseUrl, setQrBaseUrl] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
 
   const isStale = useMemo(() => {
     if (!lastFetched) return true;
@@ -160,6 +162,21 @@ export default function NodePalette() {
       isActive = false;
     };
   }, [cachedEndpoints, isStale, paramOpen, setEndpoints, setLastFetched]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (qrBaseUrl) return;
+    const defaults = ["http://172.21.220.1:3000", "http://localhost:3000"];
+    const match = defaults.find((url) => url === window.location.origin);
+    setQrBaseUrl(match ?? defaults[0]);
+  }, [qrBaseUrl]);
+
+  useEffect(() => {
+    if (!qrOpen) return;
+    if (!qrBaseUrl) return;
+    const cleanedBase = qrBaseUrl.replace(/\/$/, "");
+    setQrUrl(`${cleanedBase}/phone`);
+  }, [qrBaseUrl, qrOpen]);
 
   const handleSaveSettings = useCallback(async () => {
     setParamSaving(true);
@@ -310,6 +327,13 @@ export default function NodePalette() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setQrOpen(true)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
+            aria-label="Open QR scan"
+          >
+            <QrCode className="h-4 w-4" />
+          </button>
           <ModeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -403,6 +427,60 @@ export default function NodePalette() {
               {paramSaving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Scan to open USSD</DialogTitle>
+            <DialogDescription>
+              Scan this QR code with your phone to open the USSD session page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex w-full items-center justify-center gap-2">
+              {["http://172.21.220.1:3000", "http://localhost:3000"].map(
+                (url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setQrBaseUrl(url)}
+                    className={`rounded-full px-3 py-1 text-[10px] font-semibold transition-colors ${
+                      qrBaseUrl === url
+                        ? "bg-indigo-600 text-white"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {url.includes("localhost") ? "Localhost" : "LAN IP"}
+                  </button>
+                )
+              )}
+            </div>
+            <div className="rounded-xl border border-border bg-white p-3 shadow-sm">
+              {qrUrl ? (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                    qrUrl
+                  )}`}
+                  alt="USSD QR Code"
+                  className="h-[220px] w-[220px]"
+                />
+              ) : (
+                <div className="flex h-[220px] w-[220px] items-center justify-center text-xs text-muted-foreground">
+                  Generating QR...
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              This opens a mobile web page that mimics the native USSD overlay.
+            </p>
+            {qrUrl && (
+              <p className="break-all text-[10px] text-muted-foreground text-center">
+                {qrUrl}
+              </p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

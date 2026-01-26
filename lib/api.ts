@@ -74,7 +74,13 @@ export const updateFlow = async (flowName: string, payload: FlowJson) => {
     }
 };
 
-export const sendUssdRequest = async (xmlRequest: string) => {
+export type UssdResponse =
+    | { ok: true; data: string }
+    | { ok: false; error: string; status?: number };
+
+export const sendUssdRequest = async (
+    xmlRequest: string
+): Promise<UssdResponse> => {
     try {
         const response = await api.post(
             "/teleussd/api/v1/ussdRequest",
@@ -84,19 +90,22 @@ export const sendUssdRequest = async (xmlRequest: string) => {
                 responseType: "text",
             }
         );
-        return response.data;
+        return { ok: true, data: response.data };
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
-            throw new Error(
-                axiosError.response?.data?.error ||
-                `HTTP error! status: ${axiosError.response?.status}`
-            );
-        } else if (error instanceof Error) {
-            throw new Error(error.message);
-        } else {
-            throw new Error("An unknown error occurred");
+            return {
+                ok: false,
+                error:
+                    axiosError.response?.data?.error ||
+                    `HTTP error! status: ${axiosError.response?.status ?? "unknown"}`,
+                status: axiosError.response?.status,
+            };
         }
+        if (error instanceof Error) {
+            return { ok: false, error: error.message };
+        }
+        return { ok: false, error: "An unknown error occurred" };
     }
 };
 
