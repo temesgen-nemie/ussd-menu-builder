@@ -111,16 +111,20 @@ export default function ResizablePhoneEmulator({
 </cps-message>`;
 
     try {
-      const responseText = await sendUssdRequest(xmlRequest);
+      const response = await sendUssdRequest(xmlRequest);
+      if (!response.ok) {
+        toast.error(response.error || "Failed to send USSD request.");
+        return;
+      }
       
-      const msgContentMatch = responseText.match(
+      const msgContentMatch = response.data.match(
         /<msg_content>([\s\S]*?)<\/msg_content>/
       );
       const responseContent = msgContentMatch
         ? msgContentMatch[1].trim()
         : "No response content";
 
-      const serviceTypeMatch = responseText.match(
+      const serviceTypeMatch = response.data.match(
         /<service_type>([\s\S]*?)<\/service_type>/
       );
       const responseServiceType = serviceTypeMatch
@@ -137,9 +141,6 @@ export default function ResizablePhoneEmulator({
       };
       setMessages((prev) => [...prev, systemMessage]);
       setMessageInput("");
-    } catch (error) {
-      console.error("USSD Request Error:", error);
-      toast.error("Failed to send USSD request.");
     } finally {
       setIsLoading(false);
     }
