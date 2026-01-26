@@ -562,6 +562,20 @@ export default function FlowCanvas() {
     }
   }, [loadAllFlows, _hasHydrated]);
 
+  // Auto-center/fit view when navigating subflows
+  useEffect(() => {
+    if (_hasHydrated && rfInstanceRef.current && nodes.length > 0) {
+      // Small timeout to ensure visibleNodes have updated and rendered
+      const timer = setTimeout(() => {
+        rfInstanceRef.current?.fitView({
+          duration: 400,
+          padding: 0.2,
+        });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [currentSubflowId, _hasHydrated, nodes.length]);
+
   return (
     <div
       ref={wrapperRef}
