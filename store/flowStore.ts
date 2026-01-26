@@ -339,6 +339,8 @@ interface FlowState {
   setEdges: (edges: Edge[]) => void;
   addNode: (node: Node) => void;
   removeNode: (id: string) => void;
+  removeNodes: (ids: string[]) => void;
+  removeEdges: (ids: string[]) => void;
   setSelectedNodeId: (id: string | null) => void;
   openInspector: (id: string) => void;
   closeInspector: () => void;
@@ -1049,22 +1051,25 @@ export const useFlowStore = create<FlowState>()(
           };
         }),
 
-      removeNode: (id) =>
+      removeNode: (id) => get().removeNodes([id]),
+
+      removeNodes: (ids) =>
         set((state) => {
-          const nodesToRemoveIds = new Set<string>();
-          nodesToRemoveIds.add(id);
+          const nodesToRemoveIds = new Set<string>(ids);
 
-          // Identify the flow that might be modified BEFORE removing nodes
-          let groupIdToMark: string | null = null;
-          const node = state.nodes.find(n => n.id === id);
-          if (node?.parentNode) {
-            const info = getParentGroupInfo(state.nodes, node.id);
-            if (info && state.publishedGroupIds.includes(info.groupId)) {
-              groupIdToMark = info.groupId;
+          // Identify all flows that might be modified BEFORE removing nodes
+          const groupIdsToMark = new Set<string>();
+          ids.forEach((id) => {
+            const node = state.nodes.find((n) => n.id === id);
+            if (node?.parentNode) {
+              const info = getParentGroupInfo(state.nodes, node.id);
+              if (info && state.publishedGroupIds.includes(info.groupId)) {
+                groupIdsToMark.add(info.groupId);
+              }
             }
-          }
+          });
 
-          // Iterative approach to identify all descendants at any depth
+          // Iterative approach to identify all descendants at any depth for all starting IDs
           let changed = true;
           while (changed) {
             changed = false;
@@ -1094,10 +1099,12 @@ export const useFlowStore = create<FlowState>()(
               !nodesToRemoveIds.has(e.source) && !nodesToRemoveIds.has(e.target)
           );
 
-          let nextModifiedGroupIds = state.modifiedGroupIds;
-          if (groupIdToMark && !nextModifiedGroupIds.includes(groupIdToMark)) {
-            nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
-          }
+          let nextModifiedGroupIds = [...state.modifiedGroupIds];
+          groupIdsToMark.forEach((groupId) => {
+            if (!nextModifiedGroupIds.includes(groupId)) {
+              nextModifiedGroupIds.push(groupId);
+            }
+          });
 
           return {
             nodes: nextNodes,
@@ -1108,6 +1115,17 @@ export const useFlowStore = create<FlowState>()(
             currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes, nextEdges),
             modifiedGroupIds: nextModifiedGroupIds,
+          };
+        }),
+
+      removeEdges: (ids) =>
+        set((state) => {
+          const edgeIdsToRemove = new Set(ids);
+          const nextEdges = state.edges.filter((e) => !edgeIdsToRemove.has(e.id));
+
+          return {
+            edges: nextEdges,
+            flow: buildFlowJson(state.nodes, nextEdges),
           };
         }),
 

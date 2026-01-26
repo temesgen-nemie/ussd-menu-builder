@@ -63,6 +63,8 @@ export default function FlowCanvas() {
     setSelectedNodeId,
     selectedNodeId,
     removeNode,
+    removeNodes,
+    removeEdges,
     addNode,
     openInspector,
     updateNodeData,
@@ -325,71 +327,12 @@ export default function FlowCanvas() {
     [edges, setEdges, nodes, updateNodeData]
   );
 
-  // Handle edge deletion to clear the nextNode mapping
+  // Handle edge deletion logic via store action
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
-      deletedEdges.forEach((edge) => {
-        if (edge.sourceHandle) {
-          const sourceNode = nodes.find((n) => n.id === edge.source);
-
-          // 1. Prompt Options
-          if (sourceNode && sourceNode.type === "prompt") {
-            interface PromptNextNode {
-              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
-              default?: string;
-            }
-            const nextNode = sourceNode.data.nextNode as PromptNextNode;
-            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
-              const routeIdx = parseInt(edge.sourceHandle.split("-")[1]);
-              const newRoutes = [...nextNode.routes];
-              if (newRoutes[routeIdx]) {
-                newRoutes[routeIdx] = { ...newRoutes[routeIdx], gotoFlow: "" };
-                updateNodeData(sourceNode.id, {
-                  nextNode: { ...nextNode, routes: newRoutes },
-                });
-              }
-            }
-          }
-          // 2. Action Routes
-          else if (sourceNode && sourceNode.type === "action") {
-            if (edge.sourceHandle === "default") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else {
-              interface ActionRoute {
-                id: string;
-                nextNodeId?: string;
-              }
-              const routes = (sourceNode.data.routes as ActionRoute[]) || [];
-              const routeIndex = routes.findIndex(
-                (r) => r.id === edge.sourceHandle
-              );
-              if (routeIndex !== -1) {
-                const newRoutes = [...routes];
-                newRoutes[routeIndex] = {
-                  ...newRoutes[routeIndex],
-                  nextNodeId: "",
-                };
-                updateNodeData(sourceNode.id, { routes: newRoutes });
-              }
-            }
-          }
-        } else {
-          // If no specific handle ID is used (legacy)
-          const sourceNode = nodes.find((n) => n.id === edge.source);
-
-          if (sourceNode) {
-            if (sourceNode.type === "prompt") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else if (sourceNode.type === "action") {
-              updateNodeData(sourceNode.id, { nextNode: "" });
-            } else if (sourceNode.type === "start") {
-              updateNodeData(sourceNode.id, { entryNode: "" });
-            }
-          }
-        }
-      });
+      removeEdges(deletedEdges.map((e) => e.id));
     },
-    [nodes, updateNodeData]
+    [removeEdges]
   );
 
   // node drag / move / selection: apply change objects to current `nodes`
@@ -547,8 +490,19 @@ export default function FlowCanvas() {
       if (e.repeat) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedNodeId) {
-          removeNode(selectedNodeId);
+        const selectedNodeIds = visibleNodes
+          .filter((n) => n.selected)
+          .map((n) => n.id);
+        const selectedEdges = visibleEdges.filter((edge) => edge.selected);
+
+        // Handle Node Deletion
+        if (selectedNodeIds.length > 0) {
+          removeNodes(selectedNodeIds);
+        }
+
+        // Handle Edge Deletion
+        if (selectedEdges.length > 0) {
+          removeEdges(selectedEdges.map((edge) => edge.id));
         }
       } else if (e.key === "Escape") {
         // Close the inspector if open
@@ -574,12 +528,13 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [
     selectedNodeId,
-    removeNode,
+    removeNodes,
+    removeEdges,
     closeInspector,
-    nodes,
     copyNodes,
     pasteNodes,
     visibleNodes,
+    visibleEdges,
   ]);
 
   // Auto-load flows on mount
