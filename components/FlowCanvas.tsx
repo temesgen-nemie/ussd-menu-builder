@@ -264,8 +264,16 @@ export default function FlowCanvas() {
                   }
                 } else if (targetNode && targetNode.type !== "group") {
                   // NEW: Rename non-group target node to match the route's value
-                  finalName =
-                    route.gotoFlow || route.when?.eq?.[1] || "transfer";
+                  const newName = route.gotoFlow || route.when?.eq?.[1];
+
+                  if (!newName) {
+                    toast.error("Invalid Branch", {
+                      description: "Please define a name in the branch.",
+                      duration: 4000,
+                    });
+                    return; // REJECT/ABORT SYNC if no name
+                  }
+                  finalName = newName;
                   updateNodeData(targetNode.id, { name: finalName });
                 } else {
                   // Fallback / legacy non-branch

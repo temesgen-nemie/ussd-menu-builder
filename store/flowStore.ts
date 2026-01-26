@@ -1278,8 +1278,16 @@ export const useFlowStore = create<FlowState>()(
                   } else if (connectedNode && connectedNode.type !== "group") {
                     // NEW: Sync name for non-group nodes
                     const when = route.when as { eq?: string[] } | undefined;
-                    const newName =
-                      route.gotoFlow || when?.eq?.[1] || "transfer";
+                    const newName = route.gotoFlow || when?.eq?.[1];
+
+                    if (!newName) {
+                      toast.error("Invalid Branch", {
+                        description: "Please define a name in the branch.",
+                        duration: 4000
+                      });
+                      return;
+                    }
+
                     nextNodes = nextNodes.map((n) => {
                       if (n.id === connectedNode.id) {
                         return { ...n, data: { ...n.data, name: newName } };
