@@ -50,16 +50,8 @@ const safeStringify = (value: unknown) => {
 
 const deepEqual = (a: unknown, b: unknown) => safeStringify(a) === safeStringify(b);
 
-const markPathWithAncestors = (
-  map: Record<string, DiffStatus>,
-  path: string,
-  status: DiffStatus,
-) => {
-  const parts = path.split(".");
-  for (let i = 1; i <= parts.length; i += 1) {
-    const key = parts.slice(0, i).join(".");
-    map[key] = status;
-  }
+const markPath = (map: Record<string, DiffStatus>, path: string, status: DiffStatus) => {
+  map[path] = status;
 };
 
 const diffValues = (
@@ -71,12 +63,12 @@ const diffValues = (
   if (before === undefined && after === undefined) return;
 
   if (before === undefined) {
-    markPathWithAncestors(maps.afterMap, path, "added");
+    markPath(maps.afterMap, path, "added");
     return;
   }
 
   if (after === undefined) {
-    markPathWithAncestors(maps.beforeMap, path, "removed");
+    markPath(maps.beforeMap, path, "removed");
     return;
   }
 
@@ -106,8 +98,8 @@ const diffValues = (
   }
 
   if (!deepEqual(before, after)) {
-    markPathWithAncestors(maps.beforeMap, path, "removed");
-    markPathWithAncestors(maps.afterMap, path, "added");
+    markPath(maps.beforeMap, path, "removed");
+    markPath(maps.afterMap, path, "added");
   }
 };
 
@@ -190,20 +182,18 @@ const buildJsonLines = (
   return lines;
 };
 
-const getLineClass = (status?: DiffStatus) => {
-  if (status === "added") {
-    return "bg-emerald-50 text-emerald-900";
-  }
-  if (status === "removed") {
-    return "bg-rose-50 text-rose-900";
-  }
-  return "text-muted-foreground";
-};
+const getLineClass = () => "text-muted-foreground";
 
 const getMarkerClass = (status?: DiffStatus) => {
   if (status === "added") return "text-emerald-600";
   if (status === "removed") return "text-rose-600";
   return "text-muted-foreground";
+};
+
+const getLineHighlightClass = (status?: DiffStatus) => {
+  if (status === "added") return "bg-emerald-50 text-emerald-900";
+  if (status === "removed") return "bg-rose-50 text-rose-900";
+  return "";
 };
 
 const getMarker = (status?: DiffStatus) => {
@@ -232,9 +222,7 @@ function JsonPane({ title, lines, emptyLabel }: JsonPaneProps) {
               <div
                 // Using index is acceptable here because the lines are derived content.
                 key={`${title}-${index}`}
-                className={`grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 px-2 py-0.5 ${getLineClass(
-                  line.status,
-                )}`}
+                className={`grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 px-2 py-0.5 ${getLineClass()}`}
               >
                 <span
                   className={`select-none text-center font-bold ${getMarkerClass(
@@ -243,7 +231,13 @@ function JsonPane({ title, lines, emptyLabel }: JsonPaneProps) {
                 >
                   {getMarker(line.status)}
                 </span>
-                <span className="min-w-0 wrap-break-word">{line.text}</span>
+                <span
+                  className={`block min-w-0 wrap-break-word ${getLineHighlightClass(
+                    line.status,
+                  )}`}
+                >
+                  {line.text}
+                </span>
               </div>
             ))}
           </pre>
