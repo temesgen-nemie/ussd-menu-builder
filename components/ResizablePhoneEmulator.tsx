@@ -24,7 +24,7 @@ export default function ResizablePhoneEmulator({
   isOpen,
   onClose,
 }: ResizablePhoneProps) {
-  const [phoneNumber, setPhoneNumber] = useState("+251903193553");
+  const [phoneNumber, setPhoneNumber] = useState("+251910899167");
   const [shortCode, setShortCode] = useState("*675#");
   const [viewMode, setViewMode] = useState<'classic' | 'real'>('real');
   const [messageInput, setMessageInput] = useState("");
