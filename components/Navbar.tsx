@@ -22,7 +22,7 @@ export default function Navbar() {
       <div className="flex items-center justify-between px-6 py-2">
         <NodeToolbar />
 
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+        <div className="absolute left-[55%] transform -translate-x-1/2 flex items-center gap-2 flex-wrap justify-center">
           <button
             onClick={() => setSimulatorOpen(true)}
             className="flex items-center gap-2 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
