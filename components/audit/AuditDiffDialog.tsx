@@ -191,8 +191,8 @@ const getMarkerClass = (status?: DiffStatus) => {
 };
 
 const getLineHighlightClass = (status?: DiffStatus) => {
-  if (status === "added") return "bg-emerald-100 text-emerald-900 font-semibold";
-  if (status === "removed") return "bg-rose-100 text-rose-900 font-semibold";
+  if (status === "added") return "bg-emerald-50 text-emerald-900";
+  if (status === "removed") return "bg-rose-50 text-rose-900";
   return "";
 };
 
