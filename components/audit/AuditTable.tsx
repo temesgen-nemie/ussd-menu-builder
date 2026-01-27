@@ -73,7 +73,7 @@ export default function AuditTable() {
     setError(null);
     try {
       const data = await getAuditEvents({ from, to, limit });
-      const entries = Array.isArray(data?.data) ? data.data : [];
+      const entries: AuditEvent[] = Array.isArray(data?.data) ? data.data : [];
       setEvents(entries);
       setSelectedEvent((current) => {
         if (!current) return current;
@@ -120,13 +120,13 @@ export default function AuditTable() {
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow>
-                <TableHead className="min-w-[180px]">Date/Time</TableHead>
-                <TableHead className="min-w-[220px]">Id</TableHead>
-                <TableHead className="min-w-[200px]">Name</TableHead>
-                <TableHead className="min-w-[160px]">Flow</TableHead>
-                <TableHead className="min-w-[120px]">Type</TableHead>
-                <TableHead className="min-w-[120px]">Operation</TableHead>
-                <TableHead className="min-w-[140px]">User</TableHead>
+                <TableHead className="min-w-45">Date/Time</TableHead>
+                <TableHead className="min-w-55">Id</TableHead>
+                <TableHead className="min-w-50">Name</TableHead>
+                <TableHead className="min-w-40">Flow</TableHead>
+                <TableHead className="min-w-30">Type</TableHead>
+                <TableHead className="min-w-30">Operation</TableHead>
+                <TableHead className="min-w-35">User</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
