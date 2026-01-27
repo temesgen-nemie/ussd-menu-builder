@@ -1,0 +1,87 @@
+"use client";
+
+import { useState } from "react";
+import { BarChart3, ShieldCheck } from "lucide-react";
+import { ModeToggle } from "./nav-items/ModeToggle";
+import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
+import LogsModal from "./logs/LogsModal";
+import AuditModal from "./audit/AuditModal";
+import QrScanDialog from "./nav-items/QrScanDialog";
+import NodeToolbar from "./nav-items/NodeToolbar";
+import UserMenu from "./nav-items/UserMenu";
+import { useAuthStore } from "@/store/authStore";
+
+export default function Navbar() {
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const { user } = useAuthStore();
+
+  return (
+    <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
+      <div className="flex items-center justify-between px-6 py-2">
+        <NodeToolbar />
+
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+          <button
+            onClick={() => setSimulatorOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
+          >
+            <span className="rounded-sm bg-purple-700 p-1">
+              <svg
+                className="h-4 w-4 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
+              </svg>
+            </span>
+            USSD Simulator
+          </button>
+          <button
+            onClick={() => setLogsOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-linear-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 transition-all cursor-pointer"
+          >
+            <span className="rounded-sm bg-white/20 p-1">
+              <BarChart3 className="h-4 w-4 text-white" />
+            </span>
+            Logs
+          </button>
+          {user?.isAdmin && (
+            <button
+              onClick={() => setAuditOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-linear-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
+            >
+              <span className="rounded-sm bg-white/20 p-1">
+                <ShieldCheck className="h-4 w-4 text-white" />
+              </span>
+              Audit Events
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* <QrScanDialog /> */}
+          <ModeToggle />
+          <UserMenu />
+        </div>
+      </div>
+
+      {/* USSD Simulator */}
+      <ResizablePhoneEmulator
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+      />
+      <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
+      {user?.isAdmin && (
+        <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
+      )}
+    </nav>
+  );
+}
