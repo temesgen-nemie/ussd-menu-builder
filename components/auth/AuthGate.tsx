@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import ForcePasswordChange from "@/components/auth/ForcePasswordChange";
 
 type AuthGateProps = {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ type AuthGateProps = {
 
 export default function AuthGate({ children }: AuthGateProps) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, fetchMe } = useAuthStore();
+  const { isAuthenticated, isLoading, user, fetchMe } = useAuthStore();
 
   useEffect(() => {
     fetchMe();
@@ -31,6 +32,10 @@ export default function AuthGate({ children }: AuthGateProps) {
   }
 
   if (!isAuthenticated) return null;
+
+  if (user?.mustChangePassword) {
+    return <ForcePasswordChange />;
+  }
 
   return <>{children}</>;
 }

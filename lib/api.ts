@@ -25,6 +25,7 @@ export type AuthUser = {
     userId?: string;
     username: string;
     isAdmin: boolean;
+    mustChangePassword?: boolean;
     createdAt?: number;
     lastActivity?: number;
 };
@@ -81,6 +82,42 @@ export const getCurrentUser = async (): Promise<MeResponse> => {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
             throw new Error(axiosError.response?.data?.error || "Failed to fetch user");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const changePassword = async (payload: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+}) => {
+    try {
+        const response = await api.post("/auth/change-password", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to change password");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const logoutSession = async () => {
+    try {
+        const response = await api.post("/auth/logout");
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to logout");
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {

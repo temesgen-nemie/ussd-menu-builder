@@ -11,6 +11,7 @@ type AuthState = {
   isLoading: boolean;
   error: string | null;
   setToken: (token: string | null) => void;
+  setUser: (user: AuthUser | null) => void;
   clearError: () => void;
   loginUser: (username: string, password: string) => Promise<void>;
   fetchMe: () => Promise<void>;
@@ -40,6 +41,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: Boolean(token),
         });
       },
+      setUser: (user) => set({ user }),
       clearError: () => set({ error: null }),
       loginUser: async (username, password) => {
         set({ isLoading: true, error: null });
