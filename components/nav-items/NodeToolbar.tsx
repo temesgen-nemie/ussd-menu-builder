@@ -37,13 +37,15 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "start") => {
+    (type: "prompt" | "action" | "start" | "condition") => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
           ? { message: "", routingMode: "linear" }
           : type === "action"
           ? { endpoint: "" }
+          : type === "condition"
+          ? { name: "", nextNode: { routes: [], default: "" } }
           : { flowName: "", entryNode: "" };
 
       addNode({
@@ -59,7 +61,7 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "start"
+    nodeType: "prompt" | "action" | "start" | "condition"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -93,6 +95,19 @@ export default function NodeToolbar() {
             <Bolt className="h-4 w-4 text-white" />
           </span>
           Action
+        </button>
+        <button
+          className="flex items-center gap-2 rounded-md bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-700 cursor-pointer"
+          draggable
+          onDragStart={(e) => handleDragStart(e, "condition")}
+          onClick={() => handleAddNode("condition")}
+        >
+          <span className="rounded-sm bg-pink-700 p-1">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3v12"/><path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/><path d="M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/><path d="M18 19a3 3 0 1 1-2.14-5.18"/>
+            </svg>
+          </span>
+          Condition
         </button>
         <button
           className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer ${

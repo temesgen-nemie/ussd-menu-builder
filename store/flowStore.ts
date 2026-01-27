@@ -315,7 +315,6 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
                   if (typeof v === "string") {
                     // Unconditionally inject .data after response.
                     // Handles both plain "response.field" and templated "{{response.field}}"
-                    // If input is "response.data.errors", output becomes "response.data.data.errors"
                     return [k, v.replace(/(\{\{)?response\./g, "$1response.data.")];
                   }
                   return [k, v];
@@ -330,6 +329,37 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             default: defaultResolved.name || "",
             defaultId: defaultResolved.id || "",
           },
+        };
+      }
+
+      if (node.type === "condition") {
+        interface ConditionRoute {
+          when?: any;
+          goto?: string;
+        }
+        interface ConditionNext {
+          routes?: ConditionRoute[];
+          default?: string;
+        }
+        const nextNode = data.nextNode as ConditionNext;
+        const routesRaw = nextNode?.routes || [];
+
+        const routes = routesRaw.map((route) => {
+          const target = resolveTarget(route.goto || "");
+          return {
+            when: route.when,
+            goto: target.name || route.goto || ""
+          };
+        });
+
+        const defaultTarget = resolveTarget(nextNode?.default || "");
+
+        return {
+          ...base,
+          nextNode: {
+            routes,
+            default: defaultTarget.name || nextNode?.default || ""
+          }
         };
       }
 
@@ -1156,7 +1186,7 @@ export const useFlowStore = create<FlowState>()(
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
-          const isLarge = node?.type === "action" || node?.type === "prompt";
+          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition";
 
           const el = document.querySelector(
             `.react-flow__node[data-id="${id}"]`

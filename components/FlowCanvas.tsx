@@ -30,6 +30,7 @@ import PromptNode from "./nodes/PromptNode";
 import ActionNode from "./nodes/ActionNode";
 import StartNode from "./nodes/StartNode";
 import GroupNode from "./nodes/GroupNode";
+import ConditionNode from "./nodes/ConditionNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
@@ -41,6 +42,7 @@ const nodeTypes = {
   action: ActionNode,
   start: StartNode,
   group: GroupNode,
+  condition: ConditionNode,
 };
 
 export default function FlowCanvas() {
@@ -322,6 +324,53 @@ export default function FlowCanvas() {
             }
           }
         }
+        // 3. Condition Routes
+        else if (sourceNode && sourceNode.type === "condition") {
+             const handleId = params.sourceHandle;
+             if (handleId === "default") {
+                updateNodeData(sourceNode.id, {
+                    nextNode: {
+                        ...(sourceNode.data.nextNode as object || {}),
+                        default: params.target
+                    }
+                });
+             } else {
+                 // It's a specific route handle (route-0, route-1)
+                 interface ConditionRoute {
+                    goto?: string;
+                    when?: any;
+                 }
+                 interface ConditionNext {
+                    routes?: ConditionRoute[];
+                    default?: string;
+                 }
+                 
+                 const nextNode = sourceNode.data.nextNode as ConditionNext;
+                 const routeIdx = parseInt(handleId.split("-")[1]);
+                 
+                 if (nextNode && nextNode.routes && nextNode.routes[routeIdx]) {
+                     const newRoutes = [...nextNode.routes];
+                     
+                     // Helper: Resolve Target Name
+                     const targetNode = nodes.find(n => n.id === params.target);
+                     let targetName = targetNode?.data.name; 
+                     
+                     // Use ID if no name
+                     if (!targetName || targetName === "Untitled Group") {
+                         targetName = params.target; 
+                     }
+                     
+                     newRoutes[routeIdx] = {
+                         ...newRoutes[routeIdx],
+                         goto: String(targetName)
+                     };
+
+                     updateNodeData(sourceNode.id, {
+                         nextNode: { ...nextNode, routes: newRoutes }
+                     });
+                 }
+             }
+        }
       } else {
         // If no specific handle ID is used (default/legacy handles)
 
@@ -424,6 +473,8 @@ export default function FlowCanvas() {
         data = { flowName: "", entryNode: "" };
       } else if (type === "group") {
         data = { name: "Untitled Group" };
+      } else if (type === "condition") {
+        data = { name: "", nextNode: { routes: [], default: "" } };
       }
 
       addNode({
