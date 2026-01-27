@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAuditEvents } from "@/lib/api";
 import AuditFilters from "@/components/audit/AuditFilters";
+import AuditDiffDialog from "@/components/audit/AuditDiffDialog";
 import {
   Table,
   TableBody,
@@ -20,6 +21,8 @@ export type AuditEvent = {
   name?: string | null;
   type?: string | null;
   flowName?: string | null;
+  before?: unknown;
+  after?: unknown;
 };
 
 const toIsoRange = (value: Date | null, isEnd: boolean) => {
@@ -54,6 +57,7 @@ export default function AuditTable() {
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
   const [limit, setLimit] = useState(50);
   const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +75,11 @@ export default function AuditTable() {
       const data = await getAuditEvents({ from, to, limit });
       const entries = Array.isArray(data?.data) ? data.data : [];
       setEvents(entries);
+      setSelectedEvent((current) => {
+        if (!current) return current;
+        const next = entries.find((entry) => entry.id === current.id);
+        return next ?? current;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load events.");
     } finally {
@@ -122,7 +131,11 @@ export default function AuditTable() {
             </TableHeader>
             <TableBody>
               {events.map((event) => (
-                <TableRow key={event.id}>
+                <TableRow
+                  key={event.id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => setSelectedEvent(event)}
+                >
                   <TableCell className="text-xs text-muted-foreground">
                     {formatTimestamp(event.createdAt)}
                   </TableCell>
@@ -150,6 +163,14 @@ export default function AuditTable() {
           </Table>
         )}
       </div>
+
+      <AuditDiffDialog
+        event={selectedEvent}
+        open={Boolean(selectedEvent)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEvent(null);
+        }}
+      />
     </div>
   );
 }

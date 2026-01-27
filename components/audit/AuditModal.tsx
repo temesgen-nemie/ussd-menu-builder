@@ -75,7 +75,7 @@ function AuditModalContent({ onOpenChange }: { onOpenChange: (open: boolean) => 
   };
 
   return (
-    <div className="fixed inset-0 z-[100000] pointer-events-none">
+    <div className="fixed inset-0 z-100000 pointer-events-none">
       <div
         ref={modalRef}
         style={modalStyle}
