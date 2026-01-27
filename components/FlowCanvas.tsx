@@ -142,7 +142,7 @@ export default function FlowCanvas() {
         left,
       });
     },
-    [visibleNodes, setMenu]
+    [visibleNodes, setMenu],
   );
 
   const onPaneContextMenu = useCallback(
@@ -174,7 +174,7 @@ export default function FlowCanvas() {
         });
       }
     },
-    [visibleNodes, setMenu]
+    [visibleNodes, setMenu],
   );
 
   // add edge (uses current edges array)
@@ -190,9 +190,9 @@ export default function FlowCanvas() {
 
           // Handle Prompt Node "default" handle (Linear Mode)
           if (!handleId || handleId === "default") {
-            updateNodeData(sourceNode.id, { 
+            updateNodeData(sourceNode.id, {
               nextNode: params.target,
-              routingMode: sourceNode.data.routingMode || "linear"
+              routingMode: sourceNode.data.routingMode || "linear",
             });
           } else {
             const targetNode = nodes.find((n) => n.id === params.target);
@@ -204,7 +204,7 @@ export default function FlowCanvas() {
               targetNode.data.isMenuBranch
             ) {
               const children = nodes.filter(
-                (n) => n.parentNode === targetNode.id
+                (n) => n.parentNode === targetNode.id,
               );
               const hasStartNode = children.some((n) => n.type === "start");
 
@@ -256,7 +256,7 @@ export default function FlowCanvas() {
 
                   // Update Internal Start Node flowName
                   const children = nodes.filter(
-                    (n) => n.parentNode === targetNode.id
+                    (n) => n.parentNode === targetNode.id,
                   );
                   const startNode = children.find((n) => n.type === "start");
                   if (startNode) {
@@ -342,7 +342,7 @@ export default function FlowCanvas() {
       // Finally, add the edge if we haven't returned early (rejected)
       setEdges(addEdge(params, edges));
     },
-    [edges, setEdges, nodes, updateNodeData]
+    [edges, setEdges, nodes, updateNodeData],
   );
 
   // Handle edge deletion logic via store action
@@ -350,19 +350,19 @@ export default function FlowCanvas() {
     (deletedEdges: Edge[]) => {
       removeEdges(deletedEdges.map((e) => e.id));
     },
-    [removeEdges]
+    [removeEdges],
   );
 
   // node drag / move / selection: apply change objects to current `nodes`
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes(applyNodeChanges(changes, nodes)),
-    [nodes, setNodes]
+    [nodes, setNodes],
   );
 
   // edge changes: apply change objects to current `edges`
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => setEdges(applyEdgeChanges(changes, edges)),
-    [edges, setEdges]
+    [edges, setEdges],
   );
 
   // selection
@@ -370,7 +370,7 @@ export default function FlowCanvas() {
     ({ nodes }: { nodes: Node[] }) => {
       setSelectedNodeId(nodes[0]?.id ?? null);
     },
-    [setSelectedNodeId]
+    [setSelectedNodeId],
   );
 
   // also select node on click (helps when selectionChange doesn't fire)
@@ -379,7 +379,7 @@ export default function FlowCanvas() {
       setSelectedNodeId(node.id);
       setMenu(null);
     },
-    [setSelectedNodeId]
+    [setSelectedNodeId],
   );
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
@@ -399,7 +399,7 @@ export default function FlowCanvas() {
       const hasStartInView = nodes.some(
         (n) =>
           n.type === "start" &&
-          (n.parentNode || null) === (currentSubflowId || null)
+          (n.parentNode || null) === (currentSubflowId || null),
       );
       if (type === "start" && hasStartInView) {
         toast.error("Only one Start node is allowed per flow.");
@@ -434,7 +434,7 @@ export default function FlowCanvas() {
         parentNode: currentSubflowId ?? undefined,
       });
     },
-    [addNode, currentSubflowId, nodes]
+    [addNode, currentSubflowId, nodes],
   );
 
   // open inspector on double-click
@@ -451,12 +451,12 @@ export default function FlowCanvas() {
           const centerX = position.x + (node.width ?? 150) / 2;
           const centerY = position.y + (node.height ?? 80) / 2;
           const zoom = rfInstanceRef.current.getZoom();
-          
-          rfInstanceRef.current.setCenter(centerX, centerY, { 
+
+          rfInstanceRef.current.setCenter(centerX, centerY, {
             zoom,
-            duration: 200 
+            duration: 200,
           });
-          
+
           // Wait for animation to finish before opening inspector
           setTimeout(() => openInspector(node.id), 240);
         } else {
@@ -466,7 +466,7 @@ export default function FlowCanvas() {
         openInspector(node.id);
       }
     },
-    [openInspector, enterSubflow]
+    [openInspector, enterSubflow],
   );
 
   // Update inspector position while dragging
@@ -477,7 +477,7 @@ export default function FlowCanvas() {
         openInspector(node.id);
       }
     },
-    [selectedNodeId, inspectorOpen, openInspector]
+    [selectedNodeId, inspectorOpen, openInspector],
   );
 
   // Close inspector when clicking on the empty canvas pane
@@ -564,7 +564,7 @@ export default function FlowCanvas() {
 
   // Auto-center/fit view when navigating subflows
   useEffect(() => {
-    if (_hasHydrated && rfInstanceRef.current && nodes.length > 0) {
+    if (_hasHydrated && rfInstanceRef.current) {
       // Small timeout to ensure visibleNodes have updated and rendered
       const timer = setTimeout(() => {
         rfInstanceRef.current?.fitView({
@@ -574,7 +574,7 @@ export default function FlowCanvas() {
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [currentSubflowId, _hasHydrated, nodes.length]);
+  }, [currentSubflowId, _hasHydrated]);
 
   return (
     <div
@@ -830,10 +830,10 @@ export default function FlowCanvas() {
                     {(() => {
                       const groupNode = nodes.find((n) => n.id === menu.id);
                       const children = nodes.filter(
-                        (n) => n.parentNode === menu.id
+                        (n) => n.parentNode === menu.id,
                       );
                       const startNode = children.find(
-                        (n) => n.type === "start"
+                        (n) => n.type === "start",
                       );
                       const flowName = (startNode?.data as any)?.flowName;
                       const isPublished = publishedGroupIds.includes(menu.id);
@@ -871,7 +871,9 @@ export default function FlowCanvas() {
                           <button
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
                             onClick={() => {
-                              useFlowStore.getState().updatePublishedFlow(menu.id);
+                              useFlowStore
+                                .getState()
+                                .updatePublishedFlow(menu.id);
                               setMenu(null);
                             }}
                           >
@@ -894,7 +896,9 @@ export default function FlowCanvas() {
                             <div className="flex flex-col items-start translate-y-[1px]">
                               <span>Update to Backend</span>
                               <span className="text-[9px] text-indigo-400 font-medium leading-none">
-                                {isModified ? `Sync changes for '${flowName}'` : `Re-sync '${flowName}'`}
+                                {isModified
+                                  ? `Sync changes for '${flowName}'`
+                                  : `Re-sync '${flowName}'`}
                               </span>
                             </div>
                           </button>
@@ -929,16 +933,16 @@ export default function FlowCanvas() {
                     {(() => {
                       const groupNode = nodes.find((n) => n.id === menu.id);
                       const children = nodes.filter(
-                        (n) => n.parentNode === menu.id
+                        (n) => n.parentNode === menu.id,
                       );
                       const hasStartInChildren = children.some(
-                        (n) => n.type === "start"
+                        (n) => n.type === "start",
                       );
                       const parentId = groupNode?.parentNode || null;
                       const parentHasStart = nodes.some(
                         (n) =>
                           n.type === "start" &&
-                          (n.parentNode || null) === (parentId || null)
+                          (n.parentNode || null) === (parentId || null),
                       );
                       const isUngroupBlocked =
                         hasStartInChildren && parentHasStart;
