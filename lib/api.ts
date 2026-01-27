@@ -148,7 +148,7 @@ export const suspendUser = async (payload: {
 
 export const unsuspendUser = async (payload: { userId: string }) => {
     try {
-        const response = await api.post("/admin/unsuspend", payload);
+        const response = await api.post("/admin/users/unsuspend", payload);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
