@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User, Users, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { logoutSession } from "@/lib/api";
 import ProfileDialog from "./user/ProfileDialog";
 import UsersDialog from "./user/UsersDialog";
 import SettingsMenu from "./user/SettingsMenu";
@@ -92,7 +93,12 @@ export default function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer text-red-600 focus:text-red-600"
-          onSelect={() => {
+          onSelect={async () => {
+            try {
+              await logoutSession();
+            } catch {
+              // Ignore backend logout errors and clear the local session anyway.
+            }
             logout();
             router.replace("/login");
           }}
@@ -105,6 +111,7 @@ export default function UserMenu() {
       <ProfileDialog
         open={profileOpen}
         onOpenChange={setProfileOpen}
+        userId={user.userId}
         username={user.username}
         isAdmin={user.isAdmin}
       />
@@ -116,3 +123,4 @@ export default function UserMenu() {
     </DropdownMenu>
   );
 }
+

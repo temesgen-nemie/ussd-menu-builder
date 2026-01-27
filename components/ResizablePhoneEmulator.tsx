@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Smartphone, Wifi, Signal, Battery, Send } from "lucide-react";
+import { X, Smartphone, Wifi, Signal, Battery } from "lucide-react";
 import { toast } from "sonner";
 import { sendUssdRequest } from "../lib/api";
 import Draggable from "react-draggable";
