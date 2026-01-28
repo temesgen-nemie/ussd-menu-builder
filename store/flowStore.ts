@@ -30,6 +30,8 @@ export type FlowNode = {
   dataSource?: string;
   field?: string;
   outputVar?: string;
+  fields?: string[];
+  outputVars?: string[];
   format?: "indexedList" | "singleValue";
   headers?: Record<string, unknown>;
   apiBody?: Record<string, unknown>;
@@ -265,8 +267,25 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
       }
 
       if (node.type === "action") {
+        const rawFields = Array.isArray(data.fields)
+          ? data.fields
+          : data.field
+          ? [String(data.field)]
+          : [];
+        const rawOutputVars = Array.isArray(data.outputVars)
+          ? data.outputVars
+          : data.outputVar
+          ? [String(data.outputVar)]
+          : [];
+        const fields = rawFields.map((value) => String(value ?? ""));
+        const outputVars = (rawOutputVars.length ? rawOutputVars : fields).map(
+          (value) => String(value ?? "")
+        );
+
         const hasLocalSource =
           Boolean(data.dataSource) ||
+          fields.length > 0 ||
+          outputVars.length > 0 ||
           Boolean(data.field) ||
           Boolean(data.outputVar);
         const formatValue = data.format as
@@ -303,8 +322,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           endpoint: String(data.endpoint ?? ""),
           method: String(data.method ?? ""),
           dataSource: String(data.dataSource ?? ""),
-          field: String(data.field ?? ""),
-          outputVar: String(data.outputVar ?? ""),
+          fields: fields.length > 0 ? fields : undefined,
+          outputVars: outputVars.length > 0 ? outputVars : undefined,
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
@@ -1787,8 +1806,20 @@ export const useFlowStore = create<FlowState>()(
             nextData.endpoint = flowNode.endpoint ?? nextData.endpoint;
             nextData.method = flowNode.method ?? nextData.method;
             nextData.dataSource = flowNode.dataSource ?? nextData.dataSource;
-            nextData.field = flowNode.field ?? nextData.field;
-            nextData.outputVar = flowNode.outputVar ?? nextData.outputVar;
+            const flowFields = Array.isArray(flowNode.fields)
+              ? flowNode.fields
+              : flowNode.field
+              ? [flowNode.field]
+              : undefined;
+            const flowOutputVars = Array.isArray(flowNode.outputVars)
+              ? flowNode.outputVars
+              : flowNode.outputVar
+              ? [flowNode.outputVar]
+              : undefined;
+            nextData.fields = flowFields ?? nextData.fields;
+            nextData.outputVars = flowOutputVars ?? nextData.outputVars;
+            nextData.field = flowFields?.[0] ?? nextData.field;
+            nextData.outputVar = flowOutputVars?.[0] ?? nextData.outputVar;
             nextData.format = flowNode.format ?? nextData.format;
             nextData.headers = flowNode.headers ?? nextData.headers;
             nextData.apiBody = flowNode.apiBody ?? nextData.apiBody;
