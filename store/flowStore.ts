@@ -313,9 +313,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               Object.entries(data.responseMapping as Record<string, string>).map(
                 ([k, v]) => {
                   if (typeof v === "string") {
-                    // Unconditionally inject .data after response.
-                    // Handles both plain "response.field" and templated "{{response.field}}"
-                    return [k, v.replace(/(\{\{)?response\./g, "$1response.data.")];
+                    return [k, v];
                   }
                   return [k, v];
                 }

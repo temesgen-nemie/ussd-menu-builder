@@ -52,7 +52,14 @@ export default function UserMenu() {
           <span className="truncate text-sm font-semibold">
             {user.username}
           </span>
-          <Badge variant="secondary" className="text-[10px] uppercase text-green-800 bg-green-100 font-bold">
+          <Badge
+            variant="secondary"
+            className={`text-[10px] font-bold uppercase ${
+              user.isAdmin
+                ? "bg-green-100 text-green-800 hover:bg-green-100"
+                : "bg-blue-100 text-blue-800 hover:bg-blue-100"
+            }`}
+          >
             {user.isAdmin ? "Admin" : "User"}
           </Badge>
         </DropdownMenuLabel>
