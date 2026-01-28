@@ -33,6 +33,7 @@ export default function PhoneSessionPage() {
   };
 
   const handleSend = async () => {
+    if (isLoading) return;
     if (!messageInput.trim()) {
       setRequestError("Please enter a message.");
       return;
@@ -125,6 +126,13 @@ export default function PhoneSessionPage() {
     }
   };
 
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  };
+
   const resetSession = () => {
     setMessages([]);
     setSequenceNumber(null);
@@ -167,7 +175,7 @@ export default function PhoneSessionPage() {
             {isLoading ? (
               <div className="flex min-h-15 items-center justify-center gap-4 text-center">
                 <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white/80" />
-                <div className="text-sm font-semibold">USSD code running...</div>
+                <div className="text-sm font-semibold">USSD code running ...</div>
               </div>
             ) : requestError ? (
               <div className="flex min-h-15 flex-col items-center justify-center gap-4 text-center">
@@ -191,7 +199,7 @@ export default function PhoneSessionPage() {
                   ) : (
                     <div className="whitespace-pre-wrap">
                       {messages[messages.length - 1].type === "system"
-                        ? messages[messages.length - 1].content
+                        ? messages[messages.length - 1].content.substring(0, 172)
                         : "Enter Response"}
                     </div>
                   )}
@@ -206,6 +214,7 @@ export default function PhoneSessionPage() {
                       type="text"
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={handleKeyPress}
                       className="w-full border-b border-white/30 bg-transparent p-1 text-center text-lg text-white font-bold outline-none placeholder:text-white/60"
                     />
                   </div>
@@ -231,7 +240,7 @@ export default function PhoneSessionPage() {
                       </button>
                       <button
                         onClick={handleSend}
-                        disabled={!messageInput.trim()}
+                        disabled={isLoading || !messageInput.trim()}
                         className="inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold"
                       >
                         Send
