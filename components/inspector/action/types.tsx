@@ -13,6 +13,8 @@ export type ActionNodeData = {
   dataSource?: string;
   field?: string;
   outputVar?: string;
+  fields?: string[];
+  outputVars?: string[];
   format?: "indexedList" | "singleValue";
   apiBody?: Record<string, unknown>;
   apiBodyRaw?: string;

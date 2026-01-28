@@ -101,6 +101,40 @@ export default function ActionInspector({
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
+  const localFieldPairs = React.useMemo(() => {
+    const fieldsRaw = Array.isArray(node.data.fields)
+      ? node.data.fields.map((value) => String(value ?? ""))
+      : node.data.field !== undefined
+      ? [String(node.data.field)]
+      : [];
+    const outputVarsRaw = Array.isArray(node.data.outputVars)
+      ? node.data.outputVars.map((value) => String(value ?? ""))
+      : node.data.outputVar !== undefined
+      ? [String(node.data.outputVar)]
+      : [];
+
+    const count = Math.max(fieldsRaw.length, outputVarsRaw.length, 1);
+    const fields = Array.from({ length: count }, (_, i) => fieldsRaw[i] ?? "");
+    const outputVars = Array.from(
+      { length: count },
+      (_, i) => outputVarsRaw[i] ?? fields[i] ?? ""
+    );
+
+    return { fields, outputVars };
+  }, [node.data.fields, node.data.field, node.data.outputVars, node.data.outputVar]);
+
+  const updateLocalFieldPairs = React.useCallback(
+    (fields: string[], outputVars: string[]) => {
+      updateNodeData(node.id, {
+        fields,
+        outputVars,
+        field: fields[0] ?? "",
+        outputVar: outputVars[0] ?? "",
+      });
+    },
+    [node.id, updateNodeData]
+  );
+
   const buildResponseOptions = React.useCallback((value: unknown) => {
     const paths = new Set<string>();
 
@@ -738,7 +772,7 @@ export default function ActionInspector({
 
       {sourceMode === "local" && (
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-gray-600">
                 Data Source
@@ -752,48 +786,102 @@ export default function ActionInspector({
                 }
               />
             </div>
+
             <div>
-              <label className="text-xs font-medium text-gray-600">
-                Field
-              </label>
-              <input
-                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                placeholder="e.g. userAccounts"
-                value={String(node.data.field ?? "")}
-                onChange={(e) =>
-                  updateNodeData(node.id, { field: e.target.value })
-                }
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-600">
+                  Fields & Output Vars
+                </label>
+                <button
+                  type="button"
+                  className="text-[11px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 font-semibold"
+                  onClick={() => {
+                    const nextFields = [...localFieldPairs.fields, ""];
+                    const nextOutputVars = [...localFieldPairs.outputVars, ""];
+                    updateLocalFieldPairs(nextFields, nextOutputVars);
+                  }}
+                  title="Add field"
+                >
+                  + Add
+                </button>
+              </div>
+
+              <div className="mt-2 space-y-2">
+                {localFieldPairs.fields.map((fieldValue, idx) => (
+                  <div
+                    key={`local-field-${idx}`}
+                    className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center"
+                  >
+                    <input
+                      className="w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                      placeholder="Field (e.g. accessToken)"
+                      value={fieldValue}
+                      onChange={(e) => {
+                        const nextFields = [...localFieldPairs.fields];
+                        const nextOutputVars = [...localFieldPairs.outputVars];
+                        const previousField = nextFields[idx] ?? "";
+                        const previousOutput = nextOutputVars[idx] ?? "";
+
+                        nextFields[idx] = e.target.value;
+                        if (previousOutput === "" || previousOutput === previousField) {
+                          nextOutputVars[idx] = e.target.value;
+                        }
+                        updateLocalFieldPairs(nextFields, nextOutputVars);
+                      }}
+                    />
+                    <input
+                      className="w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                      placeholder="Output var (e.g. token)"
+                      value={localFieldPairs.outputVars[idx] ?? ""}
+                      onChange={(e) => {
+                        const nextOutputVars = [...localFieldPairs.outputVars];
+                        nextOutputVars[idx] = e.target.value;
+                        updateLocalFieldPairs(localFieldPairs.fields, nextOutputVars);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-red-500 px-2"
+                      onClick={() => {
+                        const nextFields = localFieldPairs.fields.filter(
+                          (_, i) => i !== idx
+                        );
+                        const nextOutputVars = localFieldPairs.outputVars.filter(
+                          (_, i) => i !== idx
+                        );
+                        if (nextFields.length === 0) {
+                          updateLocalFieldPairs([""], [""]);
+                          return;
+                        }
+                        updateLocalFieldPairs(nextFields, nextOutputVars);
+                      }}
+                      title="Remove field"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">
-                Output Variable
-              </label>
-              <input
-                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                placeholder="e.g. accountsMenu"
-                value={String(node.data.outputVar ?? "")}
-                onChange={(e) =>
-                  updateNodeData(node.id, { outputVar: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">
-                Format
-              </label>
-              <select
-                className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                value={String(node.data.format ?? "indexedList")}
-                onChange={(e) =>
-                  updateNodeData(node.id, {
-                    format: e.target.value as "indexedList" | "singleValue",
-                  })
-                }
-              >
-                <option value="indexedList">indexedList</option>
-                <option value="singleValue">singleValue</option>
-              </select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-gray-600">
+                  Format
+                </label>
+                <select
+                  className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                  value={String(node.data.format ?? "indexedList")}
+                  onChange={(e) =>
+                    updateNodeData(node.id, {
+                      format: e.target.value as "indexedList" | "singleValue",
+                    })
+                  }
+                >
+                  <option value="indexedList">indexedList</option>
+                  <option value="singleValue">singleValue</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

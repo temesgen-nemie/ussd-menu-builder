@@ -126,6 +126,10 @@ export default function InspectorPanel() {
             headers: {},
             responseMapping: {},
             persistResponseMapping: false,
+            fields: [""],
+            outputVars: [""],
+            field: "",
+            outputVar: "",
             routes: [],
             nextNode: ""
         });

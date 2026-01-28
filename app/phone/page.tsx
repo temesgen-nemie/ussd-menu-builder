@@ -143,8 +143,8 @@ export default function PhoneSessionPage() {
   return (
     <div className="bg-transparent text-white">
       <div className="bg-linear-to-br from-white/70 via-sky-100/50 to-blue-100/60 backdrop-blur-[1px] min-h-dvh">
-        <div className="mx-auto flex max-w-md flex-col px-4 pt-36">
-        <div className="mb-4 rounded-2xl bg-[#1c1c1e] p-4 backdrop-blur">
+        <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+        <div className="rounded-2xl bg-[#1c1c1e] p-4 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">USSD Session</div>
@@ -161,7 +161,7 @@ export default function PhoneSessionPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-[#1c1c1e]  p-4 backdrop-blur">
+        <div className="rounded-2xl bg-[#1c1c1e] p-4 backdrop-blur">
           <label className="text-sm font-semibold">Phone Number</label>
           <input
             className="mt-2 w-full rounded-lg bg-white/5 p-2 text-sm text-white/60 outline-none placeholder:text-white/60"
@@ -170,8 +170,8 @@ export default function PhoneSessionPage() {
           />
         </div>
 
-        <div className="mt-4 flex-1">
-          <div className="rounded-3xl bg-[#1c1c1e] p-4 shadow-2xl">
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col rounded-3xl bg-[#1c1c1e] p-4 shadow-2xl">
             {isLoading ? (
               <div className="flex min-h-15 items-center justify-center gap-4 text-center">
                 <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white/80" />
