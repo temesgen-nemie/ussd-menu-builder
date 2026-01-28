@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ActionRoute } from "./types";
 import TargetNodeDisplay from "../TargetNodeDisplay";
 
@@ -28,6 +29,8 @@ export default function ActionRoutes({
   onRemoveRoute,
   onUpdateRoute,
 }: ActionRoutesProps) {
+  const [fieldEditModes, setFieldEditModes] = useState<Record<string, boolean>>({});
+
   const operatorOptions = [
     { value: "eq", label: "Equals" },
     { value: "ne", label: "Not Equals" },
@@ -192,22 +195,78 @@ export default function ActionRoutes({
                         <span className="text-[10px] font-bold text-gray-500 uppercase bg-white px-1 border rounded text-center py-1 truncate">
                           {cIdx === 0 ? "If" : (mode === "and" ? "And" : "Or")}
                         </span>
-
-                        <select
-                          className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500 overflow-hidden text-ellipsis"
-                          value={c.path}
-                          onChange={(e) => {
-                            const newConditions = [...conditions];
-                            newConditions[cIdx] = { ...c, path: e.target.value };
-                            const condition = buildCondition(mode, newConditions);
-                            onUpdateRoute(idx, { ...route, condition });
-                          }}
-                        >
-                          <option value="">Field</option>
-                          {options.map((option, oIdx) => (
-                            <option key={oIdx} value={option}>{option}</option>
-                          ))}
-                        </select>
+                        {fieldEditModes[`${route.id || idx}-${c.id || cIdx}`] ? (
+                          <div className="relative flex items-center">
+                            <input
+                              className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500 pr-7"
+                              placeholder="Type field path"
+                              value={c.path}
+                              onChange={(e) => {
+                                const newConditions = [...conditions];
+                                newConditions[cIdx] = { ...c, path: e.target.value };
+                                const condition = buildCondition(mode, newConditions);
+                                onUpdateRoute(idx, { ...route, condition });
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => {
+                                const key = `${route.id || idx}-${c.id || cIdx}`;
+                                const nextModes = { ...fieldEditModes };
+                                delete nextModes[key];
+                                setFieldEditModes(nextModes);
+                              }}
+                              className="absolute right-1 p-0.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                              title="Switch to list selection"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <line x1="8" y1="6" x2="21" y2="6"></line>
+                                <line x1="8" y1="12" x2="21" y2="12"></line>
+                                <line x1="8" y1="18" x2="21" y2="18"></line>
+                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <select
+                            className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500 overflow-hidden text-ellipsis"
+                            value={c.path}
+                            onChange={(e) => {
+                              if (e.target.value === "__custom_mode__") {
+                                const key = `${route.id || idx}-${c.id || cIdx}`;
+                                setFieldEditModes({ ...fieldEditModes, [key]: true });
+                                return;
+                              }
+                              const newConditions = [...conditions];
+                              newConditions[cIdx] = { ...c, path: e.target.value };
+                              const condition = buildCondition(mode, newConditions);
+                              onUpdateRoute(idx, { ...route, condition });
+                            }}
+                          >
+                            <option value="">Field</option>
+                            <option value="__custom_mode__" className="font-medium text-purple-600 bg-purple-50">
+                              + Type manually...
+                            </option>
+                            {options.map((option, oIdx) => (
+                              <option key={oIdx} value={option}>{option}</option>
+                            ))}
+                            {c.path && !options.includes(c.path) && (
+                              <option value={c.path}>Custom: {c.path}</option>
+                            )}
+                          </select>
+                        )}
 
                         <select
                           className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500"

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { QrCode } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,24 @@ export default function QrScanDialog() {
             <p className="text-xs text-muted-foreground text-center">
               This opens a mobile web page that mimics the native USSD overlay.
             </p>
+            {qrUrl && (
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(qrUrl);
+                      toast.success("URL copied to clipboard");
+                    } catch {
+                      toast.error("Failed to copy URL");
+                    }
+                  }}
+                  className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-4 py-2 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted/70"
+                >
+                  Copy URL
+                </button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
