@@ -479,37 +479,7 @@ export default function PromptInspector({
             />
           </div>
 
-          <div className="space-y-3 pt-3 border-t border-gray-100">
-            <div className="text-xs font-semibold text-gray-600 mb-2">
-              Page Metadata
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <label className="flex items-center gap-2 text-xs text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={Boolean(node.data.hasMultiplePage)}
-                  onChange={(e) =>
-                    updateNodeData(node.id, { hasMultiplePage: e.target.checked })
-                  }
-                />
-                Has Multiple Page
-              </label>
-              <div>
-                <label className="text-[10px] text-gray-500 block uppercase mb-1">
-                  Index Per Page
-                </label>
-                <input
-                  type="number"
-                  className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                  value={node.data.indexPerPage ?? ""}
-                  onChange={(e) =>
-                    updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })
-                  }
-                  placeholder="3"
-                />
-              </div>
-            </div>
-
+          <div className="space-y-3 pt-3 border-t border-gray-100">    
             <div className="flex items-center justify-between">
               <div className="text-xs font-semibold text-gray-600">
                 Pagination Settings
@@ -541,6 +511,33 @@ export default function PromptInspector({
 
             {node.data.pagination?.enabled && (
               <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(node.data.hasMultiplePage)}
+                  onChange={(e) =>
+                    updateNodeData(node.id, { hasMultiplePage: e.target.checked })
+                  }
+                />
+                Has Multiple Page
+              </label>
+              <div>
+                <label className="text-[10px] text-gray-500 block uppercase mb-1">
+                  Index Per Page
+                </label>
+                <input
+                  type="number"
+                  className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
+                  value={node.data.indexPerPage ?? ""}
+                  onChange={(e) =>
+                    updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })
+                  }
+                  placeholder="3"
+                />
+              </div>
+            </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-gray-500 block uppercase mb-1">

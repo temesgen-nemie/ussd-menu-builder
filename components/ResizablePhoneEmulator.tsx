@@ -24,7 +24,7 @@ export default function ResizablePhoneEmulator({
   isOpen,
   onClose,
 }: ResizablePhoneProps) {
-  const [phoneNumber, setPhoneNumber] = useState("+251903193553");
+  const [phoneNumber, setPhoneNumber] = useState("+251910899167");
   const [shortCode, setShortCode] = useState("*675#");
   const [viewMode, setViewMode] = useState<'classic' | 'real'>('real');
   const [messageInput, setMessageInput] = useState("");
@@ -306,7 +306,8 @@ export default function ResizablePhoneEmulator({
                               msg.type === "user" ? "text-purple-200" : msg.isOverLimit ? "text-red-400" : "text-gray-500"
                             }`}
                           >
-                            <span>{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span> {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit',second: '2-digit'})} </span>
+
                             {msg.type === "system" && (
                               <span className={`font-mono ${msg.isOverLimit ? "bg-red-100 px-1 rounded" : "opacity-50"}`}>
                                 {msg.originalLength}/172
