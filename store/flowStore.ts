@@ -1171,11 +1171,125 @@ export const useFlowStore = create<FlowState>()(
       removeEdges: (ids) =>
         set((state) => {
           const edgeIdsToRemove = new Set(ids);
+          const edgesToRemove = state.edges.filter((e) => edgeIdsToRemove.has(e.id));
+          if (edgesToRemove.length === 0) {
+            return {
+              edges: state.edges,
+              flow: buildFlowJson(state.nodes, state.edges),
+            };
+          }
+
+          const nodeMap = new Map(state.nodes.map((n) => [n.id, n]));
+          let nextModifiedGroupIds = [...state.modifiedGroupIds];
+
+          const markGroupModified = (nodeId: string) => {
+            const info = getParentGroupInfo(state.nodes, nodeId);
+            if (
+              info &&
+              state.publishedGroupIds.includes(info.groupId) &&
+              !nextModifiedGroupIds.includes(info.groupId)
+            ) {
+              nextModifiedGroupIds.push(info.groupId);
+            }
+          };
+
+          const updateNodeDataLocal = (
+            nodeId: string,
+            updater: (data: Record<string, unknown>) => Record<string, unknown>
+          ) => {
+            const node = nodeMap.get(nodeId);
+            if (!node) return;
+            const currentData = (node.data as Record<string, unknown>) || {};
+            const nextData = updater(currentData);
+            if (nextData === currentData) return;
+            nodeMap.set(nodeId, { ...node, data: nextData });
+          };
+
+          edgesToRemove.forEach((edge) => {
+            const sourceNode = nodeMap.get(edge.source);
+            if (!sourceNode) return;
+
+            markGroupModified(edge.source);
+            markGroupModified(edge.target);
+
+            const handle = edge.sourceHandle || "";
+
+            if (sourceNode.type === "action") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => ({
+                  ...data,
+                  nextNode: "",
+                }));
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const routes = Array.isArray(data.routes) ? [...data.routes] : [];
+                  const idx = routes.findIndex((r: any) => r?.id === handle);
+                  if (idx === -1) return data;
+                  routes[idx] = { ...routes[idx], nextNodeId: "" };
+                  return { ...data, routes };
+                });
+              }
+              return;
+            }
+
+            if (sourceNode.type === "prompt") {
+              if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (Number.isNaN(routeIdx)) return;
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode as { routes?: any[] } | string | undefined;
+                  if (!nextNode || typeof nextNode !== "object" || !nextNode.routes) return data;
+                  const routes = [...nextNode.routes];
+                  if (!routes[routeIdx]) return data;
+                  routes[routeIdx] = { ...routes[routeIdx], gotoFlow: "" };
+                  return { ...data, nextNode: { ...nextNode, routes } };
+                });
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => ({
+                  ...data,
+                  nextNode: "",
+                }));
+              }
+              return;
+            }
+
+            if (sourceNode.type === "condition") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = (data.nextNode as { routes?: any[]; default?: string }) || {};
+                  return { ...data, nextNode: { ...nextNode, default: "" } };
+                });
+              } else if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (Number.isNaN(routeIdx)) return;
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode as { routes?: any[]; default?: string } | undefined;
+                  if (!nextNode || !nextNode.routes) return data;
+                  const routes = [...nextNode.routes];
+                  if (!routes[routeIdx]) return data;
+                  routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+                  return { ...data, nextNode: { ...nextNode, routes } };
+                });
+              }
+              return;
+            }
+
+            if (sourceNode.type === "start") {
+              updateNodeDataLocal(sourceNode.id, (data) => ({
+                ...data,
+                entryNode: "",
+              }));
+            }
+          });
+
+          const nextNodes = state.nodes.map((n) => nodeMap.get(n.id) || n);
           const nextEdges = state.edges.filter((e) => !edgeIdsToRemove.has(e.id));
 
           return {
+            nodes: nextNodes,
             edges: nextEdges,
-            flow: buildFlowJson(state.nodes, nextEdges),
+            flow: buildFlowJson(nextNodes, nextEdges),
+            modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
 

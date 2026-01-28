@@ -13,7 +13,7 @@ type Message = {
 };
 
 export default function PhoneSessionPage() {
-  const [phoneNumber, setPhoneNumber] = useState("+251903193553");
+  const [phoneNumber, setPhoneNumber] = useState("+251910899167");
   const [shortCode, setShortCode] = useState("*675#");
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
