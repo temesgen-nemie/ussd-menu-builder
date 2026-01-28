@@ -170,8 +170,8 @@ export default function PhoneSessionPage() {
           />
         </div>
 
-        <div className="flex min-h-0 flex-1">
-          <div className="flex min-h-0 flex-1 flex-col rounded-3xl bg-[#1c1c1e] p-4 shadow-2xl">
+        <div className="mt-4">
+          <div className="flex flex-col rounded-3xl bg-[#1c1c1e] p-4 shadow-2xl">
             {isLoading ? (
               <div className="flex min-h-15 items-center justify-center gap-4 text-center">
                 <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white/80" />
@@ -191,13 +191,13 @@ export default function PhoneSessionPage() {
               </div>
             ) : (
               <>
-                <div className="min-h-8 max-h-35 overflow-auto pr-1 text-[14px] leading-5">
+                <div className="min-h-16 pr-1 text-[14px] leading-5">
                   {messages.length === 0 ? (
                     <div className="text-sm font-semibold">
                       Enter USSD Code to start session (e.g. *123#)
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap">
+                    <div className="whitespace-pre-wrap min-h-10">
                       {messages[messages.length - 1].type === "system"
                         ? messages[messages.length - 1].content.substring(0, 172)
                         : "Enter Response"}
