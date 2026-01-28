@@ -197,7 +197,7 @@ export default function PhoneSessionPage() {
                       Enter USSD Code to start session (e.g. *123#)
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap min-h-16">
+                    <div className="whitespace-pre-wrap min-h-26">
                       {messages[messages.length - 1].type === "system"
                         ? messages[messages.length - 1].content.substring(0, 172)
                         : "Enter Response"}
