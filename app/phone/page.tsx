@@ -191,7 +191,7 @@ export default function PhoneSessionPage() {
               </div>
             ) : (
               <>
-                <div className="min-h-16 max-h-35 overflow-auto pr-1 text-[14px] leading-5">
+                <div className="min-h-30 max-h-35 overflow-auto pr-1 text-[14px] leading-5">
                   {messages.length === 0 ? (
                     <div className="text-sm font-semibold">
                       Enter USSD Code to start session (e.g. *123#)
