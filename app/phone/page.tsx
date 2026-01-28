@@ -142,8 +142,12 @@ export default function PhoneSessionPage() {
 
   return (
     <div className="bg-transparent text-white">
-      <div className="bg-linear-to-br from-white/70 via-sky-100/50 to-blue-100/60 backdrop-blur-[1px] min-h-dvh">
-        <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+      <div
+        className="min-h-dvh bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/phone-bg.jpg')" }}
+      >
+        <div className="min-h-dvh bg-linear-to-br from-white/70 via-sky-100/50 to-blue-100/60 backdrop-blur-[1px]">
+        <div className="mx-auto flex min-h-dvh w-full max-w-none flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
         <div className="rounded-2xl bg-[#1c1c1e] p-4 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -253,6 +257,7 @@ export default function PhoneSessionPage() {
           </div>
         </div>
         </div>
+      </div>
       </div>
     </div>
   );
