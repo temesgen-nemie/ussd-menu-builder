@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 
 type ResponseMappingEditorProps = {
   mappings: Array<{ id: string; key: string; value: string; persist?: boolean; encrypt?: boolean }>;
@@ -15,6 +16,8 @@ export default function ResponseMappingEditor({
   onRemove,
   onUpdate,
 }: ResponseMappingEditorProps) {
+  const [editModes, setEditModes] = useState<Record<string, boolean>>({});
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -54,28 +57,87 @@ export default function ResponseMappingEditor({
                   onUpdate(mapping.id, e.target.value, mapping.value, !!mapping.persist, !!mapping.encrypt)
                 }
               />
-              <select
-                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-                value={mapping.value}
-                onChange={(e) =>
-                  onUpdate(mapping.id, mapping.key, e.target.value, !!mapping.persist, !!mapping.encrypt)
-                }
-              >
-                <option value="">Select response field</option>
-                {options.map((path, index) => {
-                  const value = `{{response.${path}}}`;
-                  return (
-                    <option key={`${value}-${index}`} value={value}>
-                      {path}
-                    </option>
-                  );
-                })}
-                {!hasValue && mapping.value && (
-                  <option value={mapping.value}>
-                    Custom: {mapping.value}
+              {editModes[mapping.id] ? (
+                <div className="relative flex items-center">
+                  <input
+                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm pr-8"
+                    placeholder="Type value (e.g. {{var}})"
+                    value={mapping.value}
+                    onChange={(e) =>
+                      onUpdate(
+                        mapping.id,
+                        mapping.key,
+                        e.target.value,
+                        !!mapping.persist,
+                        !!mapping.encrypt
+                      )
+                    }
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      const newModes = { ...editModes };
+                      delete newModes[mapping.id];
+                      setEditModes(newModes);
+                    }}
+                    className="absolute right-1.5 p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                    title="Switch to list selection"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="8" y1="6" x2="21" y2="6"></line>
+                      <line x1="8" y1="12" x2="21" y2="12"></line>
+                      <line x1="8" y1="18" x2="21" y2="18"></line>
+                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <select
+                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm w-full"
+                  value={mapping.value}
+                  onChange={(e) => {
+                    if (e.target.value === "__custom_mode__") {
+                      setEditModes({ ...editModes, [mapping.id]: true });
+                    } else {
+                      onUpdate(
+                        mapping.id,
+                        mapping.key,
+                        e.target.value,
+                        !!mapping.persist,
+                        !!mapping.encrypt
+                      );
+                    }
+                  }}
+                >
+                  <option value="">Select response field</option>
+                  <option value="__custom_mode__" className="font-medium text-indigo-600 bg-indigo-50">
+                    + Type manually...
                   </option>
-                )}
-              </select>
+                  {options.map((path, index) => {
+                    const value = `{{response.${path}}}`;
+                    return (
+                      <option key={`${value}-${index}`} value={value}>
+                        {path}
+                      </option>
+                    );
+                  })}
+                  {!hasValue && mapping.value && (
+                    <option value={mapping.value}>Custom: {mapping.value}</option>
+                  )}
+                </select>
+              )}
               <div className="flex items-center gap-1.5 px-1" title="Persist this mapping to local storage">
                 <input
                   type="checkbox"
