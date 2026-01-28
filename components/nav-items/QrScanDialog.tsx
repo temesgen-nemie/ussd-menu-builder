@@ -29,10 +29,10 @@ export default function QrScanDialog() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
+        className="inline-flex h-9 w-9 items-center justify-center border border-border bg-background text-foreground shadow-sm hover:bg-muted rounded-full cursor-pointer"
         aria-label="Open QR scan"
       >
-        <QrCode className="h-4 w-4" />
+        <QrCode className="h-5 w-5 text-purple-600" />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -57,7 +57,8 @@ export default function QrScanDialog() {
                   unoptimized
                 />
               ) : (
-                <div className="flex h-55 w-55 items-center justify-center text-xs text-muted-foreground">
+                <div className="flex h-55 w-55 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
                   Generating QR...
                 </div>
               )}
