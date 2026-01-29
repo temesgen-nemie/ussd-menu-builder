@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ChevronDownIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,34 +16,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "../ui/button";
 
 type AuditFiltersProps = {
   fromDate: Date | null;
   toDate: Date | null;
   limit: number;
+  query: string;
   isLoading: boolean;
   onFromChange: (value: Date | null) => void;
   onToChange: (value: Date | null) => void;
   onLimitChange: (value: number) => void;
-  onRefresh: () => void;
+  onQueryChange: (value: string) => void;
 };
 
 export default function AuditFilters({
   fromDate,
   toDate,
   limit,
+  query,
   isLoading,
   onFromChange,
   onToChange,
   onLimitChange,
-  onRefresh,
+  onQueryChange,
 }: AuditFiltersProps) {
   const [fromOpen, setFromOpen] = React.useState(false);
   const [toOpen, setToOpen] = React.useState(false);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+      <div className="grid gap-4 md:grid-cols-[repeat(4,minmax(0,1fr))]">
         <div className="flex flex-col gap-3">
           <Label
             htmlFor="audit-from-date"
@@ -134,14 +136,26 @@ export default function AuditFilters({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end">
-          <Button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 text-white shadow-md shadow-indigo-200/40 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40 dark:hover:from-slate-700 dark:hover:via-slate-600 dark:hover:to-slate-600 cursor-pointer"
+        <div className="flex flex-col gap-3">
+          <Label
+            htmlFor="audit-search"
+            className="px-1 text-xs uppercase text-muted-foreground"
           >
-            {isLoading ? "Loading..." : "Fetch Events"}
-          </Button>
+            Search
+          </Label>
+          <input
+            id="audit-search"
+            type="text"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Flow, username, node id"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {isLoading && (
+            <span className="text-[10px] text-muted-foreground">
+              Searching...
+            </span>
+          )}
         </div>
       </div>
     </div>
