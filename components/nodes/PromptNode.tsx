@@ -4,6 +4,8 @@ import { useFlowStore } from "@/store/flowStore";
 type PromptRoute = {
   when?: { eq?: string[] };
   gotoFlow?: string;
+  isGoBack?: boolean;
+  isMainMenu?: boolean;
 };
 
 type PromptNextNode = {
@@ -79,11 +81,20 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           {data.nextNode &&
             typeof data.nextNode === "object" &&
             data.nextNode.routes &&
-            data.nextNode.routes.map((route, idx: number) => {
+            data.nextNode.routes.map((route: any, idx: number) => {
               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
               const matchVal = route.when?.eq?.[1] || "?";
+              const isGoBack = route.isGoBack || false;
+              const isMainMenu = route.isMainMenu || false;
               const handleId = `route-${idx}`;
               const isActuallyConnected = edges.some(e => e.source === id && e.sourceHandle === handleId);
+
+              // If it's a logic route (go back or main menu), we don't show the handle
+              const showHandle = !isGoBack && !isMainMenu;
+
+              let label = route.gotoFlow || "Target";
+              if (isGoBack) label = "Go Back";
+              if (isMainMenu) label = "Main Menu";
 
               return (
                 <div
@@ -91,37 +102,43 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
                   className={`relative flex items-center justify-between text-xs p-1.5 rounded border transition-colors ${
                     isActuallyConnected 
                       ? "bg-gray-50 border-gray-100" 
-                      : "bg-amber-50 border-amber-100"
+                      : (isGoBack || isMainMenu) 
+                        ? "bg-indigo-50 border-indigo-100" 
+                        : "bg-amber-50 border-amber-100"
                   }`}
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span className={`font-mono bg-white px-1.5 py-0.5 border rounded font-bold shrink-0 ${
-                      isActuallyConnected ? "text-indigo-600" : "text-amber-600"
+                      isActuallyConnected || isGoBack || isMainMenu ? "text-indigo-600" : "text-amber-600"
                     }`}>
                       {matchVal}
                     </span>
                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      isActuallyConnected ? "bg-emerald-500/60" : "bg-amber-500/80 animate-pulse"
+                      isActuallyConnected ? "bg-emerald-500/60" : 
+                      (isGoBack || isMainMenu) ? "bg-indigo-400" : 
+                      "bg-amber-500/80 animate-pulse"
                     }`} />
                     <span
                       className={`font-medium truncate max-w-[80px] ${
-                         isActuallyConnected ? "text-gray-700" : "text-amber-700/80"
+                         isActuallyConnected || isGoBack || isMainMenu ? "text-gray-700" : "text-amber-700/80"
                       }`}
-                      title={route.gotoFlow}
+                      title={label}
                     >
-                      {route.gotoFlow || "Target"}
+                      {label}
                     </span>
                   </div>
                   
                   {/* Source Handle for this specific option */}
-                  <Handle
-                    type="source"
-                    position={Position.Right}
-                    id={handleId}
-                    className={`!-right-1.5 !w-2.5 !h-2.5 !border-2 ${
-                      isActuallyConnected ? "!border-indigo-500 !bg-white" : "!border-amber-500 !bg-white"
-                    }`}
-                  />
+                  {showHandle && (
+                    <Handle
+                      type="source"
+                      position={Position.Right}
+                      id={handleId}
+                      className={`!-right-1.5 !w-2.5 !h-2.5 !border-2 ${
+                        isActuallyConnected ? "!border-indigo-500 !bg-white" : "!border-amber-500 !bg-white"
+                      }`}
+                    />
+                  )}
                 </div>
               );
             })}

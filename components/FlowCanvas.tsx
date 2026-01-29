@@ -192,6 +192,14 @@ export default function FlowCanvas() {
 
           // Handle Prompt Node "default" handle (Linear Mode)
           if (!handleId || handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return; // REJECT CONNECTION
+            }
             updateNodeData(sourceNode.id, {
               nextNode: params.target,
               routingMode: sourceNode.data.routingMode || "linear",
@@ -222,14 +230,17 @@ export default function FlowCanvas() {
             }
 
             interface PromptNextNode {
-              routes?: { when?: { eq?: string[] }; gotoFlow?: string }[];
+              routes?: { when?: { eq?: string[] }; gotoFlow?: string; gotoId?: string }[];
               default?: string;
             }
             const nextNode = sourceNode.data.nextNode as PromptNextNode;
-            if (nextNode && typeof nextNode === "object" && nextNode.routes) {
-              const routeIdx = parseInt(handleId.split("-")[1]);
+            
+            // Explicitly check for routes array
+            if (nextNode && typeof nextNode === "object" && Array.isArray(nextNode.routes)) {
+              const routePart = handleId.split("-")[1];
+              const routeIdx = parseInt(routePart, 10);
               const newRoutes = [...nextNode.routes];
-              const route = newRoutes[routeIdx];
+              const route = !isNaN(routeIdx) ? newRoutes[routeIdx] : undefined;
 
               if (route) {
                 let finalName = "";
@@ -240,9 +251,7 @@ export default function FlowCanvas() {
                   targetNode.type === "group" &&
                   targetNode.data.isMenuBranch
                 ) {
-                  // 1. Prioritize any explicitly set gotoFlow in the prompt
-                  // 2. Fallback to existing Group name (if it's not default)
-                  // 3. Last fallback: use the prompt input value
+                  // ... Group Sync Logic ...
                   const targetName = targetNode.data.name;
                   const isDefaultTargetName =
                     !targetName || targetName === "Untitled Group";
@@ -266,7 +275,8 @@ export default function FlowCanvas() {
                   }
                 } else if (targetNode && targetNode.type !== "group") {
                   // NEW: Rename non-group target node to match the route's value
-                  const newName = route.gotoFlow || route.when?.eq?.[1];
+                  // We prioritize ONLY gotoFlow as per user request
+                  const newName = route.gotoFlow;
 
                   if (!newName) {
                     toast.error("Invalid Branch", {
@@ -291,6 +301,7 @@ export default function FlowCanvas() {
                 newRoutes[routeIdx] = {
                   ...route,
                   gotoFlow: finalName || targetNode?.id || "",
+                  gotoId: finalName ? targetNode?.id : "",
                 };
                 updateNodeData(sourceNode.id, {
                   nextNode: { ...nextNode, routes: newRoutes },
@@ -304,6 +315,14 @@ export default function FlowCanvas() {
           const handleId = params.sourceHandle;
           // Check if it's the default handle
           if (handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return; // REJECT CONNECTION
+            }
             updateNodeData(sourceNode.id, { nextNode: params.target });
           } else {
             // It's a conditional route
@@ -328,6 +347,14 @@ export default function FlowCanvas() {
         else if (sourceNode && sourceNode.type === "condition") {
              const handleId = params.sourceHandle;
              if (handleId === "default") {
+                const targetNode = nodes.find((n) => n.id === params.target);
+                if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+                  toast.error("Unnamed Target Node", {
+                    description: "The target node must have a name before you can connect to it.",
+                    duration: 5000,
+                  });
+                  return; // REJECT CONNECTION
+                }
                 updateNodeData(sourceNode.id, {
                     nextNode: {
                         ...(sourceNode.data.nextNode as object || {}),
@@ -374,16 +401,40 @@ export default function FlowCanvas() {
       } else {
         // If no specific handle ID is used (default/legacy handles)
 
-        // Prompt Node Logic (Linear Mode/Default)
+         // Prompt Node Logic (Linear Mode/Default)
         if (sourceNode && sourceNode.type === "prompt") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+            toast.error("Unnamed Target Node", {
+              description: "The target node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return; // REJECT CONNECTION
+          }
           updateNodeData(sourceNode.id, { nextNode: params.target });
         }
         // Action Node Logic (legacy fallback or default handle if no ID)
         else if (sourceNode && sourceNode.type === "action") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+            toast.error("Unnamed Target Node", {
+              description: "The target node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return; // REJECT CONNECTION
+          }
           updateNodeData(sourceNode.id, { nextNode: params.target });
         }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+            toast.error("Unnamed Entry Node", {
+              description: "The entry node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return; // REJECT CONNECTION
+          }
           updateNodeData(sourceNode.id, { entryNode: params.target });
         }
       }
