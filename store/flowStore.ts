@@ -143,6 +143,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         type: String(node.type ?? ""),
       };
 
+      if (node.type === "prompt" && data.isMainMenu) {
+        (base as any).isMainMenu = "true";
+      }
+
       if (node.type === "prompt") {
         const message = String(data.message ?? "");
         const routingMode = String(data.routingMode ?? "linear");
@@ -214,7 +218,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             ...base,
             message,
             ...promptExtras,
-            nextNode: resolved.name || targetStr || "",
+            nextNode: resolved.name || "",
             nextNodeId: finalId,
           };
         }
@@ -234,14 +238,31 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             default?: string;
           };
           routes = (nextObj.routes || []).map((route) => {
+            const r = route as any;
+            const when = route.when;
+
+            if (r.isMainMenu) {
+              return {
+                when,
+                toMainMenu: "true",
+              } as any;
+            }
+
+            if (r.isGoBack) {
+              return {
+                when,
+                goto: r.goBackTarget || r.gotoFlow || "",
+                gotoId: "",
+              } as any;
+            }
+
             const target = resolveTarget(route.gotoFlow || route.goto || "");
             const targetType = typeById.get(target.id);
             const isGroup = targetType === "group";
 
             return {
-              when: route.when,
-              [isGroup ? "gotoFlow" : "goto"]:
-                target.name || route.gotoFlow || route.goto || "",
+              when,
+              [isGroup ? "gotoFlow" : "goto"]: target.name || "",
               gotoId: target.id || "",
             } as FlowRoute;
           });
@@ -270,13 +291,13 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const rawFields = Array.isArray(data.fields)
           ? data.fields
           : data.field
-          ? [String(data.field)]
-          : [];
+            ? [String(data.field)]
+            : [];
         const rawOutputVars = Array.isArray(data.outputVars)
           ? data.outputVars
           : data.outputVar
-          ? [String(data.outputVar)]
-          : [];
+            ? [String(data.outputVar)]
+            : [];
         const fields = rawFields.map((value) => String(value ?? ""));
         const outputVars = (rawOutputVars.length ? rawOutputVars : fields).map(
           (value) => String(value ?? "")
@@ -365,7 +386,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           const target = resolveTarget(route.goto || "");
           return {
             when: route.when,
-            goto: target.name || route.goto || ""
+            goto: target.name || ""
           };
         });
 
@@ -375,7 +396,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           ...base,
           nextNode: {
             routes,
-            default: defaultTarget.name || nextNode?.default || ""
+            default: defaultTarget.name || ""
           }
         };
       }
@@ -850,19 +871,32 @@ export const useFlowStore = create<FlowState>()(
 
           // Merge Nodes:
           // 1. Update existing nodes with backend data (rehydrated)
-          const updatedNodes = currentNodes.map((node) => {
+          // STRICT SYNC: If a node is in a published group locally but NOT in the backend, discard it.
+          const backendGroupIds = new Set(backendNodes.filter(n => n.type === 'group').map(n => n.id));
+
+          const updatedNodes = currentNodes.reduce((acc, node) => {
+            // Check if node is in a known backend group
+            if (node.parentNode && backendGroupIds.has(node.parentNode)) {
+              // If it's not in the backend map, it's a local stray in a published flow. Drop it.
+              if (!backendNodeMap.has(node.id)) {
+                return acc;
+              }
+            }
+
             const backendNode = backendNodeMap.get(node.id);
             if (backendNode) {
               const freshLogicalData = allLogicalDataMap.get(node.id);
               // Preserve important local UI state like selection
-              return {
+              acc.push({
                 ...backendNode,
                 data: { ...backendNode.data, ...freshLogicalData },
                 selected: node.selected,
-              } as Node;
+              } as Node);
+            } else {
+              acc.push(node);
             }
-            return node;
-          });
+            return acc;
+          }, [] as Node[]);
 
           // 2. Add nodes that are in backend but not present locally (rehydrated)
           const currentNodeIds = new Set(currentNodes.map((n) => n.id));
@@ -1021,7 +1055,9 @@ export const useFlowStore = create<FlowState>()(
           // 3. Handle Edges (Replace only edges where at least one end is a direct child)
           const otherEdges = edges.filter(e => !directChildrenIds.has(e.source) && !directChildrenIds.has(e.target));
 
-          const nextNodes = [...finalOtherNodes, ...nextFlowNodes, ...localOnlyChildren];
+          // STRICT SYNC: We do NOT include localOnlyChildren.
+          // Local additions to a published flow are discarded on refresh to enforce backend state.
+          const nextNodes = [...finalOtherNodes, ...nextFlowNodes];
           const nextEdges = [...otherEdges, ...flow.visualState.edges];
 
           // 4. Ensure this flow is marked as published in our local state
@@ -1035,9 +1071,8 @@ export const useFlowStore = create<FlowState>()(
             edges: nextEdges,
             flow: buildFlowJson(nextNodes, nextEdges),
             publishedGroupIds: nextPublishedGroupIds,
-            modifiedGroupIds: (publishedGroupIds.includes(groupId) && localOnlyChildren.length === 0)
-              ? get().modifiedGroupIds.filter(id => id !== groupId)
-              : get().modifiedGroupIds,
+            // Since we hard-synced with backend, this group is no longer modified.
+            modifiedGroupIds: get().modifiedGroupIds.filter(id => id !== groupId),
           });
 
           toast.success(
@@ -1152,7 +1187,96 @@ export const useFlowStore = create<FlowState>()(
             });
           }
 
-          const nextNodes = state.nodes.filter(
+          // ------------------------------------------------------------------
+          // CLEANUP DATA: Clear references in source nodes pointing to deleted nodes
+          // ------------------------------------------------------------------
+          const edgesToRemove = state.edges.filter(
+            (e) => nodesToRemoveIds.has(e.target) && !nodesToRemoveIds.has(e.source)
+          );
+
+          // We need a map to update nodes efficiently before filtering
+          const nodeMap = new Map(state.nodes.map((n) => [n.id, n]));
+
+          const updateNodeDataLocal = (
+            nodeId: string,
+            updater: (data: Record<string, unknown>) => Record<string, unknown>
+          ) => {
+            const node = nodeMap.get(nodeId);
+            if (!node) return;
+            const currentData = (node.data as Record<string, unknown>) || {};
+            const nextData = updater(currentData);
+            if (nextData === currentData) return;
+            nodeMap.set(nodeId, { ...node, data: nextData });
+          };
+
+          edgesToRemove.forEach((edge) => {
+            const sourceNode = nodeMap.get(edge.source);
+            if (!sourceNode) return;
+
+            const handle = edge.sourceHandle || "";
+
+            // Action Node Cleanup
+            if (sourceNode.type === "action") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const routes = Array.isArray(data.routes) ? [...data.routes] : [];
+                  const idx = routes.findIndex((r: any) => r?.id === handle);
+                  if (idx === -1) return data;
+                  routes[idx] = { ...routes[idx], nextNodeId: "" };
+                  return { ...data, routes };
+                });
+              }
+            }
+            // Prompt Node Cleanup
+            else if (sourceNode.type === "prompt") {
+              if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (!Number.isNaN(routeIdx)) {
+                  updateNodeDataLocal(sourceNode.id, (data) => {
+                    const nextNode = data.nextNode as { routes?: any[] } | string | undefined;
+                    if (!nextNode || typeof nextNode !== "object" || !nextNode.routes) return data;
+                    const routes = [...nextNode.routes];
+                    if (!routes[routeIdx]) return data;
+                    // PRESERVE gotoFlow (name), only clear the ID reference
+                    routes[routeIdx] = { ...routes[routeIdx], gotoId: "" };
+                    return { ...data, nextNode: { ...nextNode, routes } };
+                  });
+                }
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+              }
+            }
+            // Condition Node Cleanup
+            else if (sourceNode.type === "condition") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = (data.nextNode as { routes?: any[]; default?: string }) || {};
+                  return { ...data, nextNode: { ...nextNode, default: "" } };
+                });
+              } else if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (!Number.isNaN(routeIdx)) {
+                  updateNodeDataLocal(sourceNode.id, (data) => {
+                    const nextNode = data.nextNode as { routes?: any[]; default?: string } | undefined;
+                    if (!nextNode || !nextNode.routes) return data;
+                    const routes = [...nextNode.routes];
+                    if (!routes[routeIdx]) return data;
+                    routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+                    return { ...data, nextNode: { ...nextNode, routes } };
+                  });
+                }
+              }
+            }
+            // Start Node Cleanup
+            else if (sourceNode.type === "start") {
+              updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, entryNode: "" }));
+            }
+          });
+
+          // Use the updated nodeMap values for the nextNodes list
+          const nextNodes = Array.from(nodeMap.values()).filter(
             (n) => !nodesToRemoveIds.has(n.id)
           );
 
@@ -1260,7 +1384,8 @@ export const useFlowStore = create<FlowState>()(
                   if (!nextNode || typeof nextNode !== "object" || !nextNode.routes) return data;
                   const routes = [...nextNode.routes];
                   if (!routes[routeIdx]) return data;
-                  routes[routeIdx] = { ...routes[routeIdx], gotoFlow: "" };
+                  // PRESERVE gotoFlow (name), only clear the ID reference
+                  routes[routeIdx] = { ...routes[routeIdx], gotoId: "" };
                   return { ...data, nextNode: { ...nextNode, routes } };
                 });
               } else {
@@ -1809,13 +1934,13 @@ export const useFlowStore = create<FlowState>()(
             const flowFields = Array.isArray(flowNode.fields)
               ? flowNode.fields
               : flowNode.field
-              ? [flowNode.field]
-              : undefined;
+                ? [flowNode.field]
+                : undefined;
             const flowOutputVars = Array.isArray(flowNode.outputVars)
               ? flowNode.outputVars
               : flowNode.outputVar
-              ? [flowNode.outputVar]
-              : undefined;
+                ? [flowNode.outputVar]
+                : undefined;
             nextData.fields = flowFields ?? nextData.fields;
             nextData.outputVars = flowOutputVars ?? nextData.outputVars;
             nextData.field = flowFields?.[0] ?? nextData.field;

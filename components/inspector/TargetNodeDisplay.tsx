@@ -29,8 +29,15 @@ export default function TargetNodeDisplay({
     return "";
   };
 
-  const cleanNodeId = safeNodeId(nodeId);
-  const targetNode = useFlowStore((s) => s.nodes.find((n) => n.id === cleanNodeId));
+  const rawIdValue = safeNodeId(nodeId);
+  const targetNode = useFlowStore((s) => {
+    if (!rawIdValue) return undefined;
+    return s.nodes.find((n) => n.id === rawIdValue) || 
+           s.nodes.find((n) => (n.data as any)?.name === rawIdValue);
+  });
+  
+  // Always show the technical ID in the left box if the node is found
+  const displayId = targetNode?.id || rawIdValue;
   const targetName = targetNode?.data?.name;
   const isGroup = targetNode?.type === "group";
 
@@ -42,20 +49,20 @@ export default function TargetNodeDisplay({
       <div className="flex items-center gap-1.5 group">
         <div className="flex-1 relative">
            <input
-             className={`w-full rounded-lg border border-gray-100 p-1.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-[10px] font-mono transition-all group-hover:bg-gray-50 ${cleanNodeId ? 'pr-6' : ''}`}
-             value={cleanNodeId}
+             className={`w-full rounded-lg border border-gray-100 p-1.5 bg-gray-50/50 shadow-sm text-gray-500 cursor-not-allowed text-[10px] font-mono transition-all group-hover:bg-gray-50 ${displayId ? 'pr-6' : ''}`}
+             value={displayId}
              placeholder={placeholder}
              readOnly
              title={title}
            />
-           {cleanNodeId && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-300 font-bold">
+           {displayId && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-300 font-bold uppercase">
                 ID
               </div>
            )}
         </div>
         
-        {cleanNodeId && (
+        {displayId && (
           <div className="flex-[1.2] animate-in slide-in-from-left-2 fade-in duration-300 min-w-0">
              <div className={`w-full rounded-lg border p-1.5 shadow-sm flex items-center gap-1.5 ${
                isGroup 
