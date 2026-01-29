@@ -62,6 +62,7 @@ export default function AuditTable() {
   const [fromDate, setFromDate] = useState<Date | null>(initialRange.from);
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
   const [limit, setLimit] = useState(10);
+  const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<AuditMeta>({});
   const [events, setEvents] = useState<AuditEvent[]>([]);
@@ -80,7 +81,13 @@ export default function AuditTable() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getAuditEvents({ from, to, limit, page });
+      const data = await getAuditEvents({
+        from,
+        to,
+        limit,
+        page,
+        q: query.trim() || undefined,
+      });
       const entries: AuditEvent[] = Array.isArray(data?.data) ? data.data : [];
       setEvents(entries);
       setMeta({
@@ -99,7 +106,7 @@ export default function AuditTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [fromDate, limit, page, toDate]);
+  }, [fromDate, limit, page, query, toDate]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -110,7 +117,7 @@ export default function AuditTable() {
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, limit]);
+  }, [fromDate, toDate, limit, query]);
 
   const totalPages = useMemo(() => {
     if (typeof meta.totalPages === "number") {
@@ -125,18 +132,40 @@ export default function AuditTable() {
         fromDate={fromDate}
         toDate={toDate}
         limit={limit}
+        query={query}
         isLoading={isLoading}
         onFromChange={setFromDate}
         onToChange={setToDate}
         onLimitChange={setLimit}
-        onRefresh={fetchEvents}
+        onQueryChange={setQuery}
       />
       {error && <div className="text-sm text-destructive">{error}</div>}
       <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-border bg-card">
         {isLoading && events.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Loading events...
-          </div>
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead className="min-w-45">Date/Time</TableHead>
+                <TableHead className="min-w-55">Id</TableHead>
+                <TableHead className="min-w-50">Name</TableHead>
+                <TableHead className="min-w-40">Flow</TableHead>
+                <TableHead className="min-w-30">Type</TableHead>
+                <TableHead className="min-w-30">Operation</TableHead>
+                <TableHead className="min-w-35">User</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 10 }).map((_, index) => (
+                <TableRow key={`audit-skeleton-${index}`} className="animate-pulse">
+                  {Array.from({ length: 7 }).map((__, cellIndex) => (
+                    <TableCell key={`audit-skeleton-cell-${index}-${cellIndex}`}>
+                      <div className="h-3 w-full rounded-full bg-muted/60" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         ) : events.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             No audit events found.
