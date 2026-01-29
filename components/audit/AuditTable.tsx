@@ -253,6 +253,7 @@ export default function AuditTable() {
         onOpenChange={(open) => {
           if (!open) setSelectedEvent(null);
         }}
+        onMutationSuccess={fetchEvents}
       />
     </div>
   );
