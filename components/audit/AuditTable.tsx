@@ -28,7 +28,7 @@ export type AuditEvent = {
 type AuditMeta = {
   page?: number;
   limit?: number;
-  total?: number;
+  totalPages?: number;
 };
 
 const toIsoRange = (value: Date | null, isEnd: boolean) => {
@@ -61,7 +61,7 @@ export default function AuditTable() {
   const initialRange = useMemo(() => defaultRange(), []);
   const [fromDate, setFromDate] = useState<Date | null>(initialRange.from);
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<AuditMeta>({});
   const [events, setEvents] = useState<AuditEvent[]>([]);
@@ -86,7 +86,8 @@ export default function AuditTable() {
       setMeta({
         page: typeof data?.meta?.page === "number" ? data.meta.page : page,
         limit: typeof data?.meta?.limit === "number" ? data.meta.limit : limit,
-        total: typeof data?.meta?.total === "number" ? data.meta.total : undefined,
+        totalPages:
+          typeof data?.meta?.totalPages === "number" ? data.meta.totalPages : undefined,
       });
       setSelectedEvent((current) => {
         if (!current) return current;
@@ -112,9 +113,11 @@ export default function AuditTable() {
   }, [fromDate, toDate, limit]);
 
   const totalPages = useMemo(() => {
-    if (!meta.total || !limit) return 1;
-    return Math.max(1, Math.ceil(meta.total / limit));
-  }, [limit, meta.total]);
+    if (typeof meta.totalPages === "number") {
+      return Math.max(1, meta.totalPages);
+    }
+    return 1;
+  }, [meta.totalPages]);
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -189,9 +192,9 @@ export default function AuditTable() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
         <div>
           Page {page} of {totalPages}
-          {meta.total !== undefined && (
+          {meta.totalPages !== undefined && (
             <span className="ml-2 text-muted-foreground/80">
-              ({meta.total} total)
+              ({meta.totalPages} pages)
             </span>
           )}
         </div>
