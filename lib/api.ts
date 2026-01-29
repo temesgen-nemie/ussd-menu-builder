@@ -438,6 +438,7 @@ export const getAuditEvents = async (params: {
     from: string;
     to: string;
     limit: number;
+    page?: number;
 }) => {
     try {
         const response = await api.get("/audit-events", { params });

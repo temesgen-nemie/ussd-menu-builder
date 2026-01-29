@@ -25,6 +25,12 @@ export type AuditEvent = {
   after?: unknown;
 };
 
+type AuditMeta = {
+  page?: number;
+  limit?: number;
+  total?: number;
+};
+
 const toIsoRange = (value: Date | null, isEnd: boolean) => {
   if (!value) return "";
   const date = new Date(value);
@@ -56,6 +62,8 @@ export default function AuditTable() {
   const [fromDate, setFromDate] = useState<Date | null>(initialRange.from);
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
   const [limit, setLimit] = useState(50);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<AuditMeta>({});
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,9 +80,14 @@ export default function AuditTable() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getAuditEvents({ from, to, limit });
+      const data = await getAuditEvents({ from, to, limit, page });
       const entries: AuditEvent[] = Array.isArray(data?.data) ? data.data : [];
       setEvents(entries);
+      setMeta({
+        page: typeof data?.meta?.page === "number" ? data.meta.page : page,
+        limit: typeof data?.meta?.limit === "number" ? data.meta.limit : limit,
+        total: typeof data?.meta?.total === "number" ? data.meta.total : undefined,
+      });
       setSelectedEvent((current) => {
         if (!current) return current;
         const next = entries.find((entry) => entry.id === current.id);
@@ -85,7 +98,7 @@ export default function AuditTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [fromDate, limit, toDate]);
+  }, [fromDate, limit, page, toDate]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -93,6 +106,15 @@ export default function AuditTable() {
     }, 400);
     return () => window.clearTimeout(timeout);
   }, [fetchEvents]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [fromDate, toDate, limit]);
+
+  const totalPages = useMemo(() => {
+    if (!meta.total || !limit) return 1;
+    return Math.max(1, Math.ceil(meta.total / limit));
+  }, [limit, meta.total]);
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -162,6 +184,35 @@ export default function AuditTable() {
             </TableBody>
           </Table>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+        <div>
+          Page {page} of {totalPages}
+          {meta.total !== undefined && (
+            <span className="ml-2 text-muted-foreground/80">
+              ({meta.total} total)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={isLoading || page <= 1}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={isLoading || page >= totalPages}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       <AuditDiffDialog
