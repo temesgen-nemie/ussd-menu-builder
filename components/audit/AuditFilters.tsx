@@ -46,7 +46,7 @@ export default function AuditFilters({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-[repeat(4,minmax(0,1fr))]">
+      <div className="grid gap-4 md:grid-cols-4">
         <div className="flex flex-col gap-3">
           <Label
             htmlFor="audit-from-date"

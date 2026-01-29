@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import AuditRevertDialog from "@/components/audit/AuditRevertDialog";
 
 type DiffStatus = "added" | "removed";
 
@@ -206,16 +207,18 @@ type JsonPaneProps = {
   title: string;
   lines: Line[];
   emptyLabel: string;
+  scrollRef?: React.RefObject<HTMLDivElement>;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
 };
 
-function JsonPane({ title, lines, emptyLabel }: JsonPaneProps) {
+function JsonPane({ title, lines, emptyLabel, scrollRef, onScroll }: JsonPaneProps) {
   const hasLines = lines.length > 0;
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col rounded-2xl border border-border bg-background">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div className="text-sm font-semibold text-foreground">{title}</div>
       </div>
-      <div className="flex-1 overflow-auto p-3">
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto p-3">
         {hasLines ? (
           <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-foreground">
             {lines.map((line, index) => (
@@ -255,9 +258,22 @@ type AuditDiffDialogProps = {
   event: AuditDiffEvent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMutationSuccess?: () => void;
 };
 
-export default function AuditDiffDialog({ event, open, onOpenChange }: AuditDiffDialogProps) {
+export default function AuditDiffDialog({
+  event,
+  open,
+  onOpenChange,
+  onMutationSuccess,
+}: AuditDiffDialogProps) {
+  const beforeScrollRef = useRef<HTMLDivElement>(null);
+  const afterScrollRef = useRef<HTMLDivElement>(null);
+  const isSyncingRef = useRef(false);
+  const [syncEnabled, setSyncEnabled] = useState(true);
+  const [revertOpen, setRevertOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+
   const { beforeLines, afterLines } = useMemo(() => {
     if (!event) {
       return { beforeLines: [] as Line[], afterLines: [] as Line[] };
@@ -277,6 +293,23 @@ export default function AuditDiffDialog({ event, open, onOpenChange }: AuditDiff
 
   const title = event?.name ? `${event.name} changes` : "Event changes";
 
+  const syncScroll = useCallback(
+    (source: "before" | "after") =>
+      (event: React.UIEvent<HTMLDivElement>) => {
+        if (!syncEnabled) return;
+        if (isSyncingRef.current) return;
+        const target = source === "before" ? afterScrollRef.current : beforeScrollRef.current;
+        if (!target) return;
+        isSyncingRef.current = true;
+        target.scrollTop = event.currentTarget.scrollTop;
+        target.scrollLeft = event.currentTarget.scrollLeft;
+        window.requestAnimationFrame(() => {
+          isSyncingRef.current = false;
+        });
+      },
+    [syncEnabled]
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] w-[min(1300px,98vw)] max-w-none flex-col overflow-hidden p-0">
@@ -291,7 +324,8 @@ export default function AuditDiffDialog({ event, open, onOpenChange }: AuditDiff
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex flex-col gap-3 px-6 pb-4 pt-4">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2">
               <Badge className="inline-flex max-w-65 truncate rounded-md border-0 bg-muted px-2.5 py-1 text-foreground shadow-none">
                 Operation: {event?.operation ?? "--"}
               </Badge>
@@ -304,6 +338,20 @@ export default function AuditDiffDialog({ event, open, onOpenChange }: AuditDiff
               <Badge className="inline-flex max-w-65 truncate rounded-md border-0 bg-muted px-2.5 py-1 text-foreground shadow-none">
                 Username: {event?.userName ?? "--"}
               </Badge>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyncEnabled((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
+                aria-pressed={syncEnabled}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    syncEnabled ? "bg-emerald-500" : "bg-muted-foreground/40"
+                  }`}
+                />
+                Sync Scroll
+              </button>
             </div>
           </div>
 
@@ -313,16 +361,62 @@ export default function AuditDiffDialog({ event, open, onOpenChange }: AuditDiff
                 title="Before"
                 lines={beforeLines}
                 emptyLabel="No previous snapshot."
+                scrollRef={beforeScrollRef}
+                onScroll={syncScroll("before")}
               />
               <JsonPane
                 title="After"
                 lines={afterLines}
                 emptyLabel="No updated snapshot."
+                scrollRef={afterScrollRef}
+                onScroll={syncScroll("after")}
               />
+            </div>
+          </div>
+
+          <div className="border-t border-border/60 px-6 py-4">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRevertOpen(true)}
+                disabled={!event?.id}
+                className="inline-flex items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              >
+                Revert
+              </button>
+              <button
+                type="button"
+                onClick={() => setMergeOpen(true)}
+                disabled={!event?.id}
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-200/40 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              >
+                Merger
+              </button>
             </div>
           </div>
         </div>
       </DialogContent>
+
+      <AuditRevertDialog
+        open={revertOpen}
+        onOpenChange={setRevertOpen}
+        queryId={event?.entityId ?? null}
+        mode="revert"
+        onSuccess={() => {
+          onOpenChange(false);
+          onMutationSuccess?.();
+        }}
+      />
+      <AuditRevertDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        queryId={event?.entityId ?? null}
+        mode="merge"
+        onSuccess={() => {
+          onOpenChange(false);
+          onMutationSuccess?.();
+        }}
+      />
     </Dialog>
   );
 }
