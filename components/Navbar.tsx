@@ -79,9 +79,7 @@ export default function Navbar() {
         onClose={() => setSimulatorOpen(false)}
       />
       <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
-      {user?.isAdmin && (
-        <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
-      )}
+      <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
     </nav>
   );
 }

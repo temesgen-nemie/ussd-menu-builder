@@ -164,6 +164,7 @@ export const getUsers = async (params?: { page?: number; pageSize?: number }) =>
 export const createUser = async (payload: {
     username: string;
     password: string;
+    isAdmin?: boolean;
 }) => {
     try {
         const response = await api.post("/admin/users", payload);
