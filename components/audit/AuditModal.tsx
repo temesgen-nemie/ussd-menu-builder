@@ -10,10 +10,10 @@ type AuditModalProps = {
 
 const getInitialSize = () => {
   if (typeof window === "undefined") {
-    return { width: 1100, height: 760 };
+    return { width: 1200, height: 820 };
   }
-  const width = Math.min(window.innerWidth * 0.9, 1100);
-  const height = Math.min(window.innerHeight * 0.85, 760);
+  const width = Math.min(window.innerWidth * 0.94, 1350);
+  const height = Math.min(window.innerHeight * 0.88, 820);
   return { width, height };
 };
 

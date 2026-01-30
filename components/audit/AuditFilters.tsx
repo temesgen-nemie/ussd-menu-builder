@@ -14,7 +14,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue,  
 } from "@/components/ui/select";
 import { Button } from "../ui/button";
 
@@ -23,7 +23,7 @@ type AuditFiltersProps = {
   toDate: Date | null;
   limit: number;
   query: string;
-  isLoading: boolean;
+  isSearching: boolean;
   onFromChange: (value: Date | null) => void;
   onToChange: (value: Date | null) => void;
   onLimitChange: (value: number) => void;
@@ -35,7 +35,7 @@ export default function AuditFilters({
   toDate,
   limit,
   query,
-  isLoading,
+  isSearching,
   onFromChange,
   onToChange,
   onLimitChange,
@@ -48,6 +48,12 @@ export default function AuditFilters({
   React.useEffect(() => {
     setDraftQuery(query);
   }, [query]);
+
+  React.useEffect(() => {
+    if (draftQuery.trim() === "" && query.trim() !== "") {
+      onQueryChange("");
+    }
+  }, [draftQuery, onQueryChange, query]);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -165,10 +171,10 @@ export default function AuditFilters({
             <Button
               type="button"
               onClick={() => onQueryChange(draftQuery)}
-              className="h-10 cursor-pointer px-4 text-xs font-semibold bg-teal-600 text-white shadow-sm hover:bg-teal-500"
-              disabled={isLoading || draftQuery === query}
+              className="cursor-pointer px-4 text-xs font-semibold bg-teal-600 text-white shadow-sm hover:bg-teal-500"
+              disabled={isSearching || draftQuery === query}
             >
-              {isLoading ? (
+              {isSearching ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                   Searching...
