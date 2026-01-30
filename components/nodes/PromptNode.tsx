@@ -85,7 +85,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
               const matchVal = route.when?.eq?.[1] || "?";
               const isGoBack = route.isGoBack || false;
-              const isMainMenu = route.isMainMenu || false;
+              const isMainMenu = (route as any).toMainMenu || route.isMainMenu || false;
               const handleId = `route-${idx}`;
               const isActuallyConnected = edges.some(e => e.source === id && e.sourceHandle === handleId);
 

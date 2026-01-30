@@ -12,7 +12,7 @@ type PromptRoute = {
   when?: { eq?: string[] };
   gotoFlow?: string;
   isGoBack?: boolean;
-  isMainMenu?: boolean;
+  toMainMenu?: boolean;
   goBackTarget?: string;
 };
 
@@ -82,30 +82,23 @@ export default function PromptInspector({
     currentMessage: string,
     routes: PromptRoute[]
   ): string => {
-    // ... existing sync logic ...
     const lines = currentMessage.split("\n");
     const introLines: string[] = [];
 
     const routeInputs = new Set(
       routes.map((r) => r.when?.eq?.[1]).filter((v): v is string => !!v)
     );
-    const routeTargets = new Set(
-      routes.map((r) => r.gotoFlow).filter((v): v is string => !!v)
-    );
 
     for (const line of lines) {
       const trimmed = line.trim();
       const firstWord = trimmed.split(/[\s\.]/, 1)[0];
       
-      // Check if line starts with an input index (e.g. "1.", "1 ", or just matches an input exactly)
       const isInputPrefix = /^[\d*#]+([\.\s]|$)/.test(trimmed);
       const isInputMatch = routeInputs.has(firstWord) || routeInputs.has(trimmed);
       
-      // Also check explicitly for Go Back/Main Menu keywords to avoid duplication when input changes
       const containsGoBack = trimmed.toLowerCase().endsWith("go back");
       const containsMainMenu = trimmed.toLowerCase().endsWith("main menu");
 
-      // If it looks like a routing line, stop adding to the intro
       if (isInputPrefix || isInputMatch || containsGoBack || containsMainMenu) {
         break;
       }
@@ -123,8 +116,8 @@ export default function PromptInspector({
     const routingLines = routes
       .map((r) => {
         const input = (r.when?.eq?.[1] || "").trim();
-        const isGoBack = (r as any).isGoBack;
-        const isMainMenu = (r as any).isMainMenu;
+        const isGoBack = r.isGoBack;
+        const isMainMenu = (r as any).toMainMenu || (r as any).isMainMenu;
         let name = (r.gotoFlow || "").trim();
 
         if (isGoBack) name = "Go Back";
@@ -174,7 +167,6 @@ export default function PromptInspector({
               </label>
               <button
                 onClick={() => {
-                  // Initialize nextNode as object if it's not
                   let currentNextNode = node.data.nextNode;
                   if (typeof currentNextNode !== "object" || !currentNextNode) {
                     currentNextNode = { routes: [], default: "" };
@@ -186,7 +178,6 @@ export default function PromptInspector({
                     { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
                   ];
 
-                  // Auto-sync message
                   const newMessage = syncMessage(node.data.message || "", newRoutes);
 
                   updateNodeData(node.id, {
@@ -205,7 +196,6 @@ export default function PromptInspector({
 
             <div className="space-y-3 pr-1 max-h-[500px] overflow-y-auto overflow-x-hidden">
               {(() => {
-                // Helper to safely get routes
                 const nextNode = node.data.nextNode;
                 const routes =
                   nextNode && typeof nextNode === "object" && nextNode.routes
@@ -216,14 +206,13 @@ export default function PromptInspector({
                   const inputValue = route.when?.eq?.[1] || "";
                   const gotoFlow = (route as any).gotoFlow || (route as any).goto || "";
                   const isGoBack = (route as any).isGoBack || false;
-                  const isRouteMainMenu = (route as any).isMainMenu || (route as any).toMainMenu || false;
+                  const isToMainMenu = (route as any).toMainMenu || (route as any).isMainMenu || false;
                   const goBackTarget = (route as any).goBackTarget || "";
                   return (
                     <div
                       key={idx}
                       className="group relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all duration-200 overflow-visible"
                     >
-                      {/* Rule Header/Delete */}
                       <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         <button
                           onClick={() => {
@@ -260,7 +249,6 @@ export default function PromptInspector({
                       </div>
 
                       <div className="p-4 space-y-4">
-                        {/* Core Routing Pair */}
                         <div className="flex items-start gap-4">
                           <div className="w-1/4">
                             <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
@@ -304,7 +292,7 @@ export default function PromptInspector({
                           </div>
 
                           <div className="flex-1">
-                            {!isGoBack && !isRouteMainMenu && (
+                            {!isGoBack && !isToMainMenu && (
                               <>
                                 <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
                                   <svg
@@ -349,7 +337,6 @@ export default function PromptInspector({
                           </div>
                         </div>
 
-                        {/* Toggles */}
                         <div className="flex flex-wrap items-center gap-3 py-1 bg-gray-50/50 rounded-lg px-2 border border-gray-50">
                           <label className="flex items-center gap-2 text-[11px] font-medium text-gray-600 cursor-pointer group/label">
                             <div className="relative flex items-center">
@@ -365,9 +352,9 @@ export default function PromptInspector({
                                     newRoutes[idx] = {
                                       ...newRoutes[idx],
                                       isGoBack: e.target.checked,
-                                      isMainMenu: e.target.checked
+                                      toMainMenu: e.target.checked
                                         ? false
-                                        : newRoutes[idx].isMainMenu,
+                                        : (newRoutes[idx] as any).toMainMenu,
                                       when: e.target.checked 
                                         ? { eq: ["{{input}}", "*"] } 
                                         : newRoutes[idx].when,
@@ -400,14 +387,14 @@ export default function PromptInspector({
                                 />
                               </svg>
                             </div>
-                            <span>Is Go Back</span>
+                            <span>To Go Back</span>
                           </label>
 
                           <label className="flex items-center gap-2 text-[11px] font-medium text-gray-600 cursor-pointer group/label">
                             <div className="relative flex items-center">
                               <input
                                 type="checkbox"
-                                checked={isRouteMainMenu}
+                                checked={isToMainMenu}
                                   onChange={(e) => {
                                     const nextNode = node.data
                                       .nextNode as PromptNextNode;
@@ -416,7 +403,7 @@ export default function PromptInspector({
                                     ];
                                     newRoutes[idx] = {
                                       ...newRoutes[idx],
-                                      isMainMenu: e.target.checked,
+                                      toMainMenu: e.target.checked,
                                       isGoBack: e.target.checked
                                         ? false
                                         : newRoutes[idx].isGoBack,
@@ -452,11 +439,10 @@ export default function PromptInspector({
                                 />
                               </svg>
                             </div>
-                            <span>Is Main Menu</span>
+                            <span>To Main Menu</span>
                           </label>
                         </div>
 
-                        {/* Logic Specific Inputs */}
                         {isGoBack && (
                           <div className="space-y-2 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="relative">
@@ -508,7 +494,6 @@ export default function PromptInspector({
                                   placeholder="Type to search..."
                                 />
 
-                                {/* Search Icon */}
                                 <div className="absolute right-3 top-2.5 text-gray-400">
                                   <svg
                                     className="w-4 h-4"
@@ -525,7 +510,6 @@ export default function PromptInspector({
                                   </svg>
                                 </div>
 
-                                {/* Results Dropdown */}
                                 {activeSearchIdx === idx && (
                                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                     {siblingNames
@@ -574,7 +558,7 @@ export default function PromptInspector({
                           </div>
                         )}
 
-                        {isRouteMainMenu && (
+                        {isToMainMenu && (
                           <div className="pt-2 border-t border-gray-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                             <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg border border-indigo-100">
                               <svg
@@ -602,7 +586,6 @@ export default function PromptInspector({
                 });
               })()}
 
-              {/* Default Route */}
               <div className="mt-4 pt-3 border-t border-gray-200">
                 <label className="text-xs font-medium text-gray-600 block mb-1">
                   Default (Fallback)
@@ -611,7 +594,7 @@ export default function PromptInspector({
                   className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
                   value={
                     node.data.nextNode && typeof node.data.nextNode === "object"
-                      ? node.data.nextNode.default || ""
+                      ? (node.data.nextNode as any).default || ""
                       : ""
                   }
                   onChange={(e) => {
@@ -633,7 +616,6 @@ export default function PromptInspector({
           </div>
         )}
 
-        {/* Linear Mode: Show Next Node ID */}
         {(node.data.routingMode === "linear" || 
           (!node.data.routingMode && (typeof node.data.nextNode === "string" || !node.data.nextNode))) && (
           <TargetNodeDisplay
@@ -644,10 +626,7 @@ export default function PromptInspector({
         )}
       </div>
 
-      {/* Right Column: Routing Mode + Options */}
-      {/* Right Column: Routing Mode + Options */}
       <div className="space-y-6">
-        {/* Basic Configuration Section */}
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-50 mb-2">
             <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -713,7 +692,6 @@ export default function PromptInspector({
           </div>
         </section>
 
-        {/* Persistence Section */}
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-50 mb-2">
             <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -784,7 +762,6 @@ export default function PromptInspector({
           )}
         </section>
 
-        {/* Validation Section */}
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
             <div className="flex items-center gap-2">
@@ -841,7 +818,6 @@ export default function PromptInspector({
           )}
         </section>
 
-        {/* Pagination Section */}
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
             <div className="flex items-center gap-2">
@@ -905,7 +881,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Action Node</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination.actionNode}
+                    value={node.data.pagination?.actionNode || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, actionNode: e.target.value } })}
                     placeholder="loadBanksPage"
                   />
@@ -914,7 +890,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Page Field</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination.pageField}
+                    value={node.data.pagination?.pageField || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, pageField: e.target.value } })}
                     placeholder="banksPage"
                   />
@@ -926,7 +902,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Total Pages Field</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination.totalPagesField}
+                    value={node.data.pagination?.totalPagesField || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, totalPagesField: e.target.value } })}
                     placeholder="totalPages"
                   />
@@ -938,7 +914,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Next Input</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination.nextInput}
+                    value={node.data.pagination?.nextInput || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, nextInput: e.target.value } })}
                     placeholder="#"
                   />
@@ -947,7 +923,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Prev Input</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination.prevInput}
+                    value={node.data.pagination?.prevInput || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, prevInput: e.target.value } })}
                     placeholder="##"
                   />
@@ -959,7 +935,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Next Label</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination.nextLabel}
+                    value={node.data.pagination?.nextLabel || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, nextLabel: e.target.value } })}
                     placeholder="#. Next Page"
                   />
@@ -968,7 +944,7 @@ export default function PromptInspector({
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Prev Label</label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination.prevLabel}
+                    value={node.data.pagination?.prevLabel || ""}
                     onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, prevLabel: e.target.value } })}
                     placeholder="##. Previous Page"
                   />
@@ -979,7 +955,7 @@ export default function PromptInspector({
                 <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Controls Variable</label>
                 <input
                   className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                  value={node.data.pagination.controlsVar}
+                  value={node.data.pagination?.controlsVar || ""}
                   onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, controlsVar: e.target.value } })}
                   placeholder="paginationControls"
                 />
