@@ -62,6 +62,7 @@ export default function UsersDialog({ open, onOpenChange }: UsersDialogProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createUsername, setCreateUsername] = useState("");
   const [createPassword, setCreatePassword] = useState("");
+  const [createIsAdmin, setCreateIsAdmin] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
 
   useEffect(() => {
@@ -331,6 +332,15 @@ export default function UsersDialog({ open, onOpenChange }: UsersDialogProps) {
               value={createPassword}
               onChange={(event) => setCreatePassword(event.target.value)}
             />
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={createIsAdmin}
+                onChange={(event) => setCreateIsAdmin(event.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border border-border bg-background text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <span className="text-foreground">Is Admin?</span>
+            </label>
             <Button
               disabled={createLoading}
               className="cursor-pointer bg-linear-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-400"
@@ -340,9 +350,11 @@ export default function UsersDialog({ open, onOpenChange }: UsersDialogProps) {
                   await createUser({
                     username: createUsername.trim(),
                     password: createPassword,
+                    isAdmin: createIsAdmin,
                   });
                   setCreateUsername("");
                   setCreatePassword("");
+                  setCreateIsAdmin(false);
                   setCreateOpen(false);
                   // Refresh users after create.
                   const data = await getUsers({ page, pageSize });
