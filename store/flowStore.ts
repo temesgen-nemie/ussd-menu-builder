@@ -61,6 +61,7 @@ export type FlowNode = {
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
   nextNodeId?: string;
   isMainMenu?: boolean;
+  routingMode?: string;
 };
 
 export type FlowJson = {
@@ -223,6 +224,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             ...base,
             message,
             ...promptExtras,
+            routingMode: "linear",
             nextNode: resolved.name || "",
             nextNodeId: finalId,
           };
@@ -270,7 +272,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
 
             return {
               when,
-              [isGroup ? "gotoFlow" : "goto"]: target.name || "",
+              gotoFlow: target.name || "",
+              goto: !isGroup ? target.name || "" : undefined,
               gotoId: target.id || "",
             } as FlowRoute;
           });
@@ -292,6 +295,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             default: defaultName,
             defaultId: defaultId,
           },
+          routingMode: "menu",
         };
       }
 
