@@ -12,6 +12,7 @@ import ResponseMappingEditor from "./action/ResponseMappingEditor";
 import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
+import { useFlowStore } from "@/store/flowStore";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -22,6 +23,7 @@ export default function ActionInspector({
   node,
   updateNodeData,
 }: ActionInspectorProps) {
+  const { nodes } = useFlowStore();
   const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
   const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
     if (bodyMode === "soap") {
@@ -79,6 +81,7 @@ export default function ActionInspector({
   const [sourceMode, setSourceMode] = React.useState<"api" | "local">(
     (node.data.requestSource as "api" | "local") ?? "api"
   );
+  const [fieldSearchQuery, setFieldSearchQuery] = React.useState("");
   const curlText = curlTextByNodeId[node.id] ?? "";
 
   const [paramPairs, setParamPairs] = React.useState<
@@ -215,6 +218,60 @@ export default function ActionInspector({
     setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
     setApiBodyError(null);
   }, [bodyMode, node.data.apiBody, node.data.apiBodyRaw, node.id]);
+
+  const availablePersistedFields = React.useMemo(() => {
+    // Helper to find the outermost parent group ID
+    const findOutermostParent = (nodeId: string): string | null => {
+      let current = nodes.find(n => n.id === nodeId);
+      let outermost = null;
+      while (current && current.parentNode) {
+        outermost = current.parentNode;
+        current = nodes.find(n => n.id === current?.parentNode);
+      }
+      return outermost;
+    };
+
+    const outermostParentId = findOutermostParent(node.id);
+    
+    // Filter nodes: 
+    // If we are in a group, only show nodes in that same top-level group.
+    // If we are at root, show only root nodes (nodes without parentNode).
+    const relevantNodes = nodes.filter(n => {
+      if (outermostParentId) {
+        // Node belongs to the same flow if its outermost parent is the same
+        return findOutermostParent(n.id) === outermostParentId || n.id === outermostParentId;
+      } else {
+        // Node is at root
+        return !n.parentNode;
+      }
+    });
+
+    const fieldSet = new Set<string>();
+    relevantNodes.forEach((n) => {
+      // 1. From Prompt nodes
+      if (n.type === "prompt") {
+        if (n.data.persistInput && n.data.persistInputAs) {
+          fieldSet.add(String(n.data.persistInputAs));
+        }
+        if (n.data.persistByIndex && n.data.persistFieldName) {
+          fieldSet.add(String(n.data.persistFieldName));
+        }
+      }
+      // 2. From Action nodes
+      if (n.type === "action") {
+        const persistKeys = n.data.persistResponseMappingKeys as string[];
+        if (Array.isArray(persistKeys)) {
+          persistKeys.forEach((k) => fieldSet.add(k));
+        }
+      }
+    });
+
+    const sorted = Array.from(fieldSet).sort();
+    if (!fieldSearchQuery.trim()) return sorted;
+
+    const query = fieldSearchQuery.toLowerCase();
+    return sorted.filter(f => f.toLowerCase().includes(query));
+  }, [nodes, node.id, fieldSearchQuery]);
 
   React.useEffect(() => {
     const current = String(node.data.dataSource ?? "").trim();
@@ -785,6 +842,79 @@ export default function ActionInspector({
                   updateNodeData(node.id, { dataSource: e.target.value })
                 }
               />
+            </div>
+
+            <div className="pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Available Persisted Fields
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search fields..."
+                    className="text-[10px] px-2 py-1 rounded border border-gray-200 focus:outline-none focus:border-indigo-400 w-32 transition-all bg-gray-50/50 text-gray-900"
+                    value={fieldSearchQuery}
+                    onChange={(e) => setFieldSearchQuery(e.target.value)}
+                  />
+                  {fieldSearchQuery && (
+                    <button
+                      onClick={() => setFieldSearchQuery("")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50/50 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
+                {availablePersistedFields.length > 0 ? (
+                  availablePersistedFields.map((field) => {
+                    const isChecked = localFieldPairs.fields.includes(field);
+                    return (
+                      <label
+                        key={field}
+                        className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:bg-white hover:shadow-sm p-1.5 rounded-md transition-all border border-transparent hover:border-gray-100"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            let nextFields = [...localFieldPairs.fields];
+                            let nextOutputVars = [...localFieldPairs.outputVars];
+                            if (e.target.checked) {
+                              if (!nextFields.includes(field)) {
+                                nextFields.push(field);
+                                nextOutputVars.push(field);
+                              }
+                            } else {
+                              const idx = nextFields.indexOf(field);
+                              if (idx !== -1) {
+                                nextFields.splice(idx, 1);
+                                nextOutputVars.splice(idx, 1);
+                              }
+                            }
+                            updateLocalFieldPairs(nextFields, nextOutputVars);
+                          }}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all appearance-none border-2 checked:bg-indigo-600 checked:border-indigo-600"
+                        />
+                        <span className="truncate font-medium" title={field}>
+                          {field}
+                        </span>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-2 text-[10px] text-gray-400 italic py-4 text-center">
+                    No persisted fields found in flow
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 italic px-1">
+                Select fields to automatically add them to the local storage mapping.
+              </p>
             </div>
 
             <div>
