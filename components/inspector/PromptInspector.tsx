@@ -165,7 +165,8 @@ export default function PromptInspector({
         </div>
 
         {/* Menu Mode: Logic Routing Rules */}
-        {node.data.routingMode === "menu" && (
+        {(node.data.routingMode === "menu" || 
+          (!node.data.routingMode && node.data.nextNode && typeof node.data.nextNode === "object" && (node.data.nextNode as any).routes)) && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-gray-600">
@@ -213,10 +214,10 @@ export default function PromptInspector({
 
                 return routes.map((route, idx) => {
                   const inputValue = route.when?.eq?.[1] || "";
-                  const gotoFlow = route.gotoFlow || "";
-                  const isGoBack = route.isGoBack || false;
-                  const isRouteMainMenu = route.isMainMenu || false;
-                  const goBackTarget = route.goBackTarget || "";
+                  const gotoFlow = (route as any).gotoFlow || (route as any).goto || "";
+                  const isGoBack = (route as any).isGoBack || false;
+                  const isRouteMainMenu = (route as any).isMainMenu || (route as any).toMainMenu || false;
+                  const goBackTarget = (route as any).goBackTarget || "";
                   return (
                     <div
                       key={idx}
@@ -633,9 +634,10 @@ export default function PromptInspector({
         )}
 
         {/* Linear Mode: Show Next Node ID */}
-        {(node.data.routingMode === "linear" || !node.data.routingMode) && (
+        {(node.data.routingMode === "linear" || 
+          (!node.data.routingMode && (typeof node.data.nextNode === "string" || !node.data.nextNode))) && (
           <TargetNodeDisplay
-            nodeId={node.data.nextNode}
+            nodeId={node.data.nextNode as string}
             label="Next Node"
             title="Connect the Prompt Node bottom handle on the canvas"
           />

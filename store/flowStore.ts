@@ -11,7 +11,6 @@ export type FlowRoute = {
   goto?: string;
   gotoId?: string;
   toMainMenu?: boolean;
-  isMainMenu?: boolean;
   isGoBack?: boolean;
   goBackTarget?: string;
 };
@@ -250,7 +249,6 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               return {
                 when,
                 toMainMenu: true,
-                isMainMenu: true,
               } as FlowRoute;
             }
 
