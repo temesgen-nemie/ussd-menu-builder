@@ -244,6 +244,7 @@ export default function AuditRevertDialog({
   const [items, setItems] = useState<AuditHistoryItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editableJson, setEditableJson] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -254,6 +255,9 @@ export default function AuditRevertDialog({
 
   const latestAfter = useMemo(() => (items[0]?.after ?? null), [items]);
   const selectedBefore = useMemo(() => selectedItem?.before ?? null, [selectedItem]);
+  const visibleItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
+  const canViewMore = visibleCount < items.length;
+  const canViewLess = visibleCount > 10;
   const { beforeLines, afterLines } = useMemo(() => {
     const maps: DiffMaps = { beforeMap: {}, afterMap: {} };
     diffValues(selectedBefore ?? null, latestAfter ?? null, "root", maps);
@@ -275,6 +279,7 @@ export default function AuditRevertDialog({
       setItems(entries);
       setSelectedIndex(0);
       setEditableJson(toJsonText(entries[0]?.after ?? null));
+      setVisibleCount(10);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load history.");
     } finally {
@@ -388,7 +393,7 @@ export default function AuditRevertDialog({
                   History
                 </div>
                 <div className="flex-1 overflow-auto p-2">
-                  {items.map((item, index) => (
+                  {visibleItems.map((item, index) => (
                     <button
                       key={item.id}
                       type="button"
@@ -406,6 +411,28 @@ export default function AuditRevertDialog({
                     </button>
                   ))}
                 </div>
+                {(canViewMore || canViewLess) && (
+                  <div className="border-t border-border/60 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount((prev) => Math.min(items.length, prev + 10))}
+                        disabled={!canViewMore}
+                        className="text-xs font-semibold text-foreground hover:text-foreground/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        View more
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(10)}
+                        disabled={!canViewLess}
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        View less
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
@@ -540,7 +567,7 @@ export default function AuditRevertDialog({
                   History
                 </div>
                 <div className="flex-1 overflow-auto p-2">
-                  {items.map((item, index) => (
+                  {visibleItems.map((item, index) => (
                     <button
                       key={item.id}
                       type="button"
@@ -558,6 +585,28 @@ export default function AuditRevertDialog({
                     </button>
                   ))}
                 </div>
+                {(canViewMore || canViewLess) && (
+                  <div className="border-t border-border/60 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount((prev) => Math.min(items.length, prev + 10))}
+                        disabled={!canViewMore}
+                        className="text-xs font-semibold text-foreground hover:text-foreground/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        View more
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(10)}
+                        disabled={!canViewLess}
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        View less
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
