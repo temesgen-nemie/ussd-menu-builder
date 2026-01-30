@@ -11,6 +11,9 @@ export type FlowRoute = {
   goto?: string;
   gotoId?: string;
   toMainMenu?: boolean;
+  isMainMenu?: boolean;
+  isGoBack?: boolean;
+  goBackTarget?: string;
 };
 export type FlowNode = {
   id: string;
@@ -247,6 +250,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               return {
                 when,
                 toMainMenu: true,
+                isMainMenu: true,
               } as FlowRoute;
             }
 
@@ -255,7 +259,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
                 when,
                 goto: r.goBackTarget || r.gotoFlow || "",
                 gotoId: "",
-              } as any;
+                isGoBack: true,
+                goBackTarget: r.goBackTarget || "",
+              } as FlowRoute;
             }
 
             const target = resolveTarget(route.gotoFlow || route.goto || "");
