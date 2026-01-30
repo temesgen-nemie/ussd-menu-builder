@@ -10,6 +10,7 @@ export type FlowRoute = {
   gotoFlow?: string;
   goto?: string;
   gotoId?: string;
+  toMainMenu?: boolean;
 };
 export type FlowNode = {
   id: string;
@@ -56,6 +57,7 @@ export type FlowNode = {
   | string
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
   nextNodeId?: string;
+  isMainMenu?: boolean;
 };
 
 export type FlowJson = {
@@ -144,7 +146,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
       };
 
       if (node.type === "prompt" && data.isMainMenu) {
-        (base as any).isMainMenu = "true";
+        base.isMainMenu = true;
       }
 
       if (node.type === "prompt") {
@@ -244,8 +246,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             if (r.isMainMenu) {
               return {
                 when,
-                toMainMenu: "true",
-              } as any;
+                toMainMenu: true,
+              } as FlowRoute;
             }
 
             if (r.isGoBack) {

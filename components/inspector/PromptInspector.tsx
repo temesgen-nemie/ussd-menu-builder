@@ -101,8 +101,12 @@ export default function PromptInspector({
       const isInputPrefix = /^[\d*#]+([\.\s]|$)/.test(trimmed);
       const isInputMatch = routeInputs.has(firstWord) || routeInputs.has(trimmed);
       
+      // Also check explicitly for Go Back/Main Menu keywords to avoid duplication when input changes
+      const containsGoBack = trimmed.toLowerCase().endsWith("go back");
+      const containsMainMenu = trimmed.toLowerCase().endsWith("main menu");
+
       // If it looks like a routing line, stop adding to the intro
-      if (isInputPrefix || isInputMatch) {
+      if (isInputPrefix || isInputMatch || containsGoBack || containsMainMenu) {
         break;
       }
       
@@ -351,31 +355,34 @@ export default function PromptInspector({
                               <input
                                 type="checkbox"
                                 checked={isGoBack}
-                                onChange={(e) => {
-                                  const nextNode = node.data
-                                    .nextNode as PromptNextNode;
-                                  const newRoutes = [
-                                    ...(nextNode.routes || []),
-                                  ];
-                                  newRoutes[idx] = {
-                                    ...newRoutes[idx],
-                                    isGoBack: e.target.checked,
-                                    isMainMenu: e.target.checked
-                                      ? false
-                                      : newRoutes[idx].isMainMenu,
-                                  };
-                                  const newMessage = syncMessage(
-                                    node.data.message || "",
-                                    newRoutes
-                                  );
-                                  updateNodeData(node.id, {
-                                    message: newMessage,
-                                    nextNode: {
-                                      ...nextNode,
-                                      routes: newRoutes,
-                                    },
-                                  });
-                                }}
+                                  onChange={(e) => {
+                                    const nextNode = node.data
+                                      .nextNode as PromptNextNode;
+                                    const newRoutes = [
+                                      ...(nextNode.routes || []),
+                                    ];
+                                    newRoutes[idx] = {
+                                      ...newRoutes[idx],
+                                      isGoBack: e.target.checked,
+                                      isMainMenu: e.target.checked
+                                        ? false
+                                        : newRoutes[idx].isMainMenu,
+                                      when: e.target.checked 
+                                        ? { eq: ["{{input}}", "*"] } 
+                                        : newRoutes[idx].when,
+                                    };
+                                    const newMessage = syncMessage(
+                                      node.data.message || "",
+                                      newRoutes
+                                    );
+                                    updateNodeData(node.id, {
+                                      message: newMessage,
+                                      nextNode: {
+                                        ...nextNode,
+                                        routes: newRoutes,
+                                      },
+                                    });
+                                  }}
                                 className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all appearance-none border-2 checked:bg-indigo-600 checked:border-indigo-600"
                               />
                               <svg
@@ -400,31 +407,34 @@ export default function PromptInspector({
                               <input
                                 type="checkbox"
                                 checked={isRouteMainMenu}
-                                onChange={(e) => {
-                                  const nextNode = node.data
-                                    .nextNode as PromptNextNode;
-                                  const newRoutes = [
-                                    ...(nextNode.routes || []),
-                                  ];
-                                  newRoutes[idx] = {
-                                    ...newRoutes[idx],
-                                    isMainMenu: e.target.checked,
-                                    isGoBack: e.target.checked
-                                      ? false
-                                      : newRoutes[idx].isGoBack,
-                                  };
-                                  const newMessage = syncMessage(
-                                    node.data.message || "",
-                                    newRoutes
-                                  );
-                                  updateNodeData(node.id, {
-                                    message: newMessage,
-                                    nextNode: {
-                                      ...nextNode,
-                                      routes: newRoutes,
-                                    },
-                                  });
-                                }}
+                                  onChange={(e) => {
+                                    const nextNode = node.data
+                                      .nextNode as PromptNextNode;
+                                    const newRoutes = [
+                                      ...(nextNode.routes || []),
+                                    ];
+                                    newRoutes[idx] = {
+                                      ...newRoutes[idx],
+                                      isMainMenu: e.target.checked,
+                                      isGoBack: e.target.checked
+                                        ? false
+                                        : newRoutes[idx].isGoBack,
+                                      when: e.target.checked 
+                                        ? { eq: ["{{input}}", "**"] } 
+                                        : newRoutes[idx].when,
+                                    };
+                                    const newMessage = syncMessage(
+                                      node.data.message || "",
+                                      newRoutes
+                                    );
+                                    updateNodeData(node.id, {
+                                      message: newMessage,
+                                      nextNode: {
+                                        ...nextNode,
+                                        routes: newRoutes,
+                                      },
+                                    });
+                                  }}
                                 className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all appearance-none border-2 checked:bg-indigo-600 checked:border-indigo-600"
                               />
                               <svg
