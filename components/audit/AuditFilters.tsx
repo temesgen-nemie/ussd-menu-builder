@@ -43,6 +43,11 @@ export default function AuditFilters({
 }: AuditFiltersProps) {
   const [fromOpen, setFromOpen] = React.useState(false);
   const [toOpen, setToOpen] = React.useState(false);
+  const [draftQuery, setDraftQuery] = React.useState(query);
+
+  React.useEffect(() => {
+    setDraftQuery(query);
+  }, [query]);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -143,19 +148,36 @@ export default function AuditFilters({
           >
             Search
           </Label>
-          <input
-            id="audit-search"
-            type="text"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Flow, username, node id"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {isLoading && (
-            <span className="text-[10px] text-muted-foreground">
-              Searching...
-            </span>
-          )}
+          <div className="flex gap-2">
+            <input
+              id="audit-search"
+              type="text"
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  onQueryChange(draftQuery);
+                }
+              }}
+              placeholder="Flow, username, node id"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <Button
+              type="button"
+              onClick={() => onQueryChange(draftQuery)}
+              className="h-10 cursor-pointer px-4 text-xs font-semibold bg-teal-600 text-white shadow-sm hover:bg-teal-500"
+              disabled={isLoading || draftQuery === query}
+            >
+              {isLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Searching...
+                </span>
+              ) : (
+                "Search"
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
