@@ -98,6 +98,35 @@ const getParentGroupInfo = (nodes: Node[], nodeId: string): { groupId: string, f
   return getParentGroupInfo(nodes, parentId);
 };
 
+/**
+ * Generates a stable JSON string of the logical structure of a group's flow.
+ * Used for deep comparison (Smart Diff) to detect IF meaningful changes exist.
+ */
+const calculateFlowSnapshot = (groupId: string, nodes: Node[], edges: Edge[]): string => {
+  const children = nodes.filter(n => n.parentNode === groupId);
+  const childIds = new Set(children.map(n => n.id));
+  const innerEdges = edges.filter(e => childIds.has(e.source) && childIds.has(e.target));
+
+  const cleanNodes = children.map(n => ({
+    id: n.id,
+    type: n.type,
+    data: n.data,
+    position: {
+      x: Math.round(n.position.x),
+      y: Math.round(n.position.y)
+    }
+  })).sort((a, b) => a.id.localeCompare(b.id));
+
+  const cleanEdges = innerEdges.map(e => ({
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle,
+    targetHandle: e.targetHandle
+  })).sort((a, b) => (a.source + a.target).localeCompare(b.source + b.target));
+
+  return JSON.stringify({ nodes: cleanNodes, edges: cleanEdges });
+};
+
 const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
@@ -488,9 +517,21 @@ interface FlowState {
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
   modifiedGroupIds: string[];
+  modifiedGroupsLog: Record<string, string[]>;
+  lastSyncedSnapshots: Record<string, string>;
   updatePublishedFlow: (groupId: string) => Promise<void>;
   getRecursiveSubflowJson: (groupId: string) => string;
   importSubflow: (jsonText: string, position?: { x: number; y: number }) => void;
+
+  // Refresh Confirmation Modal
+  refreshConfirmModal: {
+    isOpen: boolean;
+    type: "global" | "group";
+    flowName?: string;
+    groupId?: string;
+  };
+  openRefreshConfirm: (type: "global" | "group", flowName?: string, groupId?: string) => void;
+  closeRefreshConfirm: () => void;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -514,8 +555,22 @@ export const useFlowStore = create<FlowState>()(
       isLoading: false,
       publishedGroupIds: [],
       modifiedGroupIds: [],
+      modifiedGroupsLog: {},
+      lastSyncedSnapshots: {},
       clipboard: null,
       _hasHydrated: false,
+
+      refreshConfirmModal: {
+        isOpen: false,
+        type: "global",
+      },
+      openRefreshConfirm: (type, flowName, groupId) => set({
+        refreshConfirmModal: { isOpen: true, type, flowName, groupId }
+      }),
+      closeRefreshConfirm: () => set({
+        refreshConfirmModal: { isOpen: false, type: "global" }
+      }),
+
       updatePublishedFlow: async (groupId: string) => {
         const { nodes, edges, modifiedGroupIds } = get();
         const children = nodes.filter((n) => n.parentNode === groupId);
@@ -975,19 +1030,34 @@ export const useFlowStore = create<FlowState>()(
             edges: mergedEdges,
             flow: buildFlowJson(finalNodes, mergedEdges),
             publishedGroupIds: publishedGroupIdsFromBackend,
+            lastSyncedSnapshots: publishedGroupIdsFromBackend.reduce((acc, id) => {
+              acc[id] = calculateFlowSnapshot(id, finalNodes, mergedEdges);
+              return acc;
+            }, {} as Record<string, string>),
             modifiedGroupIds: get().modifiedGroupIds.filter(groupId => {
-              // Find the flow name for THIS group by looking at its own Start node
+              // 1. Must still exist in current nodes
+              const nodeExists = finalNodes.some(n => n.id === groupId);
+              if (!nodeExists) return false;
+
+              // 2. Find the flow name for THIS group by looking at its own Start node
               const groupChildren = finalNodes.filter(n => n.parentNode === groupId);
               const startNode = groupChildren.find(n => n.type === 'start');
               const flowName = startNode?.data?.flowName;
 
-              if (!flowName || !allBackendFlowNames.includes(flowName)) return true;
+              const allBackendFlowNames = flows.map(f => f.flowName);
 
-              // Only clear if no nodes in this flow are "local-only"
-              // (i.e., everything in the group exists in the backend)
-              const hasLocalOnly = groupChildren.some(n => !backendNodeMap.has(n.id));
-              return hasLocalOnly;
+              // If it's a known backend flow (published), check if it has local-only changes
+              if (flowName && allBackendFlowNames.includes(flowName)) {
+                // Determine if any node in this group is local-only
+                const backendFlow = flows.find(f => f.flowName === flowName);
+                const backendNodeIds = new Set(backendFlow?.visualState?.nodes.map(n => n.id) || []);
+                const hasLocalOnly = groupChildren.some(n => !backendNodeIds.has(n.id));
+                return hasLocalOnly;
+              }
+
+              return false;
             }),
+            modifiedGroupsLog: {},
           });
 
           toast.success(
@@ -1077,8 +1147,16 @@ export const useFlowStore = create<FlowState>()(
             edges: nextEdges,
             flow: buildFlowJson(nextNodes, nextEdges),
             publishedGroupIds: nextPublishedGroupIds,
+            lastSyncedSnapshots: {
+              ...get().lastSyncedSnapshots,
+              [groupId]: calculateFlowSnapshot(groupId, nextNodes, nextEdges),
+            },
             // Since we hard-synced with backend, this group is no longer modified.
             modifiedGroupIds: get().modifiedGroupIds.filter(id => id !== groupId),
+            modifiedGroupsLog: {
+              ...get().modifiedGroupsLog,
+              [groupId]: []
+            }
           });
 
           toast.success(
@@ -1147,10 +1225,25 @@ export const useFlowStore = create<FlowState>()(
 
           // Tracking modifications
           let nextModifiedGroupIds = state.modifiedGroupIds;
+          let nextModifiedGroupsLog = { ...state.modifiedGroupsLog };
           if (state.currentSubflowId) {
             const info = getParentGroupInfo(nextNodes, newNode.id);
-            if (info && state.publishedGroupIds.includes(info.groupId) && !nextModifiedGroupIds.includes(info.groupId)) {
-              nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
+            if (info && state.publishedGroupIds.includes(info.groupId)) {
+              const currentSnapshot = calculateFlowSnapshot(info.groupId, nextNodes, state.edges);
+              const originalSnapshot = state.lastSyncedSnapshots[info.groupId];
+              const isActuallyModified = currentSnapshot !== originalSnapshot;
+
+              if (isActuallyModified) {
+                if (!nextModifiedGroupIds.includes(info.groupId)) {
+                  nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
+                }
+              } else {
+                nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== info.groupId);
+              }
+
+              const groupLog = nextModifiedGroupsLog[info.groupId] || [];
+              const nodeName = newNode.data?.name || newNode.data?.flowName || newNode.type;
+              nextModifiedGroupsLog[info.groupId] = [...groupLog, `Added ${newNode.type} node "${nodeName}"`];
             }
           }
 
@@ -1158,6 +1251,7 @@ export const useFlowStore = create<FlowState>()(
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
             modifiedGroupIds: nextModifiedGroupIds,
+            modifiedGroupsLog: nextModifiedGroupsLog,
           };
         }),
 
@@ -1299,10 +1393,31 @@ export const useFlowStore = create<FlowState>()(
           );
 
           let nextModifiedGroupIds = [...state.modifiedGroupIds];
+          let nextModifiedGroupsLog = { ...state.modifiedGroupsLog };
+
           groupIdsToMark.forEach((groupId) => {
-            if (!nextModifiedGroupIds.includes(groupId)) {
-              nextModifiedGroupIds.push(groupId);
+            const currentSnapshot = calculateFlowSnapshot(groupId, nextNodes, nextEdges);
+            const originalSnapshot = state.lastSyncedSnapshots[groupId];
+            const isActuallyModified = currentSnapshot !== originalSnapshot;
+
+            if (isActuallyModified) {
+              if (!nextModifiedGroupIds.includes(groupId)) {
+                nextModifiedGroupIds.push(groupId);
+              }
+            } else {
+              nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupId);
             }
+
+            // Log deletions
+            const groupLog = nextModifiedGroupsLog[groupId] || [];
+            ids.forEach(id => {
+              const node = state.nodes.find(n => n.id === id);
+              if (node) {
+                const nodeName = node.data?.name || node.data?.flowName || node.type;
+                groupLog.push(`Deleted ${node.type} node "${nodeName}"`);
+              }
+            });
+            nextModifiedGroupsLog[groupId] = groupLog;
           });
 
           return {
@@ -1313,7 +1428,8 @@ export const useFlowStore = create<FlowState>()(
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
             flow: buildFlowJson(nextNodes, nextEdges),
-            modifiedGroupIds: nextModifiedGroupIds,
+            modifiedGroupIds: nextModifiedGroupIds.filter(id => !nodesToRemoveIds.has(id)),
+            modifiedGroupsLog: nextModifiedGroupsLog,
           };
         }),
 
@@ -1606,14 +1722,33 @@ export const useFlowStore = create<FlowState>()(
           }
 
           let nextModifiedGroupIds = state.modifiedGroupIds;
-          if (groupIdToMark && !nextModifiedGroupIds.includes(groupIdToMark)) {
-            nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
+          let nextModifiedGroupsLog = { ...state.modifiedGroupsLog };
+
+          if (groupIdToMark) {
+            const currentSnapshot = calculateFlowSnapshot(groupIdToMark, nextNodes, state.edges);
+            const originalSnapshot = state.lastSyncedSnapshots[groupIdToMark];
+            const isActuallyModified = currentSnapshot !== originalSnapshot;
+
+            if (isActuallyModified) {
+              if (!nextModifiedGroupIds.includes(groupIdToMark)) {
+                nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
+              }
+            } else {
+              nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupIdToMark);
+            }
+
+            const groupLog = nextModifiedGroupsLog[groupIdToMark] || [];
+            const nodeName = targetNode.data?.name || targetNode.data?.flowName || targetNode.type;
+            const fieldNames = Object.keys(data).join(", ");
+            groupLog.push(`Updated ${targetNode.type} node "${nodeName}" (fields: ${fieldNames})`);
+            nextModifiedGroupsLog[groupIdToMark] = groupLog;
           }
 
           return {
             nodes: nextNodes,
             flow: buildFlowJson(nextNodes, state.edges),
             modifiedGroupIds: nextModifiedGroupIds,
+            modifiedGroupsLog: nextModifiedGroupsLog,
           };
         }),
 

@@ -34,6 +34,7 @@ import ConditionNode from "./nodes/ConditionNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
+import RefreshConfirmModal from "./modals/RefreshConfirmModal";
 import FlowBreadcrumb from "./FlowBreadcrumb";
 import "reactflow/dist/style.css";
 
@@ -90,6 +91,7 @@ export default function FlowCanvas() {
     clipboard,
     publishedGroupIds,
     modifiedGroupIds,
+    openRefreshConfirm,
   } = useFlowStore();
 
   // Filter nodes and edges based on subflow level
@@ -694,7 +696,16 @@ export default function FlowCanvas() {
       {/* Auto-Load / Refresh Button */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
         <button
-          onClick={() => loadAllFlows()}
+          onClick={() => {
+            const hasPublishedChanges = modifiedGroupIds.some((id) =>
+              publishedGroupIds.includes(id)
+            );
+            if (hasPublishedChanges) {
+              openRefreshConfirm("global");
+            } else {
+              loadAllFlows();
+            }
+          }}
           disabled={isLoading}
           className="p-2 bg-white/90 backdrop-blur-xl shadow-lg border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all text-gray-500 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed group"
           title="Refresh Flows from Backend"
@@ -1153,6 +1164,7 @@ export default function FlowCanvas() {
       {/* Modals */}
       {namerModal?.isOpen && <GroupNamerModal />}
       {groupJsonModal?.isOpen && <GroupJsonModal />}
+      <RefreshConfirmModal />
       {deleteModal.isOpen && (
         <DeleteConfirmModal
           flowName={deleteModal.flowName}

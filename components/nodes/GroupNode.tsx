@@ -3,7 +3,7 @@ import { useFlowStore } from "../../store/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
 export default function GroupNode({ id, data, selected }: NodeProps) {
-  const { enterSubflow, refreshFlow, isLoading, publishedGroupIds, modifiedGroupIds } = useFlowStore();
+  const { enterSubflow, refreshFlow, isLoading, publishedGroupIds, modifiedGroupIds, openRefreshConfirm } = useFlowStore();
   
   // Get children count from store
   const { childrenCount, flowName } = useFlowStore(
@@ -90,7 +90,11 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
                   onClick={(e) => {
                       if (flowName) {
                           e.stopPropagation();
-                          refreshFlow(flowName, id);
+                          if (isModified) {
+                              openRefreshConfirm("group", flowName, id);
+                          } else {
+                              refreshFlow(flowName, id);
+                          }
                       }
                   }}
                   disabled={isLoading}
