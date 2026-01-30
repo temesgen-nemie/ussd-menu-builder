@@ -89,17 +89,27 @@ export default function PromptInspector({
       routes.map((r) => r.when?.eq?.[1]).filter((v): v is string => !!v)
     );
 
+    const routeEndpoints = new Set(
+      routes.map((r) => (r.gotoFlow || "").trim().toLowerCase()).filter(Boolean)
+    );
+
     for (const line of lines) {
       const trimmed = line.trim();
+      const trimmedLower = trimmed.toLowerCase();
       const firstWord = trimmed.split(/[\s\.]/, 1)[0];
       
       const isInputPrefix = /^[\d*#]+([\.\s]|$)/.test(trimmed);
       const isInputMatch = routeInputs.has(firstWord) || routeInputs.has(trimmed);
       
-      const containsGoBack = trimmed.toLowerCase().endsWith("go back");
-      const containsMainMenu = trimmed.toLowerCase().endsWith("main menu");
+      const containsGoBack = trimmedLower.endsWith("go back");
+      const containsMainMenu = trimmedLower.endsWith("main menu");
 
-      if (isInputPrefix || isInputMatch || containsGoBack || containsMainMenu) {
+      // Check if line exactly matches or is a prefix of a known route target (e.g. "bal" vs "balance")
+      // This prevents "spiral" duplication when typing a target name before an input
+      const matchesTarget = routeEndpoints.has(trimmedLower) || 
+                          Array.from(routeEndpoints).some(target => target.startsWith(trimmedLower) || trimmedLower.startsWith(target));
+
+      if (isInputPrefix || isInputMatch || containsGoBack || containsMainMenu || matchesTarget) {
         break;
       }
       
@@ -120,8 +130,11 @@ export default function PromptInspector({
         const isMainMenu = (r as any).toMainMenu || (r as any).isMainMenu;
         let name = (r.gotoFlow || "").trim();
 
-        if (isGoBack) name = "Go Back";
-        else if (isMainMenu) name = "Main Menu";
+        // If it's a special route but has no custom name yet, use default fallbacks
+        if (!name) {
+          if (isGoBack) name = "Go Back";
+          else if (isMainMenu) name = "Main Menu";
+        }
 
         if (input && name) return `${input}. ${name}`;
         if (input) return `${input}.`;
@@ -292,48 +305,46 @@ export default function PromptInspector({
                           </div>
 
                           <div className="flex-1">
-                            {!isGoBack && !isToMainMenu && (
-                              <>
-                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                  <svg
-                                    className="w-3 h-3 text-indigo-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                                    />
-                                  </svg>
-                                  Goto Flow/Node
-                                </label>
-                                <input
-                                  className="w-full text-sm border-b-2 border-gray-100 bg-transparent py-1.5 focus:outline-none focus:border-indigo-500 placeholder-gray-300 text-gray-900 transition-colors"
-                                  value={gotoFlow}
-                                  onChange={(e) => {
-                                    const nextNode = node.data
-                                      .nextNode as PromptNextNode;
-                                    const newRoutes = [...(nextNode.routes || [])];
-                                    newRoutes[idx] = {
-                                      ...newRoutes[idx],
-                                      gotoFlow: e.target.value,
-                                    };
-                                    const newMessage = syncMessage(
-                                      node.data.message || "",
-                                      newRoutes
-                                    );
-                                    updateNodeData(node.id, {
-                                      message: newMessage,
-                                      nextNode: { ...nextNode, routes: newRoutes },
-                                    });
-                                  }}
-                                  placeholder="Target Name"
+                            <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                              <svg
+                                className={`w-3 h-3 ${isGoBack ? "text-amber-500" : isToMainMenu ? "text-indigo-500" : "text-indigo-400"}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 7l5 5m0 0l-5 5m5-5H6"
                                 />
-                              </>
-                            )}
+                              </svg>
+                              {isGoBack ? "Go Back Label" : isToMainMenu ? "Main Menu Label" : "Goto Flow/Node"}
+                            </label>
+                            <input
+                              className="w-full text-sm border-b-2 border-gray-100 bg-transparent py-1.5 focus:outline-none focus:border-indigo-500 placeholder-gray-300 text-gray-900 transition-colors"
+                              value={gotoFlow}
+                              onChange={(e) => {
+                                const nextNode = node.data
+                                  .nextNode as PromptNextNode;
+                                const newRoutes = [
+                                  ...(nextNode.routes || []),
+                                ];
+                                newRoutes[idx] = {
+                                  ...newRoutes[idx],
+                                  gotoFlow: e.target.value,
+                                };
+                                const newMessage = syncMessage(
+                                  node.data.message || "",
+                                  newRoutes
+                                );
+                                updateNodeData(node.id, {
+                                  message: newMessage,
+                                  nextNode: { ...nextNode, routes: newRoutes },
+                                });
+                              }}
+                              placeholder={isGoBack ? "Go Back" : isToMainMenu ? "Main Menu" : "Target Name"}
+                            />
                           </div>
                         </div>
 
