@@ -68,6 +68,7 @@ export default function AuditTable() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
@@ -105,6 +106,7 @@ export default function AuditTable() {
       setError(err instanceof Error ? err.message : "Failed to load events.");
     } finally {
       setIsLoading(false);
+      setIsSearching(false);
     }
   }, [fromDate, limit, page, query, toDate]);
 
@@ -133,11 +135,14 @@ export default function AuditTable() {
         toDate={toDate}
         limit={limit}
         query={query}
-        isLoading={isLoading}
+        isSearching={isSearching}
         onFromChange={setFromDate}
         onToChange={setToDate}
         onLimitChange={setLimit}
-        onQueryChange={setQuery}
+        onQueryChange={(value) => {
+          setIsSearching(true);
+          setQuery(value);
+        }}
       />
       {error && <div className="text-sm text-destructive">{error}</div>}
       <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-border bg-card">

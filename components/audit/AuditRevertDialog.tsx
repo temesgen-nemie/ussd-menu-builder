@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAuditEvents, updateNodeById } from "@/lib/api";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
 type DiffStatus = "added" | "removed";
 
@@ -210,6 +211,23 @@ const formatTimestamp = (value?: string) => {
 
 const toJsonText = (value: unknown) => JSON.stringify(value ?? null, null, 2);
 
+const copyJsonToClipboard = (label: string, value: unknown) => {
+  let payload = "null";
+  if (typeof value === "string") {
+    payload = value;
+  } else {
+    try {
+      payload = JSON.stringify(value ?? null, null, 2);
+    } catch {
+      payload = String(value ?? "");
+    }
+  }
+  navigator.clipboard
+    .writeText(payload)
+    .then(() => toast.success(`${label} JSON copied`))
+    .catch(() => toast.error("Failed to copy JSON"));
+};
+
 export default function AuditRevertDialog({
   open,
   onOpenChange,
@@ -393,19 +411,29 @@ export default function AuditRevertDialog({
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
                   <div className="text-sm font-semibold text-foreground">Selected Before</div>
-                  <button
-                    type="button"
-                    onClick={() => setSyncEnabled((prev) => !prev)}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
-                    aria-pressed={syncEnabled}
-                  >
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        syncEnabled ? "bg-emerald-500" : "bg-muted-foreground/40"
-                      }`}
-                    />
-                    Sync Scroll
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSyncEnabled((prev) => !prev)}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
+                      aria-pressed={syncEnabled}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          syncEnabled ? "bg-emerald-500" : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      Sync Scroll
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copyJsonToClipboard("Before", selectedBefore)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      aria-label="Copy before JSON"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <div ref={beforeScrollRef} onScroll={syncScroll("before")} className="flex-1 overflow-auto p-3">
                   <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-foreground">
@@ -437,9 +465,19 @@ export default function AuditRevertDialog({
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
                   <div className="text-sm font-semibold text-foreground">Latest After</div>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
-                    After
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+                      After
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyJsonToClipboard("After", latestAfter)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      aria-label="Copy after JSON"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <div
                   ref={afterScrollRef}
@@ -473,8 +511,16 @@ export default function AuditRevertDialog({
               </div>
 
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
-                <div className="border-b border-border/60 px-4 py-3 text-sm font-semibold text-foreground">
-                  Editable JSON
+                <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+                  <div className="text-sm font-semibold text-foreground">Editable JSON</div>
+                  <button
+                    type="button"
+                    onClick={() => copyJsonToClipboard("Editable", editableJson)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                    aria-label="Copy editable JSON"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
                 </div>
                 <div className="flex-1 overflow-hidden p-3">
                   <textarea
@@ -517,19 +563,29 @@ export default function AuditRevertDialog({
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
                   <div className="text-sm font-semibold text-foreground">Selected Before</div>
-                  <button
-                    type="button"
-                    onClick={() => setSyncEnabled((prev) => !prev)}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
-                    aria-pressed={syncEnabled}
-                  >
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        syncEnabled ? "bg-emerald-500" : "bg-muted-foreground/40"
-                      }`}
-                    />
-                    Sync Scroll
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSyncEnabled((prev) => !prev)}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
+                      aria-pressed={syncEnabled}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          syncEnabled ? "bg-emerald-500" : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      Sync Scroll
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copyJsonToClipboard("Before", selectedBefore)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      aria-label="Copy before JSON"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <div ref={beforeScrollRef} onScroll={syncScroll("before")} className="flex-1 overflow-auto p-3">
                   <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-foreground">
@@ -561,9 +617,19 @@ export default function AuditRevertDialog({
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
                   <div className="text-sm font-semibold text-foreground">Latest After</div>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
-                    After
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+                      After
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyJsonToClipboard("After", latestAfter)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      aria-label="Copy after JSON"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <div
                   ref={afterScrollRef}

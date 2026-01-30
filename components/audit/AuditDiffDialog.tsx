@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AuditRevertDialog from "@/components/audit/AuditRevertDialog";
+import { toast } from "sonner";
 
 type DiffStatus = "added" | "removed";
 
@@ -208,16 +210,36 @@ type JsonPaneProps = {
   title: string;
   lines: Line[];
   emptyLabel: string;
+  rawValue: unknown;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
 };
 
-function JsonPane({ title, lines, emptyLabel, scrollRef, onScroll }: JsonPaneProps) {
+function JsonPane({ title, lines, emptyLabel, rawValue, scrollRef, onScroll }: JsonPaneProps) {
   const hasLines = lines.length > 0;
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col rounded-2xl border border-border bg-background">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div className="text-sm font-semibold text-foreground">{title}</div>
+        <button
+          type="button"
+          onClick={() => {
+            let payload = "null";
+            try {
+              payload = JSON.stringify(rawValue ?? null, null, 2);
+            } catch {
+              payload = String(rawValue ?? "");
+            }
+            navigator.clipboard
+              .writeText(payload)
+              .then(() => toast.success(`${title} JSON copied`))
+              .catch(() => toast.error("Failed to copy JSON"));
+          }}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+          aria-label={`Copy ${title} JSON`}
+        >
+          <Copy className="h-4 w-4" />
+        </button>
       </div>
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto p-3">
         {hasLines ? (
@@ -313,7 +335,7 @@ export default function AuditDiffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] w-[min(1300px,98vw)] max-w-none flex-col overflow-hidden p-0">
+      <DialogContent className="flex h-[90vh] w-[min(1700px,98vw)] max-w-none flex-col overflow-hidden p-0">
         <DialogHeader className="border-b border-border/60 px-6 py-4">
           <DialogTitle className="text-left text-lg font-semibold">
             {title}
@@ -362,6 +384,7 @@ export default function AuditDiffDialog({
                 title="Before"
                 lines={beforeLines}
                 emptyLabel="No previous snapshot."
+                rawValue={event?.before ?? null}
                 scrollRef={beforeScrollRef}
                 onScroll={syncScroll("before")}
               />
@@ -369,6 +392,7 @@ export default function AuditDiffDialog({
                 title="After"
                 lines={afterLines}
                 emptyLabel="No updated snapshot."
+                rawValue={event?.after ?? null}
                 scrollRef={afterScrollRef}
                 onScroll={syncScroll("after")}
               />
