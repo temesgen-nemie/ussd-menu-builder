@@ -245,7 +245,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             const r = route as any;
             const when = route.when;
 
-            if (r.isMainMenu) {
+            if (r.toMainMenu || r.isMainMenu) {
               return {
                 when,
                 toMainMenu: true,
