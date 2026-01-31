@@ -246,7 +246,6 @@ function JsonPane({ title, lines, emptyLabel, rawValue, scrollRef, onScroll }: J
           <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-foreground">
             {lines.map((line, index) => (
               <div
-                // Using index is acceptable here because the lines are derived content.
                 key={`${title}-${index}`}
                 className={`grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 px-2 py-0.5 ${getLineClass()}`}
               >
