@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
 import { useFlowStore } from "../../store/flowStore";
@@ -81,18 +81,31 @@ export default function PromptInspector({
     .filter(Boolean);
 
   const publishedGroupIds = useFlowStore((s) => s.publishedGroupIds);
-  const allFlowNames = Array.from(new Set(nodes
-    .filter((n) => n.type === "group" || (n.type === 'start' && n.data.flowName))
-    .map((n) => {
-      if (n.type === 'group') return (n.data as any).name || (n.data as any).flowName;
-      return (n.data as any).flowName;
-    })
-    .filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b));
+  const rootFlowName = useMemo(() => {
+    const rootStart = nodes.find((n) => !n.parentNode && n.type === "start");
+    return (rootStart?.data as any)?.flowName || "Root Flow";
+  }, [nodes]);
 
-  const currentFlowName = (() => {
+  const allFlowNames = useMemo(() => {
+    const list: string[] = [];
+    let tempParentId = node.parentNode;
+    
+    while (tempParentId) {
+      const parentGroup = nodes.find(n => n.id === tempParentId);
+      if (!parentGroup) break;
+      
+      const name = (parentGroup.data as any).name || (parentGroup.data as any).flowName || "Unnamed Flow";
+      list.push(name);
+      
+      tempParentId = parentGroup.parentNode;
+    }
+    
+    return Array.from(new Set(list));
+  }, [node.parentNode, nodes]);
+
+  const currentFlowName = useMemo(() => {
     const parentId = node.parentNode;
-    if (!parentId) return "Main Flow";
+    if (!parentId) return rootFlowName;
     
     // Check if parent group has a name
     const parentGroup = nodes.find(n => n.id === parentId);
@@ -105,7 +118,7 @@ export default function PromptInspector({
       (n) => n.parentNode === parentId && n.type === "start"
     );
     return (startNode?.data?.flowName as string) || "Unnamed Flow";
-  })();
+  }, [node.parentNode, nodes, rootFlowName]);
 
   const syncMessage = (
     currentMessage: string,
@@ -546,11 +559,18 @@ export default function PromptInspector({
                                         const flowToSearch = route.goBackToFlow || currentFlowName;
                                         let targetNodes = [];
                                         
-                                        if (flowToSearch === currentFlowName) {
+                                        if (flowToSearch === rootFlowName) {
+                                          targetNodes = nodes
+                                            .filter(n => !n.parentNode && n.type !== 'start' && n.type !== 'group')
+                                            .map(n => (n.data as any).name || "")
+                                            .filter(Boolean)
+                                            .sort((a, b) => a.localeCompare(b));
+                                        } else if (flowToSearch === currentFlowName) {
                                           targetNodes = nodes
                                             .filter(n => n.parentNode === node.parentNode && n.type !== 'start' && n.type !== 'group')
                                             .map(n => (n.data as any).name || "")
-                                            .filter(Boolean);
+                                            .filter(Boolean)
+                                            .sort((a, b) => a.localeCompare(b));
                                         } else {
                                           const targetFlowGroup = nodes.find(n => {
                                             if (n.type !== 'group') return false;
