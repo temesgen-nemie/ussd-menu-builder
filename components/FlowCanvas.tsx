@@ -192,8 +192,8 @@ export default function FlowCanvas() {
         if (sourceNode && sourceNode.type === "prompt") {
           const handleId = params.sourceHandle;
 
-          // Handle Prompt Node "default" handle (Linear Mode)
-          if (!handleId || handleId === "default") {
+          // Handle Prompt Node "fallback" or "default" handle
+          if (!handleId || handleId === "default" || handleId === "fallback") {
             const targetNode = nodes.find((n) => n.id === params.target);
             if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
               toast.error("Unnamed Target Node", {
@@ -202,10 +202,21 @@ export default function FlowCanvas() {
               });
               return; // REJECT CONNECTION
             }
-            updateNodeData(sourceNode.id, {
-              nextNode: params.target,
-              routingMode: sourceNode.data.routingMode || "linear",
-            });
+
+            if (sourceNode.data.routingMode === "menu") {
+              const currentNextNode = (sourceNode.data.nextNode as any) || { routes: [], default: "" };
+              updateNodeData(sourceNode.id, {
+                nextNode: {
+                  ...currentNextNode,
+                  default: params.target,
+                },
+              });
+            } else {
+              updateNodeData(sourceNode.id, {
+                nextNode: params.target,
+                routingMode: sourceNode.data.routingMode || "linear",
+              });
+            }
           } else {
             const targetNode = nodes.find((n) => n.id === params.target);
 
@@ -519,7 +530,7 @@ export default function FlowCanvas() {
 
       let data: Record<string, unknown> = {};
       if (type === "prompt") {
-        data = { message: "" };
+        data = { message: "", routingMode: "menu" };
       } else if (type === "action") {
         data = { endpoint: "" };
       } else if (type === "start") {
