@@ -13,6 +13,7 @@ export type FlowRoute = {
   toMainMenu?: boolean;
   isGoBack?: boolean;
   goBackTarget?: string;
+  goBackToFlow?: string;
 };
 export type FlowNode = {
   id: string;
@@ -107,15 +108,24 @@ const calculateFlowSnapshot = (groupId: string, nodes: Node[], edges: Edge[]): s
   const childIds = new Set(children.map(n => n.id));
   const innerEdges = edges.filter(e => childIds.has(e.source) && childIds.has(e.target));
 
-  const cleanNodes = children.map(n => ({
-    id: n.id,
-    type: n.type,
-    data: n.data,
-    position: {
-      x: Math.round(n.position.x),
-      y: Math.round(n.position.y)
-    }
-  })).sort((a, b) => a.id.localeCompare(b.id));
+  const cleanNodes = children.map(n => {
+    // Extract only logical data, ignoring internal React Flow props like width/height
+    const { name, flowName, message, nextNode, nextNodeId, isMainMenu, isMenuBranch, ...otherData } = (n.data as Record<string, any>) || {};
+
+    // We keep other data too but we want to be careful about what contributes to a "change"
+    // For now, let's just use the whole data but remove known noisy fields if any
+    const logicalData = { name, flowName, message, nextNode, nextNodeId, isMainMenu, isMenuBranch, ...otherData };
+
+    return {
+      id: n.id,
+      type: n.type,
+      data: logicalData,
+      position: {
+        x: Math.round(n.position.x),
+        y: Math.round(n.position.y)
+      }
+    };
+  }).sort((a, b) => a.id.localeCompare(b.id));
 
   const cleanEdges = innerEdges.map(e => ({
     source: e.source,
@@ -282,13 +292,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             }
 
             if (r.isGoBack) {
-              return {
+              const routeObj: FlowRoute = {
                 when,
                 goto: r.goBackTarget || r.gotoFlow || "",
                 gotoId: "",
                 isGoBack: true,
                 goBackTarget: r.goBackTarget || "",
-              } as FlowRoute;
+              };
+              if (r.goBackToFlow && r.goBackToFlow !== flowName) {
+                routeObj.goBackToFlow = r.goBackToFlow;
+              }
+              return routeObj;
             }
 
             const target = resolveTarget(route.gotoFlow || route.goto || "");
@@ -460,8 +474,8 @@ interface FlowState {
     placement: "above" | "below" | "center";
   } | null;
 
-  setNodes: (nodes: Node[]) => void;
-  setEdges: (edges: Edge[]) => void;
+  setNodes: (nodes: Node[] | ((nodes: Node[]) => Node[])) => void;
+  setEdges: (edges: Edge[] | ((edges: Edge[]) => Edge[])) => void;
   addNode: (node: Node) => void;
   removeNode: (id: string) => void;
   removeNodes: (ids: string[]) => void;
@@ -1170,8 +1184,9 @@ export const useFlowStore = create<FlowState>()(
         }
       },
 
-      setNodes: (newNodes) =>
+      setNodes: (newNodesArg) =>
         set((state) => {
+          const newNodes = typeof newNodesArg === 'function' ? newNodesArg(state.nodes) : newNodesArg;
           const correctedNodes = newNodes.map((n) => {
             const existing = state.nodes.find((e) => e.id === n.id);
             if (
@@ -1189,15 +1204,38 @@ export const useFlowStore = create<FlowState>()(
           });
 
           // Change Detection: If any node moved, find its parent flow and mark as modified
-          let nextModifiedGroupIds = state.modifiedGroupIds;
+          let nextModifiedGroupIds = [...state.modifiedGroupIds];
+          let nextModifiedGroupsLog = { ...state.modifiedGroupsLog };
+
+          // Identify which groups have moving nodes
+          const affectedGroupIds = new Set<string>();
           correctedNodes.forEach((n) => {
             const existing = state.nodes.find((e) => e.id === n.id);
             if (existing && (existing.position.x !== n.position.x || existing.position.y !== n.position.y)) {
-              // Node moved! Trace up to find if it's in a published flow
               const info = getParentGroupInfo(state.nodes, n.id);
-              if (info && state.publishedGroupIds.includes(info.groupId) && !nextModifiedGroupIds.includes(info.groupId)) {
-                nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
+              if (info && state.publishedGroupIds.includes(info.groupId)) {
+                affectedGroupIds.add(info.groupId);
               }
+            }
+          });
+
+          affectedGroupIds.forEach(groupId => {
+            const currentSnapshot = calculateFlowSnapshot(groupId, correctedNodes, state.edges);
+            const originalSnapshot = state.lastSyncedSnapshots[groupId];
+            const isActuallyModified = currentSnapshot !== originalSnapshot;
+
+            if (isActuallyModified) {
+              if (!nextModifiedGroupIds.includes(groupId)) {
+                nextModifiedGroupIds.push(groupId);
+              }
+              const groupLog = nextModifiedGroupsLog[groupId] || [];
+              if (!groupLog.includes("Layout modified")) {
+                groupLog.push("Layout modified");
+              }
+              nextModifiedGroupsLog[groupId] = groupLog;
+            } else {
+              nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupId);
+              nextModifiedGroupsLog[groupId] = [];
             }
           });
 
@@ -1205,11 +1243,55 @@ export const useFlowStore = create<FlowState>()(
             nodes: correctedNodes,
             flow: buildFlowJson(correctedNodes, state.edges),
             modifiedGroupIds: nextModifiedGroupIds,
+            modifiedGroupsLog: nextModifiedGroupsLog,
           };
         }),
 
       setEdges: (edges) =>
-        set((state) => ({ edges, flow: buildFlowJson(state.nodes, edges) })),
+        set((state) => {
+          const nextEdges = typeof edges === 'function' ? edges(state.edges) : edges;
+          const currentNodes = state.nodes;
+
+          let nextModifiedGroupIds = [...state.modifiedGroupIds];
+          let nextModifiedGroupsLog = { ...state.modifiedGroupsLog };
+
+          // Determine which groups might be affected by edge changes
+          const affectedGroupIds = new Set<string>();
+          const allEdges = [...state.edges, ...nextEdges];
+          allEdges.forEach(e => {
+            const infoS = getParentGroupInfo(currentNodes, e.source);
+            const infoT = getParentGroupInfo(currentNodes, e.target);
+            if (infoS && state.publishedGroupIds.includes(infoS.groupId)) affectedGroupIds.add(infoS.groupId);
+            if (infoT && state.publishedGroupIds.includes(infoT.groupId)) affectedGroupIds.add(infoT.groupId);
+          });
+
+          affectedGroupIds.forEach(groupId => {
+            const currentSnapshot = calculateFlowSnapshot(groupId, currentNodes, nextEdges);
+            const originalSnapshot = state.lastSyncedSnapshots[groupId];
+            const isActuallyModified = currentSnapshot !== originalSnapshot;
+
+            if (isActuallyModified) {
+              if (!nextModifiedGroupIds.includes(groupId)) {
+                nextModifiedGroupIds.push(groupId);
+              }
+              const groupLog = nextModifiedGroupsLog[groupId] || [];
+              if (!groupLog.includes("Connections modified")) {
+                groupLog.push("Connections modified");
+              }
+              nextModifiedGroupsLog[groupId] = groupLog;
+            } else {
+              nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupId);
+              nextModifiedGroupsLog[groupId] = [];
+            }
+          });
+
+          return {
+            edges: nextEdges,
+            flow: buildFlowJson(currentNodes, nextEdges),
+            modifiedGroupIds: nextModifiedGroupIds,
+            modifiedGroupsLog: nextModifiedGroupsLog
+          };
+        }),
 
       rfInstance: null,
       setRfInstance: (instance) => set({ rfInstance: instance }),
@@ -1237,13 +1319,16 @@ export const useFlowStore = create<FlowState>()(
                 if (!nextModifiedGroupIds.includes(info.groupId)) {
                   nextModifiedGroupIds = [...nextModifiedGroupIds, info.groupId];
                 }
+                const groupLog = nextModifiedGroupsLog[info.groupId] || [];
+                const nodeName = newNode.data?.name || newNode.data?.flowName || newNode.type;
+                const newEntry = `Added ${newNode.type} node "${nodeName}"`;
+                if (!groupLog.includes(newEntry)) {
+                  nextModifiedGroupsLog[info.groupId] = [...groupLog, newEntry];
+                }
               } else {
                 nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== info.groupId);
+                nextModifiedGroupsLog[info.groupId] = []; // Clear log if we returned to sync state
               }
-
-              const groupLog = nextModifiedGroupsLog[info.groupId] || [];
-              const nodeName = newNode.data?.name || newNode.data?.flowName || newNode.type;
-              nextModifiedGroupsLog[info.groupId] = [...groupLog, `Added ${newNode.type} node "${nodeName}"`];
             }
           }
 
@@ -1404,20 +1489,23 @@ export const useFlowStore = create<FlowState>()(
               if (!nextModifiedGroupIds.includes(groupId)) {
                 nextModifiedGroupIds.push(groupId);
               }
+              // Log deletions
+              const groupLog = nextModifiedGroupsLog[groupId] || [];
+              ids.forEach(id => {
+                const node = state.nodes.find(n => n.id === id);
+                if (node) {
+                  const nodeName = node.data?.name || node.data?.flowName || node.type;
+                  const newEntry = `Deleted ${node.type} node "${nodeName}"`;
+                  if (!groupLog.includes(newEntry)) {
+                    groupLog.push(newEntry);
+                  }
+                }
+              });
+              nextModifiedGroupsLog[groupId] = [...groupLog];
             } else {
               nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupId);
+              nextModifiedGroupsLog[groupId] = []; // Clear log if we returned to sync state
             }
-
-            // Log deletions
-            const groupLog = nextModifiedGroupsLog[groupId] || [];
-            ids.forEach(id => {
-              const node = state.nodes.find(n => n.id === id);
-              if (node) {
-                const nodeName = node.data?.name || node.data?.flowName || node.type;
-                groupLog.push(`Deleted ${node.type} node "${nodeName}"`);
-              }
-            });
-            nextModifiedGroupsLog[groupId] = groupLog;
           });
 
           return {
@@ -1733,15 +1821,46 @@ export const useFlowStore = create<FlowState>()(
               if (!nextModifiedGroupIds.includes(groupIdToMark)) {
                 nextModifiedGroupIds = [...nextModifiedGroupIds, groupIdToMark];
               }
+              const groupLog = nextModifiedGroupsLog[groupIdToMark] || [];
+              const nodeName = targetNode.data?.name || targetNode.data?.flowName || targetNode.type;
+
+              // Diff Helper: Compare against original snapshot if available
+              let originalNodeData: any = {};
+              try {
+                const originalSnapshotStr = state.lastSyncedSnapshots[groupIdToMark];
+                if (originalSnapshotStr) {
+                  const originalSnapshot = JSON.parse(originalSnapshotStr);
+                  const originalNode = originalSnapshot.nodes.find((n: any) => n.id === targetNode.id);
+                  if (originalNode) originalNodeData = originalNode.data;
+                }
+              } catch (e) { }
+
+              const tr = (v: any) => {
+                const s = typeof v === 'string' ? v : JSON.stringify(v);
+                return s.length > 25 ? s.substring(0, 25) + "..." : s;
+              };
+
+              Object.entries(data).forEach(([key, newValue]) => {
+                const oldValue = originalNodeData[key];
+                if (oldValue !== newValue) {
+                  const diffText = oldValue !== undefined ? `"${tr(oldValue)}" → "${tr(newValue)}"` : `"${tr(newValue)}"`;
+                  const logPrefix = `Updated ${targetNode.type} node "${nodeName}" (${key})`;
+                  const newEntry = `${logPrefix}: ${diffText}`;
+
+                  const existingIdx = groupLog.findIndex(l => l.startsWith(logPrefix));
+                  if (existingIdx !== -1) {
+                    groupLog[existingIdx] = newEntry;
+                  } else {
+                    groupLog.push(newEntry);
+                  }
+                }
+              });
+
+              nextModifiedGroupsLog[groupIdToMark] = [...groupLog];
             } else {
               nextModifiedGroupIds = nextModifiedGroupIds.filter(id => id !== groupIdToMark);
+              nextModifiedGroupsLog[groupIdToMark] = [];
             }
-
-            const groupLog = nextModifiedGroupsLog[groupIdToMark] || [];
-            const nodeName = targetNode.data?.name || targetNode.data?.flowName || targetNode.type;
-            const fieldNames = Object.keys(data).join(", ");
-            groupLog.push(`Updated ${targetNode.type} node "${nodeName}" (fields: ${fieldNames})`);
-            nextModifiedGroupsLog[groupIdToMark] = groupLog;
           }
 
           return {
