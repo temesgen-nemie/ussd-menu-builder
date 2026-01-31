@@ -41,7 +41,7 @@ export default function NodeToolbar() {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
-          ? { message: "", routingMode: "linear" }
+          ? { message: "", routingMode: "menu" }
           : type === "action"
           ? { endpoint: "" }
           : type === "condition"

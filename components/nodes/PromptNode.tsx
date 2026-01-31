@@ -48,6 +48,7 @@ type PromptNodeProps = NodeProps<PromptNodeData>;
 
 export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   const edges = useFlowStore((s) => s.edges);
+  const nodes = useFlowStore((s) => s.nodes);
 
   return (
     <div
@@ -154,34 +155,36 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           )}
 
           {/* Default Route Indicator */}
-          {data.nextNode &&
-            typeof data.nextNode === "object" &&
-            data.nextNode.default && (
-              <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 px-1">
-                <span>Default:</span>
-                <span className="font-medium text-gray-600">
-                  {data.nextNode.default}
-                </span>
-              </div>
-            )}
+          <div className="pt-2 border-t border-gray-100 mb-2">
+            <div className="flex items-center gap-1 text-[10px] text-gray-400 px-1">
+              <span>Default:</span>
+              <span className="font-medium text-gray-600 truncate max-w-[160px]">
+                {(() => {
+                  const fallbackId = data.nextNode && typeof data.nextNode === "object"
+                    ? (data.nextNode as any).default
+                    : (typeof data.nextNode === "string" ? data.nextNode : "");
+                  if (!fallbackId) return "";
+                  const targetNode = nodes.find(n => n.id === fallbackId);
+                  return targetNode?.data?.name || fallbackId;
+                })()}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Linear Mode: Centered bottom handle */}
-      {(data.routingMode === "linear" || !data.routingMode) && (
-        <div className="mt-2 flex justify-center relative">
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="default"
-            className={`!w-2.5 !h-2.5 !border-2 !static !translate-x-0 ${
-              edges.some(e => e.source === id && (!e.sourceHandle || e.sourceHandle === 'default')) 
-                ? "!border-indigo-500 !bg-white" 
-                : "!border-amber-500 !bg-white"
-            }`}
-          />
-        </div>
-      )}
+      <div className="mt-2 flex justify-center relative">
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="fallback"
+          className={`!w-2.5 !h-2.5 !border-2 !static !translate-x-0 ${
+            edges.some(e => e.source === id && (e.sourceHandle === 'fallback' || (!e.sourceHandle && (data.routingMode === 'linear' || !data.routingMode)))) 
+              ? "!border-indigo-500 !bg-white" 
+              : "!border-gray-300 !bg-white"
+          }`}
+        />
+      </div>
 
       <Handle type="target" position={Position.Top} />
     </div>

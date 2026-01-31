@@ -789,29 +789,14 @@ export default function PromptInspector({
               })()}
 
               <div className="mt-4 pt-3 border-t border-gray-200">
-                <label className="text-xs font-medium text-gray-600 block mb-1">
-                  Default (Fallback)
-                </label>
-                <input
-                  className="w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900 text-sm"
-                  value={
+                <TargetNodeDisplay
+                  nodeId={
                     node.data.nextNode && typeof node.data.nextNode === "object"
                       ? (node.data.nextNode as any).default || ""
-                      : ""
+                      : (node.data.nextNode as string) || ""
                   }
-                  onChange={(e) => {
-                    let currentNextNode = node.data.nextNode;
-                    if (
-                      typeof currentNextNode !== "object" ||
-                      !currentNextNode
-                    ) {
-                      currentNextNode = { routes: [], default: "" };
-                    }
-                    updateNodeData(node.id, {
-                      nextNode: { ...currentNextNode, default: e.target.value },
-                    });
-                  }}
-                  placeholder="Fallback Flow/Node"
+                  label="Default (Fallback)"
+                  placeholder="Connect fallback on canvas"
                 />
               </div>
             </div>
