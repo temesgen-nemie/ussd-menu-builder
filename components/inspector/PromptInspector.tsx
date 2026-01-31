@@ -86,8 +86,8 @@ export default function PromptInspector({
     return (rootStart?.data as any)?.flowName || "Root Flow";
   }, [nodes]);
 
-  const allFlowNames = useMemo(() => {
-    const list: string[] = [];
+  const ancestorFlows = useMemo(() => {
+    const list: { id: string; name: string }[] = [];
     let tempParentId = node.parentNode;
     
     while (tempParentId) {
@@ -95,13 +95,17 @@ export default function PromptInspector({
       if (!parentGroup) break;
       
       const name = (parentGroup.data as any).name || (parentGroup.data as any).flowName || "Unnamed Flow";
-      list.push(name);
+      list.push({ id: parentGroup.id, name });
       
       tempParentId = parentGroup.parentNode;
     }
     
-    return Array.from(new Set(list));
+    return list;
   }, [node.parentNode, nodes]);
+
+  const allFlowNames = useMemo(() => {
+    return Array.from(new Set(ancestorFlows.map(f => f.name)));
+  }, [ancestorFlows]);
 
   const currentFlowName = useMemo(() => {
     const parentId = node.parentNode;
@@ -572,20 +576,31 @@ export default function PromptInspector({
                                             .filter(Boolean)
                                             .sort((a, b) => a.localeCompare(b));
                                         } else {
-                                          const targetFlowGroup = nodes.find(n => {
-                                            if (n.type !== 'group') return false;
-                                            const gName = (n.data as any).name || (n.data as any).flowName;
-                                            if (gName === flowToSearch) return true;
-                                            const start = nodes.find(s => s.parentNode === n.id && s.type === 'start');
-                                            return (start?.data as any)?.flowName === flowToSearch;
-                                          });
+                                          // Find the specific ancestor group with this name
+                                          const targetAncestor = ancestorFlows.find(f => f.name === flowToSearch);
                                           
-                                          if (targetFlowGroup) {
+                                          if (targetAncestor) {
                                             targetNodes = nodes
-                                              .filter(n => n.parentNode === targetFlowGroup.id && n.type !== 'start' && n.type !== 'group')
+                                              .filter(n => n.parentNode === targetAncestor.id && n.type !== 'start' && n.type !== 'group')
                                               .map(n => (n.data as any).name || "")
                                               .filter(Boolean)
                                               .sort((a, b) => a.localeCompare(b));
+                                          } else {
+                                            const targetFlowGroup = nodes.find(n => {
+                                              if (n.type !== 'group') return false;
+                                              const gName = (n.data as any).name || (n.data as any).flowName;
+                                              if (gName === flowToSearch) return true;
+                                              const start = nodes.find(s => s.parentNode === n.id && s.type === 'start');
+                                              return (start?.data as any)?.flowName === flowToSearch;
+                                            });
+                                            
+                                            if (targetFlowGroup) {
+                                              targetNodes = nodes
+                                                .filter(n => n.parentNode === targetFlowGroup.id && n.type !== 'start' && n.type !== 'group')
+                                                .map(n => (n.data as any).name || "")
+                                                .filter(Boolean)
+                                                .sort((a, b) => a.localeCompare(b));
+                                            }
                                           }
                                         }
 
