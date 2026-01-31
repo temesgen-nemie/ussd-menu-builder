@@ -101,23 +101,58 @@ const RefreshConfirmModal: React.FC = () => {
                     </span>
                   </div>
                   <div className="p-4 space-y-2">
-                    {(modifiedGroupsLog[id] || []).map((change, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs text-slate-600">
-                        <div className="mt-1.5 w-1 h-1 bg-amber-400 rounded-full flex-shrink-0" />
-                        <span className="leading-relaxed">{change}</span>
-                      </div>
-                    ))}
+                    {(modifiedGroupsLog[id] || []).map((change, idx) => {
+                      const isUpdate = change.includes(" → ");
+                      let header = change;
+                      let from = "";
+                      let to = "";
+
+                      if (isUpdate) {
+                        const parts = change.split(": ");
+                        header = parts[0];
+                        const values = parts[1]?.split(" → ");
+                        from = values?.[0] || "";
+                        to = values?.[1] || "";
+                      }
+
+                      return (
+                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed group">
+                          <div className="mt-1.5 w-1 h-1 bg-amber-400 rounded-full flex-shrink-0 group-hover:scale-150 transition-transform" />
+                          {isUpdate ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-slate-800">{header}</span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="bg-slate-200/50 px-1.5 py-0.5 rounded text-[10px] text-slate-500 line-through decoration-slate-400/50">
+                                  {from.replace(/"/g, '')}
+                                </span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                                <span className="bg-amber-100/50 px-1.5 py-0.5 rounded text-[10px] text-amber-700 font-bold border border-amber-200/30">
+                                  {to.replace(/"/g, '')}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="font-medium">{change}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50">
-              <p className="text-xs text-amber-700 font-semibold flex items-center gap-2">
+            <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200/50 flex flex-col gap-3">
+              <p className="text-xs text-amber-700 font-bold flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
-                This action cannot be undone. All listed work will be lost.
+                Warning: Work will be lost!
+              </p>
+              <p className="text-[11px] text-amber-800/80 leading-relaxed">
+                If you want to keep these changes, please <span className="font-bold underline">Cancel and click "Update Flow"</span> in the Group node before refreshing. This action cannot be undone.
               </p>
             </div>
           </div>

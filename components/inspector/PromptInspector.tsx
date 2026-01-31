@@ -14,6 +14,7 @@ type PromptRoute = {
   isGoBack?: boolean;
   toMainMenu?: boolean;
   goBackTarget?: string;
+  goBackToFlow?: string;
 };
 
 type PromptNextNode = {
@@ -65,6 +66,7 @@ export default function PromptInspector({
 }: PromptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
   const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
+  const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
 
   // Find siblings: nodes in the same parent group or at root
   const siblings = nodes.filter(
@@ -77,6 +79,33 @@ export default function PromptInspector({
   const siblingNames = siblings
     .map((n) => (n.data as any).name || "")
     .filter(Boolean);
+
+  const publishedGroupIds = useFlowStore((s) => s.publishedGroupIds);
+  const allFlowNames = Array.from(new Set(nodes
+    .filter((n) => n.type === "group" || (n.type === 'start' && n.data.flowName))
+    .map((n) => {
+      if (n.type === 'group') return (n.data as any).name || (n.data as any).flowName;
+      return (n.data as any).flowName;
+    })
+    .filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b));
+
+  const currentFlowName = (() => {
+    const parentId = node.parentNode;
+    if (!parentId) return "Main Flow";
+    
+    // Check if parent group has a name
+    const parentGroup = nodes.find(n => n.id === parentId);
+    if (parentGroup && ((parentGroup.data as any).name || (parentGroup.data as any).flowName)) {
+      return (parentGroup.data as any).name || (parentGroup.data as any).flowName;
+    }
+
+    // Check for start node in the same group
+    const startNode = nodes.find(
+      (n) => n.parentNode === parentId && n.type === "start"
+    );
+    return (startNode?.data?.flowName as string) || "Unnamed Flow";
+  })();
 
   const syncMessage = (
     currentMessage: string,
@@ -455,59 +484,13 @@ export default function PromptInspector({
                         </div>
 
                         {isGoBack && (
-                          <div className="space-y-2 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="relative">
-                              <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                <svg
-                                  className="w-3 h-3 text-amber-500"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                                  />
-                                </svg>
-                                Go Back Target
-                              </label>
-
+                          <div className="space-y-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="grid grid-cols-2 gap-4">
+                              {/* Go Back Target */}
                               <div className="relative">
-                                <input
-                                  className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/30 px-3 py-2 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder-gray-300 text-gray-900 pr-10"
-                                  value={goBackTarget}
-                                  onFocus={() => setActiveSearchIdx(idx)}
-                                  onBlur={() =>
-                                    setTimeout(
-                                      () => setActiveSearchIdx(null),
-                                      200
-                                    )
-                                  }
-                                  onChange={(e) => {
-                                    const nextNode = node.data
-                                      .nextNode as PromptNextNode;
-                                    const newRoutes = [
-                                      ...(nextNode.routes || []),
-                                    ];
-                                    newRoutes[idx] = {
-                                      ...newRoutes[idx],
-                                      goBackTarget: e.target.value,
-                                    };
-                                    updateNodeData(node.id, {
-                                      nextNode: {
-                                        ...nextNode,
-                                        routes: newRoutes,
-                                      },
-                                    });
-                                  }}
-                                  placeholder="Type to search..."
-                                />
-
-                                <div className="absolute right-3 top-2.5 text-gray-400">
+                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
                                   <svg
-                                    className="w-4 h-4"
+                                    className="w-3 h-3 text-amber-500"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -516,54 +499,227 @@ export default function PromptInspector({
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       strokeWidth={2}
-                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                      d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
                                     />
                                   </svg>
-                                </div>
+                                  Go Back Target
+                                </label>
 
-                                {activeSearchIdx === idx && (
-                                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                                    {siblingNames
-                                      .filter((name) =>
-                                        name
-                                          .toLowerCase()
-                                          .includes(
-                                            (goBackTarget || "").toLowerCase()
-                                          )
-                                      )
-                                      .map((name) => (
-                                        <button
-                                          key={name}
-                                          onMouseDown={(e) => { e.preventDefault();
-                                            const nextNode = node.data
-                                              .nextNode as PromptNextNode;
-                                            const newRoutes = [
-                                              ...(nextNode.routes || []),
-                                            ];
-                                            newRoutes[idx] = {
-                                              ...newRoutes[idx],
-                                              goBackTarget: name,
-                                            };
-                                            updateNodeData(node.id, {
-                                              nextNode: {
-                                                ...nextNode,
-                                                routes: newRoutes,
-                                              },
-                                            });
-                                            setActiveSearchIdx(null);
-                                          }}
-                                          className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-indigo-600 hover:text-white transition-colors border-b border-gray-50 last:border-0"
-                                        >
-                                          {name}
-                                        </button>
-                                      ))}
-                                    {siblingNames.length === 0 && (
-                                      <div className="px-4 py-3 text-xs text-gray-400 italic">
-                                        No sibling nodes found
-                                      </div>
-                                    )}
+                                <div className="relative">
+                                  <div className="relative group/input">
+                                    <input
+                                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/30 px-3 py-2 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder-gray-300 text-gray-900 pr-10"
+                                      value={goBackTarget}
+                                      onFocus={() => setActiveSearchIdx(idx)}
+                                      onClick={() => setActiveSearchIdx(idx)}
+                                      onBlur={() => setTimeout(() => setActiveSearchIdx(null), 200)}
+                                      onChange={(e) => {
+                                        const nextNode = node.data.nextNode as PromptNextNode;
+                                        const newRoutes = [...(nextNode.routes || [])];
+                                        newRoutes[idx] = {
+                                          ...newRoutes[idx],
+                                          goBackTarget: e.target.value,
+                                        };
+                                        updateNodeData(node.id, {
+                                          nextNode: { ...nextNode, routes: newRoutes },
+                                        });
+                                      }}
+                                      placeholder="e.g. Settings"
+                                    />
+                                    <button 
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setActiveSearchIdx(activeSearchIdx === idx ? null : idx);
+                                      }}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform duration-200 ${activeSearchIdx === idx ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
                                   </div>
-                                )}
+                                  {activeSearchIdx === idx && (
+                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                                      {(() => {
+                                        const flowToSearch = route.goBackToFlow || currentFlowName;
+                                        let targetNodes = [];
+                                        
+                                        if (flowToSearch === currentFlowName) {
+                                          targetNodes = nodes
+                                            .filter(n => n.parentNode === node.parentNode && n.type !== 'start' && n.type !== 'group')
+                                            .map(n => (n.data as any).name || "")
+                                            .filter(Boolean);
+                                        } else {
+                                          const targetFlowGroup = nodes.find(n => {
+                                            if (n.type !== 'group') return false;
+                                            const gName = (n.data as any).name || (n.data as any).flowName;
+                                            if (gName === flowToSearch) return true;
+                                            const start = nodes.find(s => s.parentNode === n.id && s.type === 'start');
+                                            return (start?.data as any)?.flowName === flowToSearch;
+                                          });
+                                          
+                                          if (targetFlowGroup) {
+                                            targetNodes = nodes
+                                              .filter(n => n.parentNode === targetFlowGroup.id && n.type !== 'start' && n.type !== 'group')
+                                              .map(n => (n.data as any).name || "")
+                                              .filter(Boolean)
+                                              .sort((a, b) => a.localeCompare(b));
+                                          }
+                                        }
+
+                                        const isExactTargetMatch = targetNodes.includes(goBackTarget || "");
+                                        const filtered = (isExactTargetMatch || !goBackTarget)
+                                          ? targetNodes
+                                          : targetNodes.filter((name) =>
+                                              name.toLowerCase().includes((goBackTarget || "").toLowerCase())
+                                            );
+
+                                        if (filtered.length === 0) {
+                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No nodes found in {flowToSearch}</div>;
+                                        }
+
+                                        return filtered.map((name) => (
+                                          <button
+                                            key={name}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              const nextNode = node.data.nextNode as PromptNextNode;
+                                              const newRoutes = [...(nextNode.routes || [])];
+                                              newRoutes[idx] = { ...newRoutes[idx], goBackTarget: name };
+                                              updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                              setActiveSearchIdx(null);
+                                            }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors border-b border-gray-50 last:border-0 ${
+                                              name === (goBackTarget || "") 
+                                                ? 'bg-indigo-50 text-indigo-700 font-semibold' 
+                                                : 'text-gray-900 hover:bg-indigo-600 hover:text-white'
+                                            }`}
+                                          >
+                                            {name}
+                                          </button>
+                                        ));
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Go Back To Flow */}
+                              <div className="relative">
+                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                  <svg
+                                    className="w-3 h-3 text-indigo-500"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    />
+                                  </svg>
+                                  Flow Name
+                                </label>
+
+                                <div className="relative">
+                                  <div className="relative group/input">
+                                    <input
+                                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/30 px-3 py-2 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder-gray-400 text-gray-900 pr-10"
+                                      value={route.goBackToFlow || ""}
+                                      onFocus={() => setActiveFlowSearchIdx(idx)}
+                                      onClick={() => setActiveFlowSearchIdx(idx)}
+                                      onBlur={() => setTimeout(() => setActiveFlowSearchIdx(null), 200)}
+                                      onChange={(e) => {
+                                        const nextNode = node.data.nextNode as PromptNextNode;
+                                        const newRoutes = [...(nextNode.routes || [])];
+                                        newRoutes[idx] = {
+                                          ...newRoutes[idx],
+                                          goBackToFlow: e.target.value,
+                                          goBackTarget: ""
+                                        };
+                                        updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                      }}
+                                      placeholder={currentFlowName || "Current Flow"}
+                                    />
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setActiveFlowSearchIdx(activeFlowSearchIdx === idx ? null : idx);
+                                      }}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform duration-200 ${activeFlowSearchIdx === idx ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                  {activeFlowSearchIdx === idx && (
+                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                                      {/* Clear / Current Flow Option */}
+                                      <button
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          const nextNode = node.data.nextNode as PromptNextNode;
+                                          const newRoutes = [...(nextNode.routes || [])];
+                                          newRoutes[idx] = {
+                                            ...newRoutes[idx],
+                                            goBackToFlow: "",
+                                            goBackTarget: ""
+                                          };
+                                          updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                          setActiveFlowSearchIdx(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-medium border-b border-gray-50"
+                                      >
+                                        Revert to Current Flow
+                                      </button>
+                                      {(() => {
+                                        const sortedAllFlowNames = [...allFlowNames].sort((a, b) => a.localeCompare(b)); // Added sort
+                                        const isExactFlowMatch = sortedAllFlowNames.includes(route.goBackToFlow || "");
+                                        const filtered = (isExactFlowMatch || !route.goBackToFlow)
+                                          ? sortedAllFlowNames
+                                          : sortedAllFlowNames.filter((name) =>
+                                              name.toLowerCase().includes((route.goBackToFlow || "").toLowerCase())
+                                            );
+
+                                        if (filtered.length === 0 && (route.goBackToFlow || "").length > 0) {
+                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No flows matching "{(route.goBackToFlow || "")}"</div>;
+                                        }
+
+                                        return filtered.map((name) => (
+                                          <button
+                                            key={name}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              const nextNode = node.data.nextNode as PromptNextNode;
+                                              const newRoutes = [...(nextNode.routes || [])];
+                                              newRoutes[idx] = {
+                                                ...newRoutes[idx],
+                                                goBackToFlow: name,
+                                                goBackTarget: ""
+                                              };
+                                              updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                              setActiveFlowSearchIdx(null);
+                                            }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors border-b border-gray-50 last:border-0 ${
+                                              name === (route.goBackToFlow || "")
+                                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                                : 'text-gray-900 hover:bg-indigo-600 hover:text-white'
+                                            }`}
+                                          >
+                                            {name === currentFlowName ? `${name} (Current)` : name}
+                                          </button>
+                                        ));
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
