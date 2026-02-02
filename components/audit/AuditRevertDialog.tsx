@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getAuditEvents, updateNodeById } from "@/lib/api";
+import { getAuditEvents, updateNodeById, updateFlow, type UpdateFlowPayload } from "@/lib/api";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
@@ -198,6 +198,8 @@ type AuditRevertDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   queryId: string | null;
+  entityType?: string | null;
+  flowName?: string | null;
   mode: "revert" | "merge";
   onSuccess?: () => void;
 };
@@ -232,6 +234,8 @@ export default function AuditRevertDialog({
   open,
   onOpenChange,
   queryId,
+  entityType,
+  flowName,
   mode,
   onSuccess,
 }: AuditRevertDialogProps) {
@@ -312,8 +316,27 @@ export default function AuditRevertDialog({
     setSaveSuccess(null);
 
     try {
+      const isFlow = String(entityType ?? "").toLowerCase() === "flow";
       if (mode === "revert") {
-        await updateNodeById(selectedItem.entityId, { node: selectedItem.before ?? null });
+        if (isFlow) {
+          if (!flowName) {
+            setSaveError("Missing flow name for flow revert.");
+            setIsSaving(false);
+            return;
+          }
+          const basePayload = selectedItem.before ?? null;
+          const flowPayload: UpdateFlowPayload =
+            (basePayload && typeof basePayload === "object"
+              ? (basePayload as UpdateFlowPayload)
+              : ({} as UpdateFlowPayload));
+          await updateFlow(flowName, flowPayload, "revert");
+        } else {
+          await updateNodeById(
+            selectedItem.entityId,
+            { node: selectedItem.before ?? null },
+            "revert"
+          );
+        }
       } else {
         let parsed: unknown;
         try {
@@ -323,7 +346,24 @@ export default function AuditRevertDialog({
           setIsSaving(false);
           return;
         }
-        await updateNodeById(selectedItem.entityId, { node: parsed });
+        if (isFlow) {
+          if (!flowName) {
+            setSaveError("Missing flow name for flow merge.");
+            setIsSaving(false);
+            return;
+          }
+          const flowPayload: UpdateFlowPayload =
+            parsed && typeof parsed === "object"
+              ? (parsed as UpdateFlowPayload)
+              : ({} as UpdateFlowPayload);
+          await updateFlow(flowName, flowPayload, "merge");
+        } else {
+          await updateNodeById(
+            selectedItem.entityId,
+            { node: parsed },
+            "merge"
+          );
+        }
       }
       setSaveSuccess("Update applied successfully.");
       toast.success(mode === "merge" ? "Merge applied." : "Revert applied.");

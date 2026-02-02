@@ -160,7 +160,7 @@ export default function AuditTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Array.from({ length: 10 }).map((_, index) => (
+              {Array.from({ length: 12 }).map((_, index) => (
                 <TableRow key={`audit-skeleton-${index}`} className="animate-pulse">
                   {Array.from({ length: 7 }).map((__, cellIndex) => (
                     <TableCell key={`audit-skeleton-cell-${index}-${cellIndex}`}>
