@@ -14,7 +14,6 @@ export default function Navbar() {
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
-  // const { user } = useAuthStore();
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">

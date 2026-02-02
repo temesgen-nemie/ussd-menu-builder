@@ -126,9 +126,17 @@ export const logoutSession = async () => {
     }
 };
 
-export const updateNodeById = async (nodeId: string, payload: { node: unknown }) => {
+export const updateNodeById = async (
+    nodeId: string,
+    payload: { node: unknown },
+    operation?: "revert" | "merge"
+) => {
     try {
-        const response = await api.put(`/nodes/by-id/${nodeId}`, payload);
+        const response = await api.put(
+            `/nodes/by-id/${nodeId}`,
+            payload,
+            operation ? { params: { operation } } : undefined
+        );
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -264,9 +272,19 @@ export const getFlowByName = async (flowName: string) => {
     }
 };
 
-export const updateFlow = async (flowName: string, payload: FlowJson) => {
+export type UpdateFlowPayload = FlowJson;
+
+export const updateFlow = async (
+    flowName: string,
+    payload: UpdateFlowPayload,
+    operation?: "revert" | "merge"
+) => {
     try {
-        const response = await api.post(`/flows/updateFlows/${flowName}`, payload);
+        const response = await api.post(
+            `/flows/updateFlows/${flowName}`,
+            payload,
+            operation ? { params: { operation } } : undefined
+        );
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {

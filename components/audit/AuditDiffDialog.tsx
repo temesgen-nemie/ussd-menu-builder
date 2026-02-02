@@ -246,7 +246,6 @@ function JsonPane({ title, lines, emptyLabel, rawValue, scrollRef, onScroll }: J
           <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-foreground">
             {lines.map((line, index) => (
               <div
-                // Using index is acceptable here because the lines are derived content.
                 key={`${title}-${index}`}
                 className={`grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 px-2 py-0.5 ${getLineClass()}`}
               >
@@ -315,6 +314,8 @@ export default function AuditDiffDialog({
   }, [event]);
 
   const title = event?.name ? `${event.name} changes` : "Event changes";
+  const hasRevertPayload =
+    !(event?.before == null || event?.after == null);
 
   const syncScroll = useCallback(
     (source: "before" | "after") =>
@@ -400,24 +401,26 @@ export default function AuditDiffDialog({
           </div>
 
           <div className="border-t border-border/60 px-6 py-4">
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRevertOpen(true)}
-                disabled={!event?.id}
-                className="inline-flex items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-              >
-                Revert
-              </button>
-              <button
-                type="button"
-                onClick={() => setMergeOpen(true)}
-                disabled={!event?.id}
-                className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-indigo-600 via-purple-600 to-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-200/40 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-              >
-                Merger
-              </button>
-            </div>
+            {hasRevertPayload && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRevertOpen(true)}
+                  disabled={!event?.id}
+                  className="inline-flex items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                >
+                  Revert
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMergeOpen(true)}
+                  disabled={!event?.id}
+                  className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-indigo-600 via-purple-600 to-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-200/40 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                >
+                  Merger
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -426,6 +429,8 @@ export default function AuditDiffDialog({
         open={revertOpen}
         onOpenChange={setRevertOpen}
         queryId={event?.entityId ?? null}
+        entityType={event?.type ?? null}
+        flowName={event?.flowName ?? null}
         mode="revert"
         onSuccess={() => {
           onOpenChange(false);
@@ -436,6 +441,8 @@ export default function AuditDiffDialog({
         open={mergeOpen}
         onOpenChange={setMergeOpen}
         queryId={event?.entityId ?? null}
+        entityType={event?.type ?? null}
+        flowName={event?.flowName ?? null}
         mode="merge"
         onSuccess={() => {
           onOpenChange(false);
