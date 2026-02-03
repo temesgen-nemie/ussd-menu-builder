@@ -189,6 +189,91 @@ export const createUser = async (payload: {
     }
 };
 
+export const getAssignableUsers = async (flowName: string, payload: { page: number; pageSize: number }) => {
+    try {
+        const response = await api.get(`/admin/flows/${encodeURIComponent(flowName)}/assignable-users`, {
+            params: payload,
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to fetch assignable users");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const assignFlowPermissions = async (
+    flowName: string,
+    payload: {
+        targetUserId: string;
+        user: { userId: string };
+        permissions: { canPublish: boolean; canUpdate: boolean; canDelete: boolean };
+    },
+) => {
+    try {
+        const response = await api.post(
+            `/admin/flows/${encodeURIComponent(flowName)}/permissions/assign`,
+            payload
+        );
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to assign permissions");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const revokeFlowPermissions = async (
+    flowName: string,
+    payload: { targetUserId: string; user: { userId: string } }
+) => {
+    try {
+        const response = await api.post(
+            `/admin/flows/${encodeURIComponent(flowName)}/permissions/revoke`,
+            payload
+        );
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(axiosError.response?.data?.error || "Failed to revoke permissions");
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export type FlowPermissionCheckResponse = {
+  hasPermission: boolean;
+};
+
+export async function checkMyFlowPermission(
+  flowName: string,
+  userId: string
+): Promise<boolean> {
+  const res = await api.get<FlowPermissionCheckResponse>(
+    `/flows/${encodeURIComponent(flowName)}/permissions/check`,
+    {
+      params: { userId },
+    }
+  );
+
+  return Boolean(res.data?.hasPermission);
+}
+
+
 export const suspendUser = async (payload: {
     userId: string;
     suspensionReason: string;

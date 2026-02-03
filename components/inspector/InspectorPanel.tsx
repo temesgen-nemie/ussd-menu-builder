@@ -2,6 +2,9 @@
 
 import React, { useEffect, type CSSProperties } from "react";
 import { useFlowStore } from "../../store/flowStore";
+import { useAuthStore } from "../../store/authStore";
+import { checkMyFlowPermission } from "../../lib/api";
+import { toast } from "sonner";
 import ActionInspector from "./ActionInspector";
 import PromptInspector from "./PromptInspector";
 import StartInspector from "./StartInspector";
@@ -12,21 +15,35 @@ export default function InspectorPanel() {
     nodes,
     selectedNodeId,
     updateNodeData,
+    setNodes,
     closeInspector,
     syncNodeWithBackend,
     inspectorPosition,
   } = useFlowStore();
+  const { user } = useAuthStore();
 
   const node = nodes.find((n) => n.id === selectedNodeId);
 
   // Track the original name to detect changes and send to backend
   const originalNameRef = React.useRef<string | undefined>(undefined);
+  const originalDataRef = React.useRef<Record<string, unknown> | null>(null);
+  const cloneData = (data: Record<string, unknown>) => {
+    if (typeof structuredClone === "function") {
+      return structuredClone(data);
+    }
+    return JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+  };
 
   useEffect(() => {
     if (selectedNodeId && node) {
       const currentName = String(node.data?.name || node.data?.flowName || "");
       if (originalNameRef.current === undefined && currentName) {
         originalNameRef.current = currentName;
+      }
+      if (!originalDataRef.current) {
+        originalDataRef.current = cloneData(
+          (node.data ?? {}) as Record<string, unknown>
+        );
       }
     }
   }, [selectedNodeId, node]);
@@ -35,6 +52,7 @@ export default function InspectorPanel() {
   useEffect(() => {
     if (!selectedNodeId) {
       originalNameRef.current = undefined;
+      originalDataRef.current = null;
     }
   }, [selectedNodeId]);
 
@@ -279,11 +297,64 @@ export default function InspectorPanel() {
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
               className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-              onClick={() => {
-                if (selectedNodeId) {
-                  syncNodeWithBackend(selectedNodeId, originalNameRef.current);
+              onClick={async () => {
+                if (!selectedNodeId) {
+                  closeInspector();
+                  return;
                 }
-                closeInspector();
+                try {
+                  const nodeToSync = nodes.find((n) => n.id === selectedNodeId);
+                  const parentGroupId = nodeToSync?.parentNode;
+                  const groupChildren = parentGroupId
+                    ? nodes.filter((n) => n.parentNode === parentGroupId)
+                    : [];
+                  const startNode = groupChildren.find(
+                    (n) => n.type === "start"
+                  );
+                  const flowName = (
+                    startNode?.data as { flowName?: string } | undefined
+                  )?.flowName;
+
+                  if (!flowName) {
+                    toast.error("Flow name not found.");
+                    return;
+                  }
+                  if (!user?.userId) {
+                    toast.error("Missing user information.");
+                    return;
+                  }
+                  if (!user.isAdmin) {
+                    const hasPermission = await checkMyFlowPermission(
+                      flowName,
+                      user.userId
+                    );
+                    if (!hasPermission) {
+                      toast.error(
+                        "You don't have permission to update this flow."
+                      );
+                      if (originalDataRef.current) {
+                        setNodes((prev) =>
+                          prev.map((entry) =>
+                            entry.id === selectedNodeId
+                              ? { ...entry, data: originalDataRef.current ?? entry.data }
+                              : entry
+                          )
+                        );
+                      }
+                      closeInspector();
+                      return;
+                    }
+                  }
+
+                  syncNodeWithBackend(selectedNodeId, originalNameRef.current);
+                  closeInspector();
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to verify permissions."
+                  );
+                }
               }}
             >
               Done

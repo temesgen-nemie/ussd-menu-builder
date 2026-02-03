@@ -26,6 +26,8 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { useFlowStore } from "../store/flowStore";
+import { useAuthStore } from "../store/authStore";
+import { checkMyFlowPermission } from "../lib/api";
 import PromptNode from "./nodes/PromptNode";
 import ActionNode from "./nodes/ActionNode";
 import StartNode from "./nodes/StartNode";
@@ -36,6 +38,7 @@ import GroupJsonModal from "./modals/GroupJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
 import RefreshConfirmModal from "./modals/RefreshConfirmModal";
 import FlowBreadcrumb from "./FlowBreadcrumb";
+import FlowPermissionsDialog from "./permissions/FlowPermissionsDialog";
 import "reactflow/dist/style.css";
 
 const nodeTypes = {
@@ -52,11 +55,16 @@ export default function FlowCanvas() {
     top: number;
     left: number;
   } | null>(null);
+  const { user } = useAuthStore();
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     flowName: string;
   }>({ isOpen: false, flowName: "" });
+  const [permissionsDialog, setPermissionsDialog] = useState<{
+    open: boolean;
+    flowName: string | null;
+  }>({ open: false, flowName: null });
 
   const {
     nodes,
@@ -776,7 +784,7 @@ export default function FlowCanvas() {
         {menu && (
           <div
             style={{ top: menu.top, left: menu.left }}
-            className="fixed z-[1000] bg-white/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-2xl border border-indigo-50 py-1.5 w-56 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+            className="fixed z-1000 bg-white/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-2xl border border-indigo-50 py-1.5 w-56 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
             onClick={() => setMenu(null)}
           >
             {menu.id === "selection" ? (
@@ -894,12 +902,48 @@ export default function FlowCanvas() {
                           ? "text-indigo-600 hover:bg-indigo-50"
                           : "text-emerald-600 hover:bg-emerald-50"
                       }`}
-                      onClick={() => {
+                      onClick={async () => {
                         const groupNode = nodes.find((n) => n.id === menu.id);
-                        if (groupNode) {
+                        if (!groupNode) return;
+                        const children = nodes.filter(
+                          (n) => n.parentNode === menu.id,
+                        );
+                        const startNode = children.find(
+                          (n) => n.type === "start",
+                        );
+                        const flowName = (
+                          startNode?.data as { flowName?: string } | undefined
+                        )?.flowName;
+                        if (!flowName) {
+                          toast.error("Flow name not found.");
+                          return;
+                        }
+                        if (!user?.userId) {
+                          toast.error("Missing user information.");
+                          return;
+                        }
+                        try {
+                          if (!user.isAdmin) {
+                            const hasPermission = await checkMyFlowPermission(
+                              flowName,
+                              user.userId,
+                            );
+                            if (!hasPermission) {
+                              toast.error(
+                                "You don't have permission to update this flow."
+                              );
+                              return;
+                            }
+                          }
                           updateNodeData(groupNode.id, {
                             isMenuBranch: !groupNode.data.isMenuBranch,
                           });
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Failed to verify permissions."
+                          );
                         }
                       }}
                     >
@@ -952,7 +996,51 @@ export default function FlowCanvas() {
                       View Group JSON
                     </button>
                     {(() => {
-                      const groupNode = nodes.find((n) => n.id === menu.id);
+                      const children = nodes.filter(
+                        (n) => n.parentNode === menu.id,
+                      );
+                      const startNode = children.find(
+                        (n) => n.type === "start",
+                      );
+                      const flowName = (
+                        startNode?.data as { flowName?: string } | undefined
+                      )?.flowName;
+                      if (!user?.isAdmin) return null;
+
+                      return (
+                        <button
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-sky-600 hover:bg-sky-50 font-bold transition-all group/item"
+                          onClick={() => {
+                            if (!flowName) {
+                              toast.error("Flow name not found.");
+                              return;
+                            }
+                            setPermissionsDialog({ open: true, flowName });
+                            setMenu(null);
+                          }}
+                        >
+                          <div className="p-1.5 bg-sky-100 rounded-lg group-hover/item:bg-sky-600 group-hover/item:text-white transition-colors">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2.5}
+                                d="M12 6V4m0 0a2 2 0 00-2 2m2-2a2 2 0 012 2m-2 0v2m0 4v6m0 0a2 2 0 002 2m-2-2a2 2 0 01-2 2m0-8H6m0 0a2 2 0 012-2m-2 2a2 2 0 002 2m8-2h2m0 0a2 2 0 00-2-2m2 2a2 2 0 01-2 2"
+                              />
+                            </svg>
+                          </div>
+                          Manage Access
+                        </button>
+                      );
+                    })()}
+                    {(() => {
+                      // const groupNode = nodes.find((n) => n.id === menu.id);
                       const children = nodes.filter(
                         (n) => n.parentNode === menu.id,
                       );
@@ -994,11 +1082,40 @@ export default function FlowCanvas() {
                         <div className="flex flex-col gap-0.5">
                           <button
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
-                            onClick={() => {
-                              useFlowStore
-                                .getState()
-                                .updatePublishedFlow(menu.id);
-                              setMenu(null);
+                            onClick={async () => {
+                              if (!flowName) {
+                                toast.error("Flow name not found.");
+                                return;
+                              }
+                              if (!user?.userId) {
+                                toast.error("Missing user information.");
+                                return;
+                              }
+                              try {
+                                if (!user.isAdmin) {
+                                  const hasPermission =
+                                    await checkMyFlowPermission(
+                                      flowName,
+                                      user.userId
+                                    );
+                                  if (!hasPermission) {
+                                    toast.error(
+                                      "You don't have permission to update this flow."
+                                    );
+                                    return;
+                                  }
+                                }
+                                useFlowStore
+                                  .getState()
+                                  .updatePublishedFlow(menu.id);
+                                setMenu(null);
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "Failed to verify permissions."
+                                );
+                              }
                             }}
                           >
                             <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
@@ -1017,7 +1134,7 @@ export default function FlowCanvas() {
                                 />
                               </svg>
                             </div>
-                            <div className="flex flex-col items-start translate-y-[1px]">
+                            <div className="flex flex-col items-start translate-y-px">
                               <span>Update to Backend</span>
                               <span className="text-[9px] text-indigo-400 font-medium leading-none">
                                 {isModified
@@ -1028,9 +1145,38 @@ export default function FlowCanvas() {
                           </button>
                           <button
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 font-bold transition-all group/item border-b border-gray-50"
-                            onClick={() => {
-                              setDeleteModal({ isOpen: true, flowName });
-                              setMenu(null);
+                            onClick={async () => {
+                              if (!flowName) {
+                                toast.error("Flow name not found.");
+                                return;
+                              }
+                              if (!user?.userId) {
+                                toast.error("Missing user information.");
+                                return;
+                              }
+                              try {
+                                if (!user.isAdmin) {
+                                  const hasPermission =
+                                    await checkMyFlowPermission(
+                                      flowName,
+                                      user.userId
+                                    );
+                                  if (!hasPermission) {
+                                    toast.error(
+                                      "You don't have permission to delete this flow."
+                                    );
+                                    return;
+                                  }
+                                }
+                                setDeleteModal({ isOpen: true, flowName });
+                                setMenu(null);
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "Failed to verify permissions."
+                                );
+                              }
                             }}
                           >
                             <div className="p-1.5 bg-rose-100 rounded-lg group-hover/item:bg-rose-600 group-hover/item:text-white transition-colors">
@@ -1079,7 +1225,47 @@ export default function FlowCanvas() {
                               ? "text-gray-400 cursor-not-allowed bg-gray-50"
                               : "text-red-600 hover:bg-red-50"
                           }`}
-                          onClick={() => ungroupNodes(menu.id)}
+                          onClick={async () => {
+                            if (isUngroupBlocked) return;
+                            const startNode = children.find(
+                              (n) => n.type === "start",
+                            );
+                            const flowName = (
+                              startNode?.data as
+                                | { flowName?: string }
+                                | undefined
+                            )?.flowName;
+                            if (!flowName) {
+                              toast.error("Flow name not found.");
+                              return;
+                            }
+                            if (!user?.userId) {
+                              toast.error("Missing user information.");
+                              return;
+                            }
+                            try {
+                              if (!user.isAdmin) {
+                                const hasPermission =
+                                  await checkMyFlowPermission(
+                                    flowName,
+                                    user.userId,
+                                  );
+                                if (!hasPermission) {
+                                  toast.error(
+                                    "You don't have permission to update this flow."
+                                  );
+                                  return;
+                                }
+                              }
+                              ungroupNodes(menu.id);
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Failed to verify permissions."
+                              );
+                            }
+                          }}
                         >
                           <div
                             className={`p-1.5 rounded-lg transition-colors ${
@@ -1103,7 +1289,7 @@ export default function FlowCanvas() {
                               />
                             </svg>
                           </div>
-                          <div className="flex flex-col items-start translate-y-[1px]">
+                          <div className="flex flex-col items-start translate-y-px">
                             <span>Ungroup Items</span>
                             {isUngroupBlocked && (
                               <span className="text-[9px] font-medium text-red-500 leading-none">
@@ -1183,6 +1369,13 @@ export default function FlowCanvas() {
           onClose={() => setDeleteModal({ isOpen: false, flowName: "" })}
         />
       )}
+      <FlowPermissionsDialog
+        open={permissionsDialog.open}
+        onOpenChange={(open) =>
+          setPermissionsDialog((prev) => ({ ...prev, open }))
+        }
+        flowName={permissionsDialog.flowName}
+      />
     </div>
   );
 }
