@@ -23,6 +23,7 @@ type AuditHistoryItem = {
   id: string;
   createdAt: string;
   name?: string | null;
+  userName?: string | null;
   entityId?: string | null;
   before?: unknown;
   after?: unknown;
@@ -279,7 +280,12 @@ export default function AuditRevertDialog({
       const from = new Date(0).toISOString();
       const to = new Date().toISOString();
       const data = await getAuditEvents({ from, to, limit: 50, page: 1, q: queryId });
-      const entries: AuditHistoryItem[] = Array.isArray(data?.data) ? data.data : [];
+      const entries: AuditHistoryItem[] = Array.isArray(data?.data)
+        ? data.data.map((entry: AuditHistoryItem & { username?: string | null }) => ({
+            ...entry,
+            userName: entry.userName ?? entry.username ?? null,
+          }))
+        : [];
       setItems(entries);
       setSelectedIndex(0);
       setEditableJson(toJsonText(entries[0]?.after ?? null));
@@ -447,6 +453,9 @@ export default function AuditRevertDialog({
                       <div className="font-semibold">{item.name ?? "Untitled"}</div>
                       <div className="mt-1 text-[10px] text-muted-foreground">
                         {formatTimestamp(item.createdAt)}
+                      </div>
+                      <div className="text-sm text-teal-500">
+                        {item.userName ? item.userName : "Unknown user"}
                       </div>
                     </button>
                   ))}
@@ -621,6 +630,9 @@ export default function AuditRevertDialog({
                       <div className="font-semibold">{item.name ?? "Untitled"}</div>
                       <div className="mt-1 text-[10px] text-muted-foreground">
                         {formatTimestamp(item.createdAt)}
+                      </div>
+                      <div className="text-sm text-teal-500">
+                        {item.userName ? item.userName : "Unknown user"}
                       </div>
                     </button>
                   ))}

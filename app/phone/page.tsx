@@ -178,7 +178,7 @@ export default function PhoneSessionPage() {
           <div className="flex flex-col rounded-3xl bg-[#1c1c1e] p-4 shadow-2xl">
             {isLoading ? (
               <div className="flex min-h-15 items-center justify-center gap-4 text-center">
-                <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white/80" />
+                <span className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/25 border-t-emerald-400" />
                 <div className="text-sm font-semibold">USSD code running ...</div>
               </div>
             ) : requestError ? (
@@ -219,7 +219,7 @@ export default function PhoneSessionPage() {
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
                       onKeyDown={handleKeyPress}
-                      className="w-full border-b border-white/30 bg-transparent p-1 text-center text-lg text-white font-bold outline-none placeholder:text-white/60"
+                      className="w-full border-b-2 border-emerald-500/80 bg-transparent p-1 text-center text-lg text-white font-bold outline-none placeholder:text-white/60 caret-emerald-500"
                     />
                   </div>
                 )}
@@ -238,14 +238,14 @@ export default function PhoneSessionPage() {
                     <div className="grid grid-cols-2">
                       <button
                         onClick={resetSession}
-                        className="py-3 text-sm text-white/80"
+                        className="py-3 text-sm font-semibold text-emerald-400"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleSend}
                         disabled={isLoading || !messageInput.trim()}
-                        className="inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold"
+                        className="inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold text-emerald-400"
                       >
                         Send
                       </button>
