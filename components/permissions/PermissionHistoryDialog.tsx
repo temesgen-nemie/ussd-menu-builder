@@ -15,7 +15,6 @@ type PermissionLogEntry = {
   assigneeUsername?: string | null;
   actionType?: string | null;
   actionByAdminUsername?: string | null;
-  hasAccess?: boolean | null;
 };
 
 type PermissionLogsResponse = {
@@ -298,17 +297,15 @@ export default function PermissionHistoryDialog({
                             <TableHead>Date</TableHead>
                             <TableHead>Action</TableHead>
                             <TableHead>Flow</TableHead>
-                            <TableHead>Assignee</TableHead>
-                            <TableHead>Admin</TableHead>
-                            <TableHead className="text-center">Access</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead>Assigned User</TableHead>
+                            <TableHead>Assigned By</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {isLoading ? (
-                            Array.from({ length: 10}).map((_, row) => (
+                            Array.from({ length: 10 }).map((_, row) => (
                               <TableRow key={`perm-skel-${row}`} className="animate-pulse">
-                                {Array.from({ length: 7 }).map((__, col) => (
+                                {Array.from({ length: 5 }).map((__, col) => (
                                   <TableCell key={`perm-skel-${row}-${col}`}>
                                     <div className="h-3 w-full rounded-full bg-muted/60" />
                                   </TableCell>
@@ -317,7 +314,7 @@ export default function PermissionHistoryDialog({
                             ))
                           ) : logs.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                              <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                                 No permission history found.
                               </TableCell>
                             </TableRow>
@@ -328,15 +325,20 @@ export default function PermissionHistoryDialog({
                                   {formatDate(entry.revokedAt ?? entry.grantedAt)}
                                 </TableCell>
                                 <TableCell className="text-xs font-semibold">
-                                  {entry.actionType ?? (entry.isActive ? "Granted" : "Revoked")}
+                                  <span
+                                    className={
+                                      (entry.actionType ?? (entry.isActive ? "Granted" : "Revoked")) ===
+                                      "Granted"
+                                        ? "inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"
+                                        : "inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-800"
+                                    }
+                                  >
+                                    {entry.actionType ?? (entry.isActive ? "Granted" : "Revoked")}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-xs">{entry.flowName}</TableCell>
                                 <TableCell className="text-xs">{entry.assigneeUsername ?? "—"}</TableCell>
                                 <TableCell className="text-xs">{entry.actionByAdminUsername ?? "—"}</TableCell>
-                                <TableCell className="text-center text-xs">
-                                  {entry.hasAccess == null ? "—" : entry.hasAccess ? "Yes" : "No"}
-                                </TableCell>
-                                <TableCell className="text-xs">{entry.isActive ? "Active" : "Revoked"}</TableCell>
                               </TableRow>
                             ))
                           )}
