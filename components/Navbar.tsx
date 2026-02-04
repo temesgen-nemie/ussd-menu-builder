@@ -20,7 +20,7 @@ export default function Navbar() {
       <div className="flex items-center justify-between px-6 py-2">
         <NodeToolbar />
 
-        <div className="absolute left-[55%] transform -translate-x-1/2 flex items-center gap-2 flex-wrap justify-center">
+        <div className="absolute left-[65%] transform -translate-x-1/2 flex items-center gap-2 flex-wrap justify-center">
           <button
             onClick={() => setSimulatorOpen(true)}
             className="flex items-center gap-2 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
@@ -51,15 +51,15 @@ export default function Navbar() {
             </span>
             Logs
           </button>
-            <button
-              onClick={() => setAuditOpen(true)}
-              className="flex items-center gap-2 rounded-md bg-linear-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
-            >
-              <span className="rounded-sm bg-white/20 p-1">
-                <ShieldCheck className="h-4 w-4 text-white" />
-              </span>
-              Audit Events
-            </button>
+          <button
+            onClick={() => setAuditOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-linear-to-r from-emerald-500/80 via-teal-500/80 to-cyan-500/80 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm shadow-emerald-200/30 backdrop-blur hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 transition-all cursor-pointer"
+          >
+            <span className="rounded-sm bg-white/20 p-1">
+              <ShieldCheck className="h-4 w-4 text-white" />
+            </span>
+            Audit Events
+          </button>
         </div>
 
         <div className="flex items-center gap-2">

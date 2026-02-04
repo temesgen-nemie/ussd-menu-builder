@@ -156,18 +156,42 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const resolveTarget = (value?: string | unknown) => {
     if (typeof value !== "string" || !value) return { id: "", name: "" };
 
-    // 1. Check if the value is a known ID
+    // 1. Initial lookup
+    let targetId = "";
     if (nameById.has(value)) {
-      return { id: value, name: nameById.get(value) || "" };
+      targetId = value;
+    } else if (idByName.has(value)) {
+      targetId = idByName.get(value) || "";
+    } else {
+      return { id: "", name: value };
     }
 
-    // 2. Check if the value is a known Name
-    if (idByName.has(value)) {
-      return { id: idByName.get(value) || "", name: value };
+    // 2. Follow Funnels recursively
+    let currentId = targetId;
+    const visited = new Set<string>();
+    while (typeById.get(currentId) === "funnel") {
+      if (visited.has(currentId)) break; // Loop protection
+      visited.add(currentId);
+
+      const funnelNode = nodes.find((n) => n.id === currentId);
+      const funnelNext = funnelNode?.data?.nextNode;
+      if (typeof funnelNext === "string" && funnelNext) {
+        // Find next target by ID or name
+        if (nameById.has(funnelNext)) {
+          currentId = funnelNext;
+        } else if (idByName.has(funnelNext)) {
+          currentId = idByName.get(funnelNext) || "";
+        } else {
+          // Pointing to something unknown
+          return { id: "", name: funnelNext };
+        }
+      } else {
+        // Unconnected funnel
+        return { id: "", name: "" };
+      }
     }
 
-    // 3. Fallback: treat as name but ID unknown
-    return { id: "", name: value };
+    return { id: currentId, name: nameById.get(currentId) || "" };
   };
 
   const startNode = nodes.find((node) => node.type === "start");
@@ -177,7 +201,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const entryResolved = resolveTarget(entryNodeRaw);
 
   const flowNodes: FlowNode[] = nodes
-    .filter((node) => node.type !== "start" && node.type !== "group")
+    .filter((node) => node.type !== "start" && node.type !== "group" && node.type !== "funnel")
     .map((node) => {
       const data = (node.data as Record<string, unknown>) || {};
       const base: FlowNode = {
@@ -546,6 +570,7 @@ interface FlowState {
   };
   openRefreshConfirm: (type: "global" | "group", flowName?: string, groupId?: string) => void;
   closeRefreshConfirm: () => void;
+  resolveTargetId: (id: string) => { id: string; name: string };
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -584,6 +609,57 @@ export const useFlowStore = create<FlowState>()(
       closeRefreshConfirm: () => set({
         refreshConfirmModal: { isOpen: false, type: "global" }
       }),
+      resolveTargetId: (id: string) => {
+        const { nodes } = get();
+        if (!id) return { id: "", name: "" };
+
+        let currentId = id;
+
+        // Initial lookup: If not found as ID, maybe it's a Name
+        const nodeById = nodes.find(n => n.id === currentId);
+        if (!nodeById) {
+          const nodeByName = nodes.find(n => n.data?.name === currentId);
+          if (nodeByName) {
+            currentId = nodeByName.id;
+          }
+        }
+
+        const visited = new Set<string>();
+
+        while (true) {
+          const node = nodes.find(n => n.id === currentId);
+          if (!node || (node.type as string) !== "funnel") break;
+
+          if (visited.has(currentId)) break; // Loop protection
+          visited.add(currentId);
+
+          const next = node.data?.nextNode;
+          if (typeof next === "string" && next) {
+            // Check if next is ID
+            if (nodes.some(n => n.id === next)) {
+              currentId = next;
+            } else {
+              // Check if next is Name
+              const targetByName = nodes.find(n => n.data?.name === next);
+              if (targetByName) {
+                currentId = targetByName.id;
+              } else {
+                // Unknown name/id
+                return { id: next, name: next };
+              }
+            }
+          } else {
+            // Unconnected funnel
+            return { id: "", name: "" };
+          }
+        }
+
+        const finalNode = nodes.find(n => n.id === currentId);
+        return {
+          id: currentId,
+          name: finalNode?.data?.name || (finalNode?.type === "start" ? "Flow Entry" : "") || ""
+        };
+      },
 
       updatePublishedFlow: async (groupId: string) => {
         const { nodes, edges, modifiedGroupIds } = get();
@@ -1628,6 +1704,14 @@ export const useFlowStore = create<FlowState>()(
               return;
             }
 
+            if (sourceNode.type === "funnel") {
+              updateNodeDataLocal(sourceNode.id, (data) => ({
+                ...data,
+                nextNode: "",
+              }));
+              return;
+            }
+
             if (sourceNode.type === "start") {
               updateNodeDataLocal(sourceNode.id, (data) => ({
                 ...data,
@@ -1652,7 +1736,7 @@ export const useFlowStore = create<FlowState>()(
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
-          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition";
+          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "funnel";
 
           const el = document.querySelector(
             `.react-flow__node[data-id="${id}"]`
