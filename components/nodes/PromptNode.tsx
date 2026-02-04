@@ -18,6 +18,7 @@ type PromptNodeData = {
   message?: string;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
+  inputValidationEnabled?: boolean;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;

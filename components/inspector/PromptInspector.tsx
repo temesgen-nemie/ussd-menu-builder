@@ -27,6 +27,7 @@ type PromptNodeData = {
   message?: string;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
+  inputValidationEnabled?: boolean;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
@@ -957,7 +958,7 @@ export default function PromptInspector({
               <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Input Validation</h3>
+              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Index Validation</h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -992,11 +993,39 @@ export default function PromptInspector({
                     placeholder="Invalid selection. Please try again."
                   />
                 </div>
-                <div className="flex flex-col gap-3 justify-center">
-                  <div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Input Validation</h3>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.inputValidationEnabled)}
+                onChange={(e) =>
+                  updateNodeData(node.id, { inputValidationEnabled: e.target.checked })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+
+          {node.data.inputValidationEnabled && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex flex-col space-y-5">
+                <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Type</label>
                   <select
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900"
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-500:bg-white transition-all text-gray-900"
                     value={String(node.data.inputType ?? "STRING")}
                     onChange={(e) =>
                       updateNodeData(node.id, { inputType: e.target.value })
@@ -1008,11 +1037,12 @@ export default function PromptInspector({
                     <option value="INTEGER">INTEGER</option>
                     <option value="STRING">STRING</option>
                   </select>
-                  </div>
-                  <div>
+                </div>
+                <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Input</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900"
+                  <textarea
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-500 hite transition-all text-gray-900 resize-none"
+                    rows={2}
                     value={String(node.data.invalidInputTypeMessage ?? "")}
                     onChange={(e) =>
                       updateNodeData(node.id, {
@@ -1021,7 +1051,6 @@ export default function PromptInspector({
                     }
                     placeholder="Input must be a valid string."
                   />
-                  </div>
                 </div>
               </div>
             </div>
