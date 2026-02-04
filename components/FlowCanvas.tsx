@@ -830,7 +830,7 @@ export default function FlowCanvas() {
         fitView
         deleteKeyCode={null}
       >
-        <Background gap={20} color="#f1f5f9" />
+        <Background gap={20} color="hsl(var(--foreground) / 0.08)" />
         <Controls className="bg-white border-2 border-gray-100 shadow-xl rounded-xl" />
         <MiniMap
           pannable
