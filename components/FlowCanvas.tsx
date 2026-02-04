@@ -210,7 +210,7 @@ export default function FlowCanvas() {
               !targetNode.data.name &&
               targetNode.type !== "group" &&
               targetNode.type !== "funnel" &&
-              sourceNode?.type !== "funnel"
+              (sourceNode?.type as string) !== "funnel"
             ) {
               toast.error("Unnamed Target Node", {
                 description: "The target node must have a name before you can connect to it.",
@@ -354,7 +354,7 @@ export default function FlowCanvas() {
               !targetNode.data.name &&
               targetNode.type !== "group" &&
               targetNode.type !== "funnel" &&
-              sourceNode?.type !== "funnel"
+              (sourceNode?.type as string) !== "funnel"
             ) {
               toast.error("Unnamed Target Node", {
                 description: "The target node must have a name before you can connect to it.",
@@ -392,7 +392,7 @@ export default function FlowCanvas() {
                   !targetNode.data.name &&
                   targetNode.type !== "group" &&
                   targetNode.type !== "funnel" &&
-                  sourceNode?.type !== "funnel"
+                  (sourceNode?.type as string) !== "funnel"
                 ) {
                   toast.error("Unnamed Target Node", {
                     description: "The target node must have a name before you can connect to it.",
@@ -461,7 +461,7 @@ export default function FlowCanvas() {
             !targetNode.data.name &&
             targetNode.type !== "group" &&
             targetNode.type !== "funnel" &&
-            sourceNode?.type !== "funnel"
+            (sourceNode?.type as string) !== "funnel"
           ) {
             toast.error("Unnamed Target Node", {
               description: "The target node must have a name before you can connect to it.",
@@ -479,7 +479,7 @@ export default function FlowCanvas() {
             !targetNode.data.name &&
             targetNode.type !== "group" &&
             targetNode.type !== "funnel" &&
-            sourceNode?.type !== "funnel"
+            (sourceNode?.type as string) !== "funnel"
           ) {
             toast.error("Unnamed Target Node", {
               description: "The target node must have a name before you can connect to it.",
@@ -497,7 +497,7 @@ export default function FlowCanvas() {
             !targetNode.data.name &&
             targetNode.type !== "group" &&
             targetNode.type !== "funnel" &&
-            sourceNode?.type !== "funnel"
+            (sourceNode?.type as string) !== "funnel"
           ) {
             toast.error("Unnamed Entry Node", {
               description: "The entry node must have a name before you can connect to it.",
