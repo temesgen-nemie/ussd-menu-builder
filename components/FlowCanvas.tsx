@@ -25,6 +25,7 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import { useFlowStore } from "../store/flowStore";
 import { useAuthStore } from "../store/authStore";
 import { checkMyFlowPermission } from "../lib/api";
@@ -57,6 +58,11 @@ export default function FlowCanvas() {
     top: number;
     left: number;
   } | null>(null);
+  const { resolvedTheme } = useTheme();
+  const backgroundDotColor =
+    resolvedTheme === "dark"
+      ? "rgba(255, 255, 255, 004)"
+      : "rgba(15, 23, 42, 0.8)";
   const { user } = useAuthStore();
 
   const [deleteModal, setDeleteModal] = useState<{
@@ -830,7 +836,7 @@ export default function FlowCanvas() {
         fitView
         deleteKeyCode={null}
       >
-        <Background gap={20} color="hsl(var(--foreground) / 0.08)" />
+        <Background gap={20} color={backgroundDotColor} />
         <Controls className="bg-white border-2 border-gray-100 shadow-xl rounded-xl" />
         <MiniMap
           pannable
