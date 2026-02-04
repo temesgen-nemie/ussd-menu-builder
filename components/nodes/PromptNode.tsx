@@ -16,6 +16,8 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
+  invalidInputTypeMessage?: string;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
@@ -23,7 +25,7 @@ type PromptNodeData = {
   persistFieldName?: string;
   validateIndexedList?: boolean;
   indexedListVar?: string;
-  invalidInputMessage?: string;
+  invalidIndexMessage?: string;
   emptyInputMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
