@@ -27,6 +27,8 @@ export type FlowNode = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
+  invalidInputTypeMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
   endpoint?: string;
@@ -223,6 +225,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(data.invalidInputMessage ?? "");
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
+        const inputType = String(data.inputType ?? "");
+        const invalidInputTypeMessage = String(
+          data.invalidInputTypeMessage ?? ""
+        );
         const promptExtras: Partial<FlowNode> = {
           persistByIndex:
             typeof data.persistByIndex === "boolean"
@@ -237,6 +243,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
+          inputType: (inputType || undefined) as FlowNode["inputType"],
+          invalidInputTypeMessage: invalidInputTypeMessage || undefined,
           persistInput:
             typeof data.persistInput === "boolean"
               ? data.persistInput
@@ -2244,6 +2252,10 @@ export const useFlowStore = create<FlowState>()(
               flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
             nextData.emptyInputMessage =
               flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
+            nextData.inputType = flowNode.inputType ?? nextData.inputType;
+            nextData.invalidInputTypeMessage =
+              flowNode.invalidInputTypeMessage ??
+              nextData.invalidInputTypeMessage;
             nextData.encryptInput =
               typeof flowNode.encryptInput === "boolean"
                 ? flowNode.encryptInput
