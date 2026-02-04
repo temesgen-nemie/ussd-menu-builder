@@ -25,6 +25,8 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
+  invalidInputTypeMessage?: string;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
@@ -32,7 +34,7 @@ type PromptNodeData = {
   persistFieldName?: string;
   validateIndexedList?: boolean;
   indexedListVar?: string;
-  invalidInputMessage?: string;
+  invalidIndexMessage?: string;
   emptyInputMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
@@ -695,7 +697,7 @@ export default function PromptInspector({
                                     </button>
                                   </div>
                                   {activeFlowSearchIdx === idx && (
-                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-9999 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                       {/* Clear / Current Flow Option */}
                                       <button
                                         onMouseDown={(e) => {
@@ -724,7 +726,7 @@ export default function PromptInspector({
                                             );
 
                                         if (filtered.length === 0 && (route.goBackToFlow || "").length > 0) {
-                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No flows matching "{(route.goBackToFlow || "")}"</div>;
+                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No flows matching &quot;{(route.goBackToFlow || "")}&quot;</div>;
                                         }
 
                                         return filtered.map((name) => (
@@ -981,24 +983,45 @@ export default function PromptInspector({
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Input Message</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Index Message</label>
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
-                    value={String(node.data.invalidInputMessage ?? "")}
-                    onChange={(e) => updateNodeData(node.id, { invalidInputMessage: e.target.value })}
+                    value={String(node.data.invalidIndexMessage ?? "")}
+                    onChange={(e) => updateNodeData(node.id, { invalidIndexMessage: e.target.value })}
                     placeholder="Invalid selection. Please try again."
                   />
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Empty Input Message</label>
-                  <textarea
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900 resize-none"
-                    rows={2}
-                    value={String(node.data.emptyInputMessage ?? "")}
-                    onChange={(e) => updateNodeData(node.id, { emptyInputMessage: e.target.value })}
-                    placeholder="Input cannot be empty."
+                <div className="flex flex-col gap-3 justify-center">
+                  <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Type</label>
+                  <select
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900"
+                    value={String(node.data.inputType ?? "STRING")}
+                    onChange={(e) =>
+                      updateNodeData(node.id, { inputType: e.target.value })
+                    }
+                  >
+                    <option value="NON_ZERO_FLOAT">NON_ZERO_FLOAT</option>
+                    <option value="NON_ZERO_INT">NON_ZERO_INT</option>
+                    <option value="FLOAT">FLOAT</option>
+                    <option value="INTEGER">INTEGER</option>
+                    <option value="STRING">STRING</option>
+                  </select>
+                  </div>
+                  <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Input</label>
+                  <input
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900"
+                    value={String(node.data.invalidInputTypeMessage ?? "")}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        invalidInputTypeMessage: e.target.value,
+                      })
+                    }
+                    placeholder="Input must be a valid string."
                   />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1035,7 +1058,7 @@ export default function PromptInspector({
                 }}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-purple-500"></div>
+              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-px after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-purple-500"></div>
             </label>
           </div>
 
