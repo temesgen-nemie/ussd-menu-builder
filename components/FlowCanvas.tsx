@@ -834,6 +834,7 @@ export default function FlowCanvas() {
           setRfInstance(inst);
         }}
         fitView
+        minZoom={0.2}
         deleteKeyCode={null}
       >
         <Background gap={20} color={backgroundDotColor} />
