@@ -583,8 +583,8 @@ export const getPermissionLogs = async (params: {
     page: number;
     pageSize: number;
     flowName?: string;
-    assigneeId?: string;
-    adminId?: string;
+    assigneeName?: string;
+    adminName?: string;
     dateFrom?: string;
     dateTo?: string;
 }) => {
