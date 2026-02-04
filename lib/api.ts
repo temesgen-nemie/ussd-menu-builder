@@ -579,4 +579,31 @@ export const getAuditEvents = async (params: {
     }
 };
 
+export const getPermissionLogs = async (params: {
+    page: number;
+    pageSize: number;
+    flowName?: string;
+    assigneeId?: string;
+    adminId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+}) => {
+    try {
+        const response = await api.get("/admin/logs/permissions", { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to fetch permission logs (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
 export default api;
