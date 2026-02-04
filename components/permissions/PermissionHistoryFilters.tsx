@@ -18,8 +18,8 @@ import { ChevronDownIcon } from "lucide-react";
 
 type PermissionHistoryFiltersProps = {
   flowName: string;
-  assigneeId: string;
-  adminId: string;
+  assigneeName: string;
+  adminName: string;
   dateFrom: string;
   dateTo: string;
   pageSize: number;
@@ -28,8 +28,8 @@ type PermissionHistoryFiltersProps = {
   isResetting: boolean;
   onChange: (next: {
     flowName: string;
-    assigneeId: string;
-    adminId: string;
+    assigneeName: string;
+    adminName: string;
     dateFrom: string;
     dateTo: string;
     pageSize: number;
@@ -42,8 +42,8 @@ const parseDate = (value: string) => (value ? new Date(value) : null);
 
 export default function PermissionHistoryFilters({
   flowName,
-  assigneeId,
-  adminId,
+  assigneeName,
+  adminName,
   dateFrom,
   dateTo,
   pageSize,
@@ -72,8 +72,8 @@ export default function PermissionHistoryFilters({
             onChange={(e) =>
               onChange({
                 flowName: e.target.value,
-                assigneeId,
-                adminId,
+                assigneeName,
+                adminName,
                 dateFrom,
                 dateTo,
                 pageSize,
@@ -84,42 +84,42 @@ export default function PermissionHistoryFilters({
         </div>
         <div className="flex flex-col gap-3">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
-            Assignee ID
+            Assignee Name
           </Label>
           <input
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
-            value={assigneeId}
+            value={assigneeName}
             onChange={(e) =>
               onChange({
                 flowName,
-                assigneeId: e.target.value,
-                adminId,
+                assigneeName: e.target.value,
+                adminName,
                 dateFrom,
                 dateTo,
                 pageSize,
               })
             }
-            placeholder="User ID"
+            placeholder="Assignee name"
           />
         </div>
         <div className="flex flex-col gap-3">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
-            Admin ID
+            Admin Name
           </Label>
           <input
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
-            value={adminId}
+            value={adminName}
             onChange={(e) =>
               onChange({
                 flowName,
-                assigneeId,
-                adminId: e.target.value,
+                assigneeName,
+                adminName: e.target.value,
                 dateFrom,
                 dateTo,
                 pageSize,
               })
             }
-            placeholder="Admin ID"
+            placeholder="Admin name"
           />
         </div>
         <div className="flex flex-col gap-3">
@@ -144,8 +144,8 @@ export default function PermissionHistoryFilters({
                 onSelect={(date) => {
                   onChange({
                     flowName,
-                    assigneeId,
-                    adminId,
+                    assigneeName,
+                    adminName,
                     dateFrom: date ? date.toISOString() : "",
                     dateTo,
                     pageSize,
@@ -178,8 +178,8 @@ export default function PermissionHistoryFilters({
                 onSelect={(date) => {
                   onChange({
                     flowName,
-                    assigneeId,
-                    adminId,
+                    assigneeName,
+                    adminName,
                     dateFrom,
                     dateTo: date ? date.toISOString() : "",
                     pageSize,
@@ -199,8 +199,8 @@ export default function PermissionHistoryFilters({
             onValueChange={(value) =>
               onChange({
                 flowName,
-                assigneeId,
-                adminId,
+                assigneeName,
+                adminName,
                 dateFrom,
                 dateTo,
                 pageSize: Number(value),

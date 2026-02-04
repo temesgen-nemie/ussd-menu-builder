@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/authStore";
 import { assignFlowPermissions, getAssignableUsers, revokeFlowPermissions } from "@/lib/api";
 import { toast } from "sonner";
+import PaginationControls from "@/components/ui/pagination-controls";
 import {
   Table,
   TableBody,
@@ -87,8 +88,6 @@ export default function FlowPermissionsDialog({
     load();
   }, [flowName, open, page]);
 
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
 
   const handleAssignToggle = (userId: string) => {
     setPermissions((prev) => {
@@ -267,24 +266,13 @@ export default function FlowPermissionsDialog({
               <span>
                 Page {page} of {totalPages}
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-                  disabled={!canPrev}
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-                  disabled={!canNext}
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                >
-                  Next
-                </button>
-              </div>
+              <PaginationControls
+                page={page}
+                totalPages={totalPages}
+                disabled={isLoading}
+                onPageChange={setPage}
+                className="w-auto"
+              />
               <Button
                 type="button"
                 onClick={handleSave}

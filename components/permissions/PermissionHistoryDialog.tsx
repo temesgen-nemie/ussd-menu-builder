@@ -4,14 +4,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getPermissionLogs } from "@/lib/api";
 import PermissionHistoryFilters from "./PermissionHistoryFilters";
+import PaginationControls from "@/components/ui/pagination-controls";
 
 type PermissionLogEntry = {
   id: string;
-  userId: string;
   flowName: string;
-  grantedByAdminId: string | null;
   grantedAt: string | null;
-  revokedByAdminId: string | null;
   revokedAt: string | null;
   isActive: boolean;
   assigneeUsername?: string | null;
@@ -76,16 +74,16 @@ export default function PermissionHistoryDialog({
 
   const [filters, setFilters] = useState({
     flowName: "",
-    assigneeId: "",
-    adminId: "",
+    assigneeName: "",
+    adminName: "",
     dateFrom: "",
     dateTo: "",
   });
   const defaultFilters = useMemo(
     () => ({
       flowName: "",
-      assigneeId: "",
-      adminId: "",
+      assigneeName: "",
+      adminName: "",
       dateFrom: "",
       dateTo: "",
     }),
@@ -103,8 +101,8 @@ export default function PermissionHistoryDialog({
       page,
       pageSize,
       flowName: filters.flowName || undefined,
-      assigneeId: filters.assigneeId || undefined,
-      adminId: filters.adminId || undefined,
+      assigneeName: filters.assigneeName || undefined,
+      adminName: filters.adminName || undefined,
       dateFrom,
       dateTo,
     };
@@ -171,8 +169,8 @@ export default function PermissionHistoryDialog({
         page: 1,
         pageSize,
         flowName: filters.flowName || undefined,
-        assigneeId: filters.assigneeId || undefined,
-        adminId: filters.adminId || undefined,
+        assigneeName: filters.assigneeName || undefined,
+        adminName: filters.adminName || undefined,
         dateFrom: filters.dateFrom ? new Date(filters.dateFrom).toISOString() : undefined,
         dateTo: filters.dateTo ? new Date(filters.dateTo).toISOString() : undefined,
       })) as PermissionLogsResponse;
@@ -265,8 +263,8 @@ export default function PermissionHistoryDialog({
           <div className="flex h-full min-h-0 flex-col gap-4">
             <PermissionHistoryFilters
               flowName={filters.flowName}
-              assigneeId={filters.assigneeId}
-              adminId={filters.adminId}
+              assigneeName={filters.assigneeName}
+              adminName={filters.adminName}
               dateFrom={filters.dateFrom}
               dateTo={filters.dateTo}
               pageSize={pageSize}
@@ -276,8 +274,8 @@ export default function PermissionHistoryDialog({
               onChange={(next) => {
                 setFilters({
                   flowName: next.flowName,
-                  assigneeId: next.assigneeId,
-                  adminId: next.adminId,
+                  assigneeName: next.assigneeName,
+                  adminName: next.adminName,
                   dateFrom: next.dateFrom,
                   dateTo: next.dateTo,
                 });
@@ -349,28 +347,17 @@ export default function PermissionHistoryDialog({
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
                 <div>
                   Page {page} of {totalPages}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                    disabled={isLoading || page <= 1}
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={isLoading || page >= totalPages}
-                  >
-                    Next
-                  </button>
-                </div>
+                <PaginationControls
+                  page={page}
+                  totalPages={totalPages}
+                  disabled={isLoading}
+                  onPageChange={setPage}
+                  className="w-auto"
+                />
               </div>
             </div>
           </div>

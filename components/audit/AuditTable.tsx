@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAuditEvents } from "@/lib/api";
 import AuditFilters from "@/components/audit/AuditFilters";
 import AuditDiffDialog from "@/components/audit/AuditDiffDialog";
+import PaginationControls from "@/components/ui/pagination-controls";
 import {
   Table,
   TableBody,
@@ -232,24 +233,13 @@ export default function AuditTable() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={isLoading || page <= 1}
-          >
-            Prev
-          </button>
-          <button
-            type="button"
-            className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={isLoading || page >= totalPages}
-          >
-            Next
-          </button>
-        </div>
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          disabled={isLoading}
+          onPageChange={setPage}
+          className="w-auto"
+        />
       </div>
 
       <AuditDiffDialog
