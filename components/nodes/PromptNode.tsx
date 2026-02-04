@@ -52,6 +52,7 @@ type PromptNodeProps = NodeProps<PromptNodeData>;
 export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   const edges = useFlowStore((s) => s.edges);
   const nodes = useFlowStore((s) => s.nodes);
+  const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
 
   return (
     <div
@@ -99,6 +100,18 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
               let label = route.gotoFlow || "Target";
               if (isGoBack) label = "Go Back";
               if (isMainMenu) label = "Main Menu";
+              if (!isGoBack && !isMainMenu && isActuallyConnected) {
+                const target = edges.find(e => e.source === id && e.sourceHandle === handleId)?.target;
+                if (target) {
+                  const resolved = resolveTargetId(target);
+                  const targetNode = nodes.find(n => n.id === target);
+                  if (!resolved.name && targetNode?.type === "funnel") {
+                    label = "Target";
+                  } else {
+                    label = resolved.name || label;
+                  }
+                }
+              }
 
               return (
                 <div
@@ -167,8 +180,10 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
                     ? (data.nextNode as any).default
                     : (typeof data.nextNode === "string" ? data.nextNode : "");
                   if (!fallbackId) return "";
+                  const resolved = resolveTargetId(fallbackId);
                   const targetNode = nodes.find(n => n.id === fallbackId);
-                  return targetNode?.data?.name || fallbackId;
+                  if (!resolved.name && targetNode?.type === "funnel") return "";
+                  return resolved.name || fallbackId;
                 })()}
               </span>
             </div>

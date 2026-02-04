@@ -1041,7 +1041,7 @@ export default function PromptInspector({
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Input</label>
                   <textarea
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-500 hite transition-all text-gray-900 resize-none"
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
                     value={String(node.data.invalidInputTypeMessage ?? "")}
                     onChange={(e) =>

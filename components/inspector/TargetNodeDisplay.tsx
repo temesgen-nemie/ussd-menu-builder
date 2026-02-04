@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useFlowStore } from "../../store/flowStore";
 
 type TargetNodeDisplayProps = {
@@ -30,15 +31,18 @@ export default function TargetNodeDisplay({
   };
 
   const rawIdValue = safeNodeId(nodeId);
-  const targetNode = useFlowStore((s) => {
-    if (!rawIdValue) return undefined;
-    return s.nodes.find((n) => n.id === rawIdValue) || 
-           s.nodes.find((n) => (n.data as any)?.name === rawIdValue);
-  });
+  const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
+  const nodes = useFlowStore((s) => s.nodes);
+
+  const resolved = useMemo(() => resolveTargetId(rawIdValue), [resolveTargetId, rawIdValue, nodes]);
+  const targetNode = useMemo(() => nodes.find((n) => n.id === resolved.id), [nodes, resolved.id]);
+  const rawNode = useMemo(() => nodes.find((n) => n.id === rawIdValue), [nodes, rawIdValue]);
   
-  // Always show the technical ID in the left box if the node is found
-  const displayId = targetNode?.id || rawIdValue;
-  const targetName = targetNode?.data?.name;
+  const isUnconnectedFunnel = rawNode?.type === "funnel" && !resolved.id && !resolved.name;
+
+  // Always show the technical ID in the left box
+  const displayId = isUnconnectedFunnel ? "" : (resolved.id || rawIdValue);
+  const targetName = isUnconnectedFunnel ? "" : (resolved.name || targetNode?.data?.name);
   const isGroup = targetNode?.type === "group";
 
   return (
