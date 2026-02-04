@@ -12,12 +12,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Users, Settings } from "lucide-react";
+import { LogOut, User, Users, Settings, History } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { logoutSession } from "@/lib/api";
 import ProfileDialog from "./user/ProfileDialog";
 import UsersDialog from "./user/UsersDialog";
 import SettingsMenu from "./user/SettingsMenu";
+import PermissionHistoryDialog from "@/components/permissions/PermissionHistoryDialog";
 
 export default function UserMenu() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function UserMenu() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [permissionHistoryOpen, setPermissionHistoryOpen] = useState(false);
 
   const initials = useMemo(() => {
     const name = user?.username?.trim() || "";
@@ -90,6 +92,15 @@ export default function UserMenu() {
             Settings
           </DropdownMenuItem>
         )}
+        {user.isAdmin && (
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => setPermissionHistoryOpen(true)}
+          >
+            <History className="h-4 w-4 text-muted-foreground" />
+            Permission History
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer text-red-600 focus:text-red-600"
@@ -120,7 +131,12 @@ export default function UserMenu() {
       {user.isAdmin && (
         <SettingsMenu open={settingsOpen} onOpenChange={setSettingsOpen} />
       )}
+      {user.isAdmin && (
+        <PermissionHistoryDialog
+          open={permissionHistoryOpen}
+          onOpenChange={setPermissionHistoryOpen}
+        />
+      )}
     </DropdownMenu>
   );
 }
-
