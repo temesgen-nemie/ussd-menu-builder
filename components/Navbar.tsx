@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, ShieldCheck } from "lucide-react";
+import { BarChart3, ShieldCheck, MoreHorizontal } from "lucide-react";
 import { ModeToggle } from "./nav-items/ModeToggle";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 import LogsModal from "./logs/LogsModal";
@@ -9,6 +9,12 @@ import AuditModal from "./audit/AuditModal";
 import QrScanDialog from "./nav-items/QrScanDialog";
 import NodeToolbar from "./nav-items/NodeToolbar";
 import UserMenu from "./nav-items/UserMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Navbar() {
   const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -17,10 +23,10 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
-      <div className="flex items-center justify-between px-6 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-2 md:px-6">
         <NodeToolbar />
 
-        <div className="absolute left-[65%] transform -translate-x-1/2 flex items-center gap-2 flex-wrap justify-center">
+        <div className="hidden flex-1 items-center justify-center gap-2 md:flex">
           <button
             onClick={() => setSimulatorOpen(true)}
             className="flex items-center gap-2 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
@@ -63,6 +69,39 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
+                >
+                  Actions
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => setSimulatorOpen(true)}
+                >
+                  USSD Simulator
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => setLogsOpen(true)}
+                >
+                  Logs
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => setAuditOpen(true)}
+                >
+                  Audit Events
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <QrScanDialog />
           <ModeToggle />
           <UserMenu />

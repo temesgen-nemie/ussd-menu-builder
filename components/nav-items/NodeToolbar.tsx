@@ -2,8 +2,20 @@
 
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Bolt, FileUp, Filter, MessageSquare, PlayCircle } from "lucide-react";
+import {
+  Bolt,
+  FileUp,
+  Filter,
+  MessageSquare,
+  PlayCircle,
+} from "lucide-react";
 import { useFlowStore } from "@/store/flowStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function NodeToolbar() {
   const { addNode, rfInstance, nodes, currentSubflowId, importSubflow } =
@@ -72,10 +84,10 @@ export default function NodeToolbar() {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+      <span className="hidden text-xs uppercase tracking-wide text-muted-foreground md:inline">
         Nodes
       </span>
-      <div className="flex items-center gap-2">
+      <div className="hidden items-center gap-2 md:flex">
         <button
           className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 cursor-pointer"
           draggable
@@ -169,6 +181,76 @@ export default function NodeToolbar() {
             Import
           </button>
         </div>
+      </div>
+      <div className="md:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted cursor-pointer"
+            >
+              Nodes
+              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                +
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("prompt")}
+            >
+              Prompt
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("action")}
+            >
+              Action
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("condition")}
+            >
+              Condition
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("funnel")}
+            >
+              Funnel
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className={`cursor-pointer ${
+                hasStart ? "opacity-50 pointer-events-none" : ""
+              }`}
+              onClick={() => handleAddNode("start")}
+            >
+              Start
+            </DropdownMenuItem>
+            <DropdownMenuItem className="relative cursor-pointer">
+              <input
+                type="file"
+                accept=".json"
+                className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const text = event.target?.result;
+                    if (typeof text === "string") {
+                      importSubflow(text, getCenteredPosition());
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value = "";
+                }}
+              />
+              Import
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
