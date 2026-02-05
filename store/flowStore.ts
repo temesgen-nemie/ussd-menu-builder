@@ -225,8 +225,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const persistFieldName = String(data.persistFieldName ?? "");
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(
-          (data as Record<string, unknown>).invalidIndexMessage ??
-            (data as Record<string, unknown>).invalidInputMessage ??
+          (data as Record<string, unknown>).invalidInputMessage ??
+            (data as Record<string, unknown>).invalidIndexMessage ??
             ""
         );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
@@ -2262,8 +2262,6 @@ export const useFlowStore = create<FlowState>()(
               flowNode.indexedListVar ?? nextData.indexedListVar;
             nextData.invalidInputMessage =
               flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
-            nextData.invalidIndexMessage =
-              flowNode.invalidInputMessage ?? nextData.invalidIndexMessage;
             nextData.emptyInputMessage =
               flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
             nextData.inputType = flowNode.inputType ?? nextData.inputType;

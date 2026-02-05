@@ -26,7 +26,7 @@ type PromptNodeData = {
   persistFieldName?: string;
   validateIndexedList?: boolean;
   indexedListVar?: string;
-  invalidIndexMessage?: string;
+  invalidInputMessage?: string;
   emptyInputMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
