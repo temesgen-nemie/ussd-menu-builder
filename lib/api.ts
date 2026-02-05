@@ -585,6 +585,7 @@ export const getPermissionLogs = async (params: {
     flowName?: string;
     assigneeName?: string;
     adminName?: string;
+    actionType?: string;
     dateFrom?: string;
     dateTo?: string;
 }) => {
