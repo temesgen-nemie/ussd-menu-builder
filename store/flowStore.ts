@@ -29,6 +29,7 @@ export type FlowNode = {
   emptyInputMessage?: string;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
+  inputValidationEnabled?: boolean;
   persistInput?: boolean;
   persistInputAs?: string;
   endpoint?: string;
@@ -223,9 +224,16 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const persistSourceField = String(data.persistSourceField ?? "");
         const persistFieldName = String(data.persistFieldName ?? "");
         const indexedListVar = String(data.indexedListVar ?? "");
-        const invalidInputMessage = String(data.invalidInputMessage ?? "");
+        const invalidInputMessage = String(
+          (data as Record<string, unknown>).invalidInputMessage ??
+            (data as Record<string, unknown>).invalidIndexMessage ??
+            ""
+        );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
-        const inputType = String(data.inputType ?? "");
+        const inputType = String(
+          data.inputType ??
+            (data.inputValidationEnabled ? "STRING" : "")
+        );
         const invalidInputTypeMessage = String(
           data.invalidInputTypeMessage ?? ""
         );
@@ -245,6 +253,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           emptyInputMessage: emptyInputMessage || undefined,
           inputType: (inputType || undefined) as FlowNode["inputType"],
           invalidInputTypeMessage: invalidInputTypeMessage || undefined,
+          inputValidationEnabled:
+            typeof data.inputValidationEnabled === "boolean"
+              ? data.inputValidationEnabled
+              : undefined,
           persistInput:
             typeof data.persistInput === "boolean"
               ? data.persistInput
@@ -2250,12 +2262,18 @@ export const useFlowStore = create<FlowState>()(
               flowNode.indexedListVar ?? nextData.indexedListVar;
             nextData.invalidInputMessage =
               flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
+            nextData.invalidIndexMessage =
+              flowNode.invalidInputMessage ?? nextData.invalidIndexMessage;
             nextData.emptyInputMessage =
               flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
             nextData.inputType = flowNode.inputType ?? nextData.inputType;
             nextData.invalidInputTypeMessage =
               flowNode.invalidInputTypeMessage ??
               nextData.invalidInputTypeMessage;
+            nextData.inputValidationEnabled =
+              typeof flowNode.inputValidationEnabled === "boolean"
+                ? flowNode.inputValidationEnabled
+                : nextData.inputValidationEnabled;
             nextData.encryptInput =
               typeof flowNode.encryptInput === "boolean"
                 ? flowNode.encryptInput
