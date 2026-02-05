@@ -1007,11 +1007,16 @@ export default function PromptInspector({
               <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Input Validation</h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={Boolean(node.data.inputValidationEnabled)}
-                onChange={(e) =>
-                  updateNodeData(node.id, { inputValidationEnabled: e.target.checked })
+                <input
+                  type="checkbox"
+                  checked={Boolean(node.data.inputValidationEnabled)}
+                  onChange={(e) =>
+                  updateNodeData(node.id, {
+                    inputValidationEnabled: e.target.checked,
+                    inputType: e.target.checked
+                      ? node.data.inputType ?? "STRING"
+                      : node.data.inputType,
+                  })
                 }
                 className="sr-only peer"
               />
