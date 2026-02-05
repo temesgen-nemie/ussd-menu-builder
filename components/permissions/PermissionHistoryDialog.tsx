@@ -75,6 +75,7 @@ export default function PermissionHistoryDialog({
     flowName: "",
     assigneeName: "",
     adminName: "",
+    actionType: "",
     dateFrom: "",
     dateTo: "",
   });
@@ -83,6 +84,7 @@ export default function PermissionHistoryDialog({
       flowName: "",
       assigneeName: "",
       adminName: "",
+      actionType: "",
       dateFrom: "",
       dateTo: "",
     }),
@@ -102,6 +104,7 @@ export default function PermissionHistoryDialog({
       flowName: filters.flowName || undefined,
       assigneeName: filters.assigneeName || undefined,
       adminName: filters.adminName || undefined,
+      actionType: filters.actionType || undefined,
       dateFrom,
       dateTo,
     };
@@ -170,6 +173,7 @@ export default function PermissionHistoryDialog({
         flowName: filters.flowName || undefined,
         assigneeName: filters.assigneeName || undefined,
         adminName: filters.adminName || undefined,
+        actionType: filters.actionType || undefined,
         dateFrom: filters.dateFrom ? new Date(filters.dateFrom).toISOString() : undefined,
         dateTo: filters.dateTo ? new Date(filters.dateTo).toISOString() : undefined,
       })) as PermissionLogsResponse;
@@ -264,6 +268,7 @@ export default function PermissionHistoryDialog({
               flowName={filters.flowName}
               assigneeName={filters.assigneeName}
               adminName={filters.adminName}
+              actionType={filters.actionType}
               dateFrom={filters.dateFrom}
               dateTo={filters.dateTo}
               pageSize={pageSize}
@@ -275,6 +280,7 @@ export default function PermissionHistoryDialog({
                   flowName: next.flowName,
                   assigneeName: next.assigneeName,
                   adminName: next.adminName,
+                  actionType: next.actionType,
                   dateFrom: next.dateFrom,
                   dateTo: next.dateTo,
                 });

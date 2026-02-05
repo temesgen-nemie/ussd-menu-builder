@@ -20,6 +20,7 @@ type PermissionHistoryFiltersProps = {
   flowName: string;
   assigneeName: string;
   adminName: string;
+  actionType: string;
   dateFrom: string;
   dateTo: string;
   pageSize: number;
@@ -30,6 +31,7 @@ type PermissionHistoryFiltersProps = {
     flowName: string;
     assigneeName: string;
     adminName: string;
+    actionType: string;
     dateFrom: string;
     dateTo: string;
     pageSize: number;
@@ -44,6 +46,7 @@ export default function PermissionHistoryFilters({
   flowName,
   assigneeName,
   adminName,
+  actionType,
   dateFrom,
   dateTo,
   pageSize,
@@ -61,7 +64,7 @@ export default function PermissionHistoryFilters({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-3">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Flow Name
@@ -74,6 +77,7 @@ export default function PermissionHistoryFilters({
                 flowName: e.target.value,
                 assigneeName,
                 adminName,
+                actionType,
                 dateFrom,
                 dateTo,
                 pageSize,
@@ -82,7 +86,7 @@ export default function PermissionHistoryFilters({
             placeholder="e.g. seyaTest"
           />
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-1">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Assignee Name
           </Label>
@@ -94,6 +98,7 @@ export default function PermissionHistoryFilters({
                 flowName,
                 assigneeName: e.target.value,
                 adminName,
+                actionType,
                 dateFrom,
                 dateTo,
                 pageSize,
@@ -102,7 +107,7 @@ export default function PermissionHistoryFilters({
             placeholder="Assignee name"
           />
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-1">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Admin Name
           </Label>
@@ -114,6 +119,7 @@ export default function PermissionHistoryFilters({
                 flowName,
                 assigneeName,
                 adminName: e.target.value,
+                actionType,
                 dateFrom,
                 dateTo,
                 pageSize,
@@ -122,7 +128,41 @@ export default function PermissionHistoryFilters({
             placeholder="Admin name"
           />
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-1">
+          <Label className="px-1 text-xs uppercase text-muted-foreground">
+            Action Type
+          </Label>
+          <Select
+            value={actionType || "all"}
+            onValueChange={(value) =>
+              onChange({
+                flowName,
+                assigneeName,
+                adminName,
+                actionType: value === "all" ? "" : value,
+                dateFrom,
+                dateTo,
+                pageSize,
+              })
+            }
+          >
+            <SelectTrigger className="cursor-pointer">
+              <SelectValue placeholder="All actions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="cursor-pointer">
+                All actions
+              </SelectItem>
+              <SelectItem value="granted" className="cursor-pointer">
+                Granted
+              </SelectItem>
+              <SelectItem value="revoked" className="cursor-pointer">
+                Revoked
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-3 lg:col-span-1">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Date From
           </Label>
@@ -146,6 +186,7 @@ export default function PermissionHistoryFilters({
                     flowName,
                     assigneeName,
                     adminName,
+                    actionType,
                     dateFrom: date ? date.toISOString() : "",
                     dateTo,
                     pageSize,
@@ -156,7 +197,7 @@ export default function PermissionHistoryFilters({
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-1">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Date To
           </Label>
@@ -180,6 +221,7 @@ export default function PermissionHistoryFilters({
                     flowName,
                     assigneeName,
                     adminName,
+                    actionType,
                     dateFrom,
                     dateTo: date ? date.toISOString() : "",
                     pageSize,
@@ -190,7 +232,7 @@ export default function PermissionHistoryFilters({
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-1">
           <Label className="px-1 text-xs uppercase text-muted-foreground">
             Page Size
           </Label>
@@ -201,6 +243,7 @@ export default function PermissionHistoryFilters({
                 flowName,
                 assigneeName,
                 adminName,
+                actionType,
                 dateFrom,
                 dateTo,
                 pageSize: Number(value),
