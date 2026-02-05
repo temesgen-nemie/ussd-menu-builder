@@ -46,9 +46,7 @@ const toIsoRange = (value: Date | null, isEnd: boolean) => {
 
 const defaultRange = () => {
   const now = new Date();
-  const from = new Date(now);
-  from.setDate(now.getDate() - 2);
-  return { from, to: now };
+  return { from: now, to: now };
 };
 
 const formatTimestamp = (value?: string) => {
@@ -147,7 +145,7 @@ export default function AuditTable() {
       />
       {error && <div className="text-sm text-destructive">{error}</div>}
       <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-border bg-card">
-        {isLoading && events.length === 0 ? (
+        {isLoading ? (
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow>
