@@ -5,6 +5,8 @@ type RequestBarProps = {
   endpoint: string;
   curlText: string;
   isSending: boolean;
+  baseUrlToken?: string;
+  baseUrlValue?: string;
   onMethodChange: (value: string) => void;
   onEndpointChange: (value: string) => void;
   onCurlChange: (value: string) => void;
@@ -17,12 +19,23 @@ export default function RequestBar({
   endpoint,
   curlText,
   isSending,
+  baseUrlToken,
+  baseUrlValue,
   onMethodChange,
   onEndpointChange,
   onCurlChange,
   onImportCurl,
   onSend,
 }: RequestBarProps) {
+  const token = baseUrlToken ?? "";
+  const normalizedEndpoint = endpoint || "";
+  const normalizedBase =
+    baseUrlValue?.replace(/\/+$/, "") ?? "";
+  const displayEndpoint =
+    normalizedBase && normalizedEndpoint.startsWith(normalizedBase)
+      ? normalizedEndpoint.slice(normalizedBase.length).replace(/^\/+/, "")
+      : normalizedEndpoint;
+
   return (
     <div className="space-y-3">
          <div className="rounded-md border border-gray-200 bg-white p-2">
@@ -56,12 +69,32 @@ export default function RequestBar({
           <option>PUT</option>
           <option>DELETE</option>
         </select>
-        <input
-          className="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm"
-          value={endpoint}
-          placeholder="https://api.example.com"
-          onChange={(e) => onEndpointChange(e.target.value)}
-        />
+        <div className="relative flex-1">
+          {baseUrlToken && (
+            <span
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700"
+              title={baseUrlValue}
+            >
+              {baseUrlToken}
+            </span>
+          )}
+          <input
+            className={`w-full rounded-md border border-gray-200 bg-white py-2 text-sm text-gray-900 shadow-sm ${
+              baseUrlToken ? "pl-24 pr-3" : "px-3"
+            }`}
+            value={displayEndpoint}
+            placeholder="https://api.example.com"
+            onChange={(e) => {
+              const value = e.target.value;
+              if (token && normalizedBase) {
+                const trimmed = value.replace(/^\/+/, "");
+                onEndpointChange(trimmed ? `${normalizedBase}/${trimmed}` : normalizedBase);
+                return;
+              }
+              onEndpointChange(value);
+            }}
+          />
+        </div>
         <button
           className={`rounded-md px-4 text-sm font-semibold text-white shadow-sm cursor-pointer ${
             isSending
