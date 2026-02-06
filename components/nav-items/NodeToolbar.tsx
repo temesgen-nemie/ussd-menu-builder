@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
   Bolt,
+  Code2,
   FileUp,
   Filter,
   MessageSquare,
@@ -49,13 +50,15 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "start" | "condition" | "funnel") => {
+    (type: "prompt" | "action" | "script" | "start" | "condition" | "funnel") => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
           ? { message: "", routingMode: "menu" }
           : type === "action"
           ? { endpoint: "" }
+          : type === "script"
+          ? { name: "", script: "", timeoutMs: 25, nextNode: "" }
           : type === "condition"
           ? { name: "", nextNode: { routes: [], default: "" } }
           : type === "funnel"
@@ -75,7 +78,7 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "start" | "condition" | "funnel"
+    nodeType: "prompt" | "action" | "script" | "start" | "condition" | "funnel"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -109,6 +112,17 @@ export default function NodeToolbar() {
             <Bolt className="h-4 w-4 text-white" />
           </span>
           Action
+        </button>
+        <button
+          className="flex items-center gap-2 rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 cursor-pointer"
+          draggable
+          onDragStart={(e) => handleDragStart(e, "script")}
+          onClick={() => handleAddNode("script")}
+        >
+          <span className="rounded-sm bg-cyan-700 p-1">
+            <Code2 className="h-4 w-4 text-white" />
+          </span>
+          Script
         </button>
         <button
           className="flex items-center gap-2 rounded-md bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-700 cursor-pointer"
@@ -207,6 +221,12 @@ export default function NodeToolbar() {
               onClick={() => handleAddNode("action")}
             >
               Action
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("script")}
+            >
+              Script
             </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer"

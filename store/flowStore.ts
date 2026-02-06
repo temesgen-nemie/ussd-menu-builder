@@ -32,6 +32,8 @@ export type FlowNode = {
   inputValidationEnabled?: boolean;
   persistInput?: boolean;
   persistInputAs?: string;
+  script?: string;
+  timeoutMs?: number;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -460,6 +462,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             default: defaultResolved.name || "",
             defaultId: defaultResolved.id || "",
           },
+        };
+      }
+
+      if (node.type === "script") {
+        const nextNodeRaw = typeof data.nextNode === "string" ? data.nextNode : "";
+        const resolved = resolveTarget(nextNodeRaw || "");
+        return {
+          ...base,
+          script: String(data.script ?? ""),
+          timeoutMs: 25,
+          nextNode: resolved.name || "",
         };
       }
 
@@ -1510,6 +1523,10 @@ export const useFlowStore = create<FlowState>()(
                 });
               }
             }
+            // Script Node Cleanup
+            else if (sourceNode.type === "script") {
+              updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+            }
             // Prompt Node Cleanup
             else if (sourceNode.type === "prompt") {
               if (handle.startsWith("route-")) {
@@ -1681,6 +1698,14 @@ export const useFlowStore = create<FlowState>()(
               return;
             }
 
+            if (sourceNode.type === "script") {
+              updateNodeDataLocal(sourceNode.id, (data) => ({
+                ...data,
+                nextNode: "",
+              }));
+              return;
+            }
+
             if (sourceNode.type === "prompt") {
               if (handle.startsWith("route-")) {
                 const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -1756,7 +1781,7 @@ export const useFlowStore = create<FlowState>()(
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
-          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "funnel";
+          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "funnel" || node?.type === "script";
 
           const el = document.querySelector(
             `.react-flow__node[data-id="${id}"]`
@@ -2347,6 +2372,14 @@ export const useFlowStore = create<FlowState>()(
               nextData.nextNode = flowNode.nextNode;
             }
 
+            return { ...node, data: nextData };
+          }
+
+          if (node.type === "script") {
+            nextData.script = flowNode.script ?? nextData.script;
+            nextData.timeoutMs =
+              typeof flowNode.timeoutMs === "number" ? flowNode.timeoutMs : 25;
+            nextData.nextNode = flowNode.nextNode ?? nextData.nextNode;
             return { ...node, data: nextData };
           }
 
