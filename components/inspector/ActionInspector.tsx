@@ -13,6 +13,7 @@ import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 import { useFlowStore } from "@/store/flowStore";
+import { fetchFlowSettings } from "@/lib/api";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -78,6 +79,78 @@ export default function ActionInspector({
   const [activeSection, setActiveSection] = React.useState<
     "params" | "headers" | "body" | "responseMapping" | "routing"
   >("params");
+  const [baseUrl, setBaseUrl] = React.useState("");
+
+  const flowName = React.useMemo(() => {
+    const current = nodes.find((n) => n.id === node.id) ?? node;
+    const currentParent =
+      "parentNode" in current
+        ? (current as { parentNode?: string | null }).parentNode
+        : undefined;
+    let parentId = currentParent ?? null;
+    let groupId = parentId ?? null;
+    while (parentId) {
+      const parent = nodes.find((n) => n.id === parentId);
+      if (!parent) break;
+      groupId = parentId;
+      parentId = parent.parentNode ?? null;
+    }
+    if (groupId) {
+      const children = nodes.filter((n) => n.parentNode === groupId);
+      const startNode = children.find((n) => n.type === "start");
+      return (
+        (startNode?.data as { flowName?: string } | undefined)?.flowName ?? ""
+      );
+    }
+    return (node.data as { flowName?: string } | undefined)?.flowName ?? "";
+  }, [node, nodes]);
+
+  React.useEffect(() => {
+    if (!flowName) {
+      setBaseUrl("");
+      return;
+    }
+    let isActive = true;
+    const loadSettings = async () => {
+      try {
+        const data = await fetchFlowSettings(flowName);
+        const settings =
+          (data as { settings?: Record<string, unknown> })?.settings ??
+          (data as { data?: Record<string, unknown> })?.data ??
+          (data as Record<string, unknown>) ??
+          {};
+        const value = settings.baseUrl;
+        if (isActive) {
+          setBaseUrl(typeof value === "string" ? value : "");
+        }
+      } catch {
+        if (isActive) setBaseUrl("");
+      }
+    };
+    loadSettings();
+    return () => {
+      isActive = false;
+    };
+  }, [flowName]);
+
+  React.useEffect(() => {
+    if (!baseUrl) return;
+    const currentEndpoint = String(node.data.endpoint ?? "");
+    const normalizedBase = baseUrl.replace(/\/+$/, "");
+    let nextEndpoint = currentEndpoint;
+    if (normalizedBase && currentEndpoint.startsWith(normalizedBase)) {
+      return;
+    } else if (currentEndpoint.startsWith("/")) {
+      nextEndpoint = `${normalizedBase}${currentEndpoint}`;
+    } else if (currentEndpoint && !currentEndpoint.startsWith("http")) {
+      nextEndpoint = `${normalizedBase}/${currentEndpoint}`;
+    } else if (!currentEndpoint) {
+      nextEndpoint = normalizedBase;
+    }
+    if (nextEndpoint !== currentEndpoint) {
+      updateNodeData(node.id, { endpoint: nextEndpoint });
+    }
+  }, [baseUrl, node.data.endpoint, node.id, updateNodeData]);
   const [sourceMode, setSourceMode] = React.useState<"api" | "local">(
     (node.data.requestSource as "api" | "local") ?? "api"
   );
@@ -493,6 +566,8 @@ export default function ActionInspector({
               endpoint={String(node.data.endpoint ?? "")}
               curlText={curlText}
               isSending={isSending}
+              baseUrlToken={baseUrl ? "baseUrl" : undefined}
+              baseUrlValue={baseUrl || undefined}
               onMethodChange={(value) => updateNodeData(node.id, { method: value })}
               onEndpointChange={(value) =>
                 updateNodeData(node.id, { endpoint: value })
@@ -510,6 +585,7 @@ export default function ActionInspector({
 
                 updateNodeData(node.id, { method: parsed.method });
                 updateNodeData(node.id, { endpoint: parsed.url });
+                syncUrlToParams(parsed.url);
 
                 const pairs = Object.entries(parsed.headers).map(([key, value]) => ({
                   id: generateId(),
@@ -882,8 +958,8 @@ export default function ActionInspector({
                           type="checkbox"
                           checked={isChecked}
                           onChange={(e) => {
-                            let nextFields = [...localFieldPairs.fields];
-                            let nextOutputVars = [...localFieldPairs.outputVars];
+                            const nextFields = [...localFieldPairs.fields];
+                            const nextOutputVars = [...localFieldPairs.outputVars];
                             if (e.target.checked) {
                               if (!nextFields.includes(field)) {
                                 nextFields.push(field);

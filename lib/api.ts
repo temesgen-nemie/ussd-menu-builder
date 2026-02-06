@@ -418,9 +418,9 @@ export const sendUssdRequest = async (
     }
 };
 
-export const fetchSettings = async () => {
+export const fetchFlowSettings = async (flowName: string) => {
     try {
-        const response = await api.get("/settings/fetch");
+        const response = await api.get("/settings/fetch", { params: { flowName } });
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -437,20 +437,66 @@ export const fetchSettings = async () => {
     }
 };
 
-export interface SettingsPayload {
-    endpoints: string[];
+export interface FlowSettingsPayload {
+    flowName: string;
+    settings: {
+        baseUrl?: string;
+        timeoutMs?: number;
+        retryCount?: number;
+    };
 }
 
-export const saveSettings = async (settings: SettingsPayload) => {
+export const createFlowSettings = async (payload: FlowSettingsPayload) => {
     try {
-        const response = await api.post("/settings/create", { settings });
+        const response = await api.post("/settings/create", payload);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
             throw new Error(
                 axiosError.response?.data?.error ||
-                `Failed to save settings (${axiosError.response?.status})`
+                `Failed to create settings (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
+    try {
+        const response = await api.put("/settings/update", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to update settings (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const deleteFlowSettings = async (payload: {
+    flowName: string;
+    keys: string[];
+}) => {
+    try {
+        const response = await api.delete("/settings/delete", { data: payload });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to delete settings (${axiosError.response?.status})`
             );
         } else if (error instanceof Error) {
             throw new Error(error.message);
