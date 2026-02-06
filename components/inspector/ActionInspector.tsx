@@ -568,6 +568,18 @@ export default function ActionInspector({
               isSending={isSending}
               baseUrlToken={baseUrl ? "baseUrl" : undefined}
               baseUrlValue={baseUrl || undefined}
+              onClearBaseUrl={() => {
+                const currentEndpoint = String(node.data.endpoint ?? "");
+                const normalizedBase = baseUrl.replace(/\/+$/, "");
+                let nextEndpoint = currentEndpoint;
+                if (normalizedBase && currentEndpoint.startsWith(normalizedBase)) {
+                  nextEndpoint = currentEndpoint
+                    .slice(normalizedBase.length)
+                    .replace(/^\/+/, "");
+                }
+                setBaseUrl("");
+                updateNodeData(node.id, { endpoint: nextEndpoint });
+              }}
               onMethodChange={(value) => updateNodeData(node.id, { method: value })}
               onEndpointChange={(value) =>
                 updateNodeData(node.id, { endpoint: value })

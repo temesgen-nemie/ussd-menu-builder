@@ -7,6 +7,7 @@ type RequestBarProps = {
   isSending: boolean;
   baseUrlToken?: string;
   baseUrlValue?: string;
+  onClearBaseUrl?: () => void;
   onMethodChange: (value: string) => void;
   onEndpointChange: (value: string) => void;
   onCurlChange: (value: string) => void;
@@ -21,6 +22,7 @@ export default function RequestBar({
   isSending,
   baseUrlToken,
   baseUrlValue,
+  onClearBaseUrl,
   onMethodChange,
   onEndpointChange,
   onCurlChange,
@@ -71,11 +73,19 @@ export default function RequestBar({
         </select>
         <div className="relative flex-1">
           {baseUrlToken && (
-            <span
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700"
-              title={baseUrlValue}
-            >
-              {baseUrlToken}
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+              <span title={baseUrlValue}>{baseUrlToken}</span>
+              {onClearBaseUrl && (
+                <button
+                  type="button"
+                  className="ml-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full text-indigo-600 hover:bg-indigo-100 cursor-pointer"
+                  aria-label="Remove base URL"
+                  title="Remove base URL"
+                  onClick={onClearBaseUrl}
+                >
+                  ×
+                </button>
+              )}
             </span>
           )}
           <input
