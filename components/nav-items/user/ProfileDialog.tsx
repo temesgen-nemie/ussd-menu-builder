@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { changePassword, logoutSession } from "@/lib/api";
+import { changePassword, changeUsername, logoutSession } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { toast } from "sonner";
 
 type ProfileDialogProps = {
   open: boolean;
@@ -32,13 +33,17 @@ export default function ProfileDialog({
   isAdmin,
 }: ProfileDialogProps) {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { logout, setUser, user } = useAuthStore();
   const [changeOpen, setChangeOpen] = useState(false);
+  const [changeUsernameOpen, setChangeUsernameOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUsernameSubmitting, setIsUsernameSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   const resetForm = () => {
     setCurrentPassword("");
@@ -46,6 +51,12 @@ export default function ProfileDialog({
     setIsSubmitting(false);
     setFormError(null);
     setFormSuccess(null);
+  };
+
+  const resetUsernameForm = () => {
+    setNewUsername("");
+    setIsUsernameSubmitting(false);
+    setUsernameError(null);
   };
 
   const handleChangePassword = async (event: FormEvent) => {
@@ -90,6 +101,45 @@ export default function ProfileDialog({
     }
   };
 
+  const handleChangeUsername = async (event: FormEvent) => {
+    event.preventDefault();
+    setUsernameError(null);
+
+    if (!userId) {
+      setUsernameError("Missing user id for username change.");
+      return;
+    }
+    if (!newUsername.trim()) {
+      setUsernameError("Please enter a username.");
+      return;
+    }
+
+    setIsUsernameSubmitting(true);
+    try {
+      await changeUsername({
+        targetUserId: userId,
+        newUserName: newUsername.trim(),
+      });
+      setUser(
+        user
+          ? { ...user, username: newUsername.trim() }
+          : { username: newUsername.trim(), isAdmin }
+      );
+      toast.success(`Username updated to ${newUsername.trim()}.`);
+      setNewUsername("");
+      setChangeUsernameOpen(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to change username."
+      );
+      setUsernameError(
+        err instanceof Error ? err.message : "Failed to change username."
+      );
+    } finally {
+      setIsUsernameSubmitting(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,7 +167,18 @@ export default function ProfileDialog({
               </Badge>
             </div>
           </div>
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex justify-between gap-2">
+            <Button
+              type="button"
+              // variant="outline"
+              className="cursor-pointer"
+              onClick={() => {
+                resetUsernameForm();
+                setChangeUsernameOpen(true);
+              }}
+            >
+              Change Username
+            </Button>
             <Button
               type="button"
               className="cursor-pointer"
@@ -129,6 +190,60 @@ export default function ProfileDialog({
               Change Password
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={changeUsernameOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) resetUsernameForm();
+          setChangeUsernameOpen(nextOpen);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Username</DialogTitle>
+            <DialogDescription>
+              Update your account username.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleChangeUsername}>
+            <div className="space-y-2">
+              <Label htmlFor="new-username">New Username</Label>
+              <Input
+                id="new-username"
+                value={newUsername}
+                onChange={(event) => setNewUsername(event.target.value)}
+                autoComplete="username"
+              />
+            </div>
+
+            {usernameError && (
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {usernameError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => setChangeUsernameOpen(false)}
+                disabled={isUsernameSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="cursor-pointer"
+                disabled={isUsernameSubmitting}
+              >
+                {isUsernameSubmitting ? "Updating..." : "Update Username"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

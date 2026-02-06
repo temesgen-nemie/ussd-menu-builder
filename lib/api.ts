@@ -325,6 +325,48 @@ export const unlockUser = async (payload: { userId: string }) => {
     }
 };
 
+export const changeUsername = async (payload: {
+    targetUserId: string;
+    newUserName: string;
+}) => {
+    try {
+        const response = await api.post("/admin/change-username/", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error || "Failed to change username"
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const changeUserRole = async (payload: {
+    targetUserId: string;
+    actionType: "promote" | "demote";
+}) => {
+    try {
+        const response = await api.post("/admin/change-role", payload);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error || "Failed to change role"
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
 export const getAllFlows = async () => {
     try {
         const response = await api.get<{ data: FlowJson[] }>("/allFlows");

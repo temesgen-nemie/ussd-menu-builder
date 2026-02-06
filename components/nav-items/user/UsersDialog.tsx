@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  changeUserRole,
   createUser,
   getUsers,
   suspendUser,
@@ -34,6 +35,7 @@ import {
   DialogTitle as InnerDialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type UserItem = {
   id: string;
@@ -64,6 +66,7 @@ export default function UsersDialog({ open, onOpenChange }: UsersDialogProps) {
   const [createPassword, setCreatePassword] = useState("");
   const [createIsAdmin, setCreateIsAdmin] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [roleLoadingId, setRoleLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -192,69 +195,123 @@ export default function UsersDialog({ open, onOpenChange }: UsersDialogProps) {
                         {new Date(u.createdAt).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        {u.isLocked ? (
+                        <div className="flex flex-wrap justify-end gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="cursor-pointer border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                            className={`cursor-pointer ${
+                              u.isAdmin
+                                ? "border-sky-500/40 text-sky-600 hover:bg-sky-500/10 hover:text-sky-700"
+                                : "border-indigo-500/40 text-indigo-600 hover:bg-indigo-500/10 hover:text-indigo-700"
+                            }`}
+                            disabled={roleLoadingId === u.id}
                             onClick={async () => {
                               try {
-                                await unlockUser({ userId: u.id });
+                                setRoleLoadingId(u.id);
+                                const actionType = u.isAdmin ? "demote" : "promote";
+                                await changeUserRole({
+                                  targetUserId: u.id,
+                                  actionType,
+                                });
                                 setUsers((prev) =>
                                   prev.map((item) =>
                                     item.id === u.id
-                                      ? { ...item, isLocked: false }
+                                      ? { ...item, isAdmin: actionType === "promote" }
                                       : item
                                   )
                                 );
+                                toast.success(
+                                  actionType === "promote"
+                                    ? `Granted admin to ${u.username}.`
+                                    : `Removed admin from ${u.username}.`
+                                );
                               } catch (err) {
+                                toast.error(
+                                  err instanceof Error
+                                    ? err.message
+                                    : "Failed to change role."
+                                );
                                 setError(
                                   err instanceof Error
                                     ? err.message
-                                    : "Failed to unlock user."
+                                    : "Failed to change role."
                                 );
+                              } finally {
+                                setRoleLoadingId(null);
                               }
                             }}
                           >
-                            Unlock
+                            {u.isAdmin ? "Remove Admin" : "Grant Admin"}
                           </Button>
-                        ) : u.suspended ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="cursor-pointer border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
-                            onClick={async () => {
-                              try {
-                                await unsuspendUser({ userId: u.id });
-                                setUsers((prev) =>
-                                  prev.map((item) =>
-                                    item.id === u.id
-                                      ? { ...item, suspended: false, suspensionReason: null }
-                                      : item
-                                  )
-                                );
-                              } catch (err) {
-                                setError(
-                                  err instanceof Error
-                                    ? err.message
-                                    : "Failed to unsuspend user."
-                                );
-                              }
-                            }}
-                          >
-                            Unsuspend
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="cursor-pointer border-red-500/40 text-red-600 hover:bg-red-500/10 hover:text-red-700"
-                            disabled={u.isLocked}
-                            onClick={() => setSuspendTarget(u)}
-                          >
-                            Suspend
-                          </Button>
-                        )}
+
+                          {u.isLocked ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="cursor-pointer border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                              onClick={async () => {
+                                try {
+                                  await unlockUser({ userId: u.id });
+                                  setUsers((prev) =>
+                                    prev.map((item) =>
+                                      item.id === u.id
+                                        ? { ...item, isLocked: false }
+                                        : item
+                                    )
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to unlock user."
+                                  );
+                                }
+                              }}
+                            >
+                              Unlock
+                            </Button>
+                          ) : u.suspended ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="cursor-pointer border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                              onClick={async () => {
+                                try {
+                                  await unsuspendUser({ userId: u.id });
+                                  setUsers((prev) =>
+                                    prev.map((item) =>
+                                      item.id === u.id
+                                        ? {
+                                            ...item,
+                                            suspended: false,
+                                            suspensionReason: null,
+                                          }
+                                        : item
+                                    )
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to unsuspend user."
+                                  );
+                                }
+                              }}
+                            >
+                              Unsuspend
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="cursor-pointer border-red-500/40 text-red-600 hover:bg-red-500/10 hover:text-red-700"
+                              disabled={u.isLocked}
+                              onClick={() => setSuspendTarget(u)}
+                            >
+                              Suspend
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
