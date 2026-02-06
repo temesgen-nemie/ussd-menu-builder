@@ -10,6 +10,7 @@ import PromptInspector from "./PromptInspector";
 import StartInspector from "./StartInspector";
 import ConditionInspector from "./ConditionInspector";
 import FunnelInspector from "./FunnelInspector";
+import ScriptInspector from "./ScriptInspector";
 
 export default function InspectorPanel() {
   const {
@@ -81,7 +82,14 @@ export default function InspectorPanel() {
   useEffect(() => {
     if (size.width === 0 && node) {
       setSize({
-        width: node.type === "action" || node.type === "prompt" || node.type === "condition" || node.type === "funnel" ? 720 : 350,
+        width:
+          node.type === "action" ||
+          node.type === "prompt" ||
+          node.type === "condition" ||
+          node.type === "funnel" ||
+          node.type === "script"
+            ? 720
+            : 350,
         height: 0 // allow auto height
       });
     }
@@ -165,6 +173,13 @@ export default function InspectorPanel() {
         });
     } else if (node.type === "funnel") {
         updateNodeData(node.id, {
+            nextNode: ""
+        });
+    } else if (node.type === "script") {
+        updateNodeData(node.id, {
+            name: "",
+            script: "",
+            timeoutMs: 25,
             nextNode: ""
         });
     }
@@ -300,6 +315,9 @@ export default function InspectorPanel() {
 
             {node.type === "funnel" && (
               <FunnelInspector node={node} updateNodeData={updateNodeData} />
+            )}
+            {node.type === "script" && (
+              <ScriptInspector node={node} updateNodeData={updateNodeData} />
             )}
           </div>
 

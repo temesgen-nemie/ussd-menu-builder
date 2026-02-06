@@ -35,6 +35,7 @@ import StartNode from "./nodes/StartNode";
 import GroupNode from "./nodes/GroupNode";
 import ConditionNode from "./nodes/ConditionNode";
 import FunnelNode from "./nodes/FunnelNode";
+import ScriptNode from "./nodes/ScriptNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
@@ -50,6 +51,7 @@ const nodeTypes = {
   group: GroupNode,
   condition: ConditionNode,
   funnel: FunnelNode,
+  script: ScriptNode,
 };
 
 export default function FlowCanvas() {
@@ -495,6 +497,24 @@ export default function FlowCanvas() {
           }
           updateNodeData(sourceNode.id, { nextNode: params.target });
         }
+        // Script Node Logic
+        else if (sourceNode && sourceNode.type === "script") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (
+            targetNode &&
+            !targetNode.data.name &&
+            targetNode.type !== "group" &&
+            targetNode.type !== "funnel" &&
+            (sourceNode?.type as string) !== "funnel"
+          ) {
+            toast.error("Unnamed Target Node", {
+              description: "The target node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return; // REJECT CONNECTION
+          }
+          updateNodeData(sourceNode.id, { nextNode: params.target });
+        }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
           const targetNode = nodes.find((n) => n.id === params.target);
@@ -603,6 +623,8 @@ export default function FlowCanvas() {
         data = { message: "", routingMode: "menu" };
       } else if (type === "action") {
         data = { endpoint: "" };
+      } else if (type === "script") {
+        data = { name: "", script: "", timeoutMs: 25, nextNode: "" };
       } else if (type === "start") {
         data = { flowName: "", entryNode: "" };
       } else if (type === "group") {
