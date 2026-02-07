@@ -609,7 +609,7 @@ export default function ActionInspector({
 
                 if (parsed.body) {
                   const trimmed = parsed.body.trim();
-                  const looksXml = trimmed.startsWith("<");
+                  const looksXml = trimmed.startsWith("<")
                   if (looksXml) {
                     updateNodeData(node.id, {
                       bodyMode: "soap",
