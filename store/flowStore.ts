@@ -21,6 +21,7 @@ export type FlowNode = {
   type: string;
   message?: string;
   persistByIndex?: boolean;
+  persistByIndexValue?: string;
   persistSourceField?: string;
   persistFieldName?: string;
   validateIndexedList?: boolean;
@@ -243,6 +244,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           persistByIndex:
             typeof data.persistByIndex === "boolean"
               ? data.persistByIndex
+              : undefined,
+          persistByIndexValue:
+            typeof data.persistByIndexValue === "string"
+              ? data.persistByIndexValue
               : undefined,
           persistSourceField: persistSourceField || undefined,
           persistFieldName: persistFieldName || undefined,
@@ -2275,6 +2280,8 @@ export const useFlowStore = create<FlowState>()(
               typeof flowNode.persistByIndex === "boolean"
                 ? flowNode.persistByIndex
                 : nextData.persistByIndex;
+            nextData.persistByIndexValue =
+              flowNode.persistByIndexValue ?? nextData.persistByIndexValue;
             nextData.persistSourceField =
               flowNode.persistSourceField ?? nextData.persistSourceField;
             nextData.persistFieldName =
