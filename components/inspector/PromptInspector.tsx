@@ -31,6 +31,7 @@ type PromptNodeData = {
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
+  persistByIndexValue?: string;
   persistSourceField?: string;
   persistFieldName?: string;
   validateIndexedList?: boolean;
@@ -896,7 +897,13 @@ export default function PromptInspector({
                 type="checkbox"
                 checked={Boolean(node.data.persistByIndex)}
                 disabled={Boolean(node.data.persistInput)}
-                onChange={(e) => updateNodeData(node.id, { persistByIndex: e.target.checked })}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  updateNodeData(node.id, {
+                    persistByIndex: checked,
+                    ...(checked ? {} : { persistByIndexValue: "" }),
+                  });
+                }}
                 className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all border-2 checked:bg-emerald-600 disabled:opacity-40"
               />
               <span className={node.data.persistInput ? "opacity-40" : ""}>Persist By Index</span>
@@ -916,25 +923,40 @@ export default function PromptInspector({
           {(node.data.persistByIndex || node.data.persistInput) && (
             <div className="pt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
               {node.data.persistByIndex && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Source Field</label>
-                    <input
-                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
-                      value={String(node.data.persistSourceField ?? "")}
-                      onChange={(e) => updateNodeData(node.id, { persistSourceField: e.target.value })}
-                      placeholder="userAccounts"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Source Field</label>
+                      <input
+                        className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
+                        value={String(node.data.persistSourceField ?? "")}
+                        onChange={(e) => updateNodeData(node.id, { persistSourceField: e.target.value })}
+                        placeholder="userAccounts"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Field Name</label>
+                      <input
+                        className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
+                        value={String(node.data.persistFieldName ?? "")}
+                        onChange={(e) => updateNodeData(node.id, { persistFieldName: e.target.value })}
+                        placeholder="SelectedAccount"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Field Name</label>
+                  <label className="flex items-center gap-2 text-xs text-gray-600 font-medium cursor-pointer">
                     <input
-                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
-                      value={String(node.data.persistFieldName ?? "")}
-                      onChange={(e) => updateNodeData(node.id, { persistFieldName: e.target.value })}
-                      placeholder="SelectedAccount"
+                      type="checkbox"
+                      checked={String(node.data.persistByIndexValue ?? "") === "object"}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          persistByIndexValue: e.target.checked ? "object" : "",
+                        })
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all border-2 checked:bg-emerald-600"
                     />
-                  </div>
+                    <span>Persist By Index Value</span>
+                  </label>
                 </div>
               )}
               {node.data.persistInput && (
