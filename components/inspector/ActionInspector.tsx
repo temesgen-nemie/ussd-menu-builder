@@ -13,7 +13,7 @@ import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 import { useFlowStore } from "@/store/flowStore";
-import { fetchFlowSettings } from "@/lib/api";
+import { fetchFlowSettings, type FlowSettingsResponse } from "@/lib/api";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -114,12 +114,8 @@ export default function ActionInspector({
     const loadSettings = async () => {
       try {
         const data = await fetchFlowSettings(flowName);
-        const settings =
-          (data as { settings?: Record<string, unknown> })?.settings ??
-          (data as { data?: Record<string, unknown> })?.data ??
-          (data as Record<string, unknown>) ??
-          {};
-        const value = settings.baseUrl;
+        const payload = data as FlowSettingsResponse | undefined;
+        const value = payload?.data?.baseUrl;
         if (isActive) {
           setBaseUrl(typeof value === "string" ? value : "");
         }

@@ -460,9 +460,25 @@ export const sendUssdRequest = async (
     }
 };
 
-export const fetchFlowSettings = async (flowName: string) => {
+export type FlowSettingsResponse = {
+    data?: {
+        flowName?: string;
+        baseUrl?: string;
+    };
+    shortcodes?: {
+        tele?: string;
+        safari?: string;
+    };
+};
+
+export const fetchFlowSettings = async (
+    flowName: string
+): Promise<FlowSettingsResponse> => {
     try {
-        const response = await api.get("/settings/fetch", { params: { flowName } });
+        const response = await api.get<FlowSettingsResponse>(
+            "/settings/fetch",
+            { params: { flowName } }
+        );
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
