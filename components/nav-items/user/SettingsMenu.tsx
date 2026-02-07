@@ -186,14 +186,14 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
         return;
       }
       const payload = {
-        data: {
-          flowName: selectedFlow,
+        flowName: selectedFlow,
+        settings: {
           baseUrl: result.data.baseUrl,
         },
         shortcodes: {
           tele: result.data.shortcodes.tele,
           safari: result.data.shortcodes.safari,
-        },
+        }
       };
       await updateFlowSettings(payload);
       toast.success("Settings updated.");

@@ -480,11 +480,11 @@ export const fetchFlowSettings = async (flowName: string) => {
 };
 
 export interface FlowSettingsPayload {
-    data: {
-        flowName: string;
+    flowName: string;
+    settings: {
         baseUrl?: string;
     };
-    shortcodes: {
+    shortcodes?: {
         tele?: string;
         safari?: string;
     };
