@@ -26,7 +26,7 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
           Script
         </label>
         <textarea
-          className="w-full resize-none rounded-lg border-2 border-gray-100 bg-gray-50/50 px-3 py-2 text-sm text-gray-900 transition-all focus:border-cyan-400 focus:bg-white focus:outline-none"
+          className="w-full resize-y rounded-lg border-2 border-gray-100 bg-gray-50/50 px-3 py-2 text-sm text-gray-900 transition-all focus:border-cyan-400 focus:bg-white focus:outline-none"
           rows={8}
           value={String(node.data?.script ?? "")}
           onChange={(e) => updateNodeData(node.id, { script: e.target.value })}
