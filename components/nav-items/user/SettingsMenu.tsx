@@ -23,6 +23,7 @@ import { useFlowStore } from "@/store/flowStore";
 import {
   fetchFlowSettings,
   updateFlowSettings,
+  type FlowSettingsResponse,
 } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -31,19 +32,8 @@ type SettingsMenuProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type FlowSettingsResponse = {
-  data?: {
-    flowName?: string;
-    baseUrl?: string;
-  };
-  shortcodes?: {
-    tele?: string;
-    safari?: string;
-  };
-};
-
-const parseSettingsResponse = (data: unknown) => {
-  const payload = data as FlowSettingsResponse | undefined;
+const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
+  const payload = data;
   return {
     baseUrl: payload?.data?.baseUrl ?? "",
     shortcodes: {
