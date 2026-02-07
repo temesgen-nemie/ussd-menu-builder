@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +21,6 @@ import {
 } from "@/components/ui/select";
 import { useFlowStore } from "@/store/flowStore";
 import {
-  createFlowSettings,
-  deleteFlowSettings,
   fetchFlowSettings,
   updateFlowSettings,
 } from "@/lib/api";
@@ -32,41 +31,67 @@ type SettingsMenuProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-const parseSettingsResponse = (data: unknown) => {
-  const settings =
-    (data as { settings?: Record<string, unknown> })?.settings ??
-    (data as { data?: Record<string, unknown> })?.data ??
-    (data as Record<string, unknown>) ??
-    {};
-  const rest = { ...settings };
-  delete (rest as Record<string, unknown>).flowName;
-  return rest as Record<string, unknown>;
+type FlowSettingsResponse = {
+  data?: {
+    flowName?: string;
+    baseUrl?: string;
+  };
+  shortcodes?: {
+    tele?: string;
+    safari?: string;
+  };
 };
 
-const coerceValue = (value: string) => {
-  const trimmed = value.trim();
-  if (trimmed === "") return "";
-  if (trimmed === "true") return true;
-  if (trimmed === "false") return false;
-  const numberValue = Number(trimmed);
-  if (!Number.isNaN(numberValue)) return numberValue;
-  return trimmed;
+const parseSettingsResponse = (data: unknown) => {
+  const payload = data as FlowSettingsResponse | undefined;
+  return {
+    baseUrl: payload?.data?.baseUrl ?? "",
+    shortcodes: {
+      tele: payload?.shortcodes?.tele ?? "",
+      safari: payload?.shortcodes?.safari ?? "",
+    },
+  };
 };
+
+const settingsSchema = z.object({
+  baseUrl: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || /^https?:\/\/[^\s]+$/i.test(value),
+      "Base URL must start with http:// or https://"
+    ),
+  shortcodes: z.object({
+    tele: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === "" || /^\*\d+#$/.test(value),
+        "Shortcode must look like *123#"
+      ),
+    safari: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === "" || /^\*\d+#$/.test(value),
+        "Shortcode must look like *123#"
+      ),
+  }),
+});
 
 export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) {
   const nodes = useFlowStore((state) => state.nodes);
   const publishedGroupIds = useFlowStore((state) => state.publishedGroupIds);
   const [selectedFlow, setSelectedFlow] = useState("");
-  const [settings, setSettings] = useState<Record<string, string>>({});
-  const [originalSettings, setOriginalSettings] = useState<Record<string, string>>({});
-  const [deleteKeys, setDeleteKeys] = useState<Record<string, boolean>>({});
+  const [baseUrl, setBaseUrl] = useState("");
+  const [shortcodes, setShortcodes] = useState({ tele: "", safari: "" });
+  const [fieldErrors, setFieldErrors] = useState<{
+    baseUrl?: string;
+    tele?: string;
+    safari?: string;
+  }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const flowOptions = useMemo(() => {
@@ -104,22 +129,19 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       setError(null);
       try {
         const data = await fetchFlowSettings(selectedFlow);
-        const next = parseSettingsResponse(data);
         if (!isActive) return;
-        const normalized = Object.fromEntries(
-          Object.entries(next).map(([key, value]) => [
-            key,
-            value === null || value === undefined ? "" : String(value),
-          ])
-        );
-        setSettings(normalized);
-        setOriginalSettings(normalized);
-        setDeleteKeys({});
+        const parsed = parseSettingsResponse(data);
+        setBaseUrl(String(parsed.baseUrl ?? ""));
+        setShortcodes({
+          tele: String(parsed.shortcodes.tele ?? ""),
+          safari: String(parsed.shortcodes.safari ?? ""),
+        });
+        setFieldErrors({});
       } catch (err) {
         if (!isActive) return;
-        setSettings({});
-        setOriginalSettings({});
-        setDeleteKeys({});
+        setBaseUrl("");
+        setShortcodes({ tele: "", safari: "" });
+        setFieldErrors({});
         setError(err instanceof Error ? err.message : "Unable to load settings.");
       } finally {
         if (isActive) setIsLoading(false);
@@ -137,129 +159,51 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       setError("Please select a flow.");
       return;
     }
+    setError(null);
+    const result = settingsSchema.safeParse({ baseUrl, shortcodes });
+    if (!result.success) {
+      const nextErrors: { baseUrl?: string; tele?: string; safari?: string } =
+        {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path.join(".");
+        if (path === "baseUrl") nextErrors.baseUrl = issue.message;
+        if (path === "shortcodes.tele") nextErrors.tele = issue.message;
+        if (path === "shortcodes.safari") nextErrors.safari = issue.message;
+      });
+      setFieldErrors(nextErrors);
+      return;
+    }
+    setFieldErrors({});
     setIsSaving(true);
     setError(null);
-    const payloadSettings = Object.fromEntries(
-      Object.entries(settings).map(([key, value]) => [key, coerceValue(value)])
-    );
-    const hasAny = Object.keys(payloadSettings).length > 0;
-    const fieldList = Object.keys(payloadSettings);
-    const changedKeys = fieldList.filter(
-      (key) => String(settings[key] ?? "") !== String(originalSettings[key] ?? "")
-    );
-
     try {
-      if (!hasAny) {
-        setError("Add at least one field before saving.");
+      if (
+        !result.data.baseUrl &&
+        !result.data.shortcodes.tele &&
+        !result.data.shortcodes.safari
+      ) {
+        setError("Provide at least one value before saving.");
         return;
       }
-      const payload = { flowName: selectedFlow, settings: payloadSettings };
+      const payload = {
+        data: {
+          flowName: selectedFlow,
+          baseUrl: result.data.baseUrl,
+        },
+        shortcodes: {
+          tele: result.data.shortcodes.tele,
+          safari: result.data.shortcodes.safari,
+        },
+      };
       await updateFlowSettings(payload);
-      toast.success(
-        changedKeys.length
-          ? `${changedKeys.join(", ")} updated`
-          : "No changes to update."
-      );
-      setOriginalSettings(settings);
-    } catch {
-      try {
-        const payload = { flowName: selectedFlow, settings: payloadSettings };
-        await createFlowSettings(payload);
-        toast.success(
-          fieldList.length
-            ? `${fieldList.join(", ")} created`
-            : "Settings created."
-        );
-        setOriginalSettings(settings);
-      } catch (innerErr) {
-        const message =
-          innerErr instanceof Error ? innerErr.message : "Unable to save settings.";
-        setError(message);
-        toast.error(message);
-      }
+      toast.success("Settings updated.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to update settings.";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedFlow) {
-      setError("Please select a flow.");
-      return;
-    }
-    const keys = Object.entries(deleteKeys)
-      .filter(([, value]) => value)
-      .map(([key]) => key);
-    if (keys.length === 0) return;
-
-    setIsDeleting(true);
-    setError(null);
-    try {
-      await deleteFlowSettings({ flowName: selectedFlow, keys });
-      setSettings((prev) => {
-        const next = { ...prev };
-        keys.forEach((key) => delete next[key]);
-        return next;
-      });
-      setDeleteKeys((prev) => {
-        const next = { ...prev };
-        keys.forEach((key) => delete next[key]);
-        return next;
-      });
-      toast.success(
-        keys.length === 1
-          ? `${keys[0]} deleted`
-          : `${keys.join(", ")} deleted`
-      );
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to delete settings.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleAddField = async () => {
-    if (!selectedFlow) {
-      setError("Please select a flow.");
-      return;
-    }
-    const key = newKey.trim();
-    if (!key) {
-      setError("Field name is required.");
-      return;
-    }
-    setIsAdding(true);
-    setError(null);
-    const mergedSettings = {
-      ...Object.fromEntries(
-        Object.entries(settings).map(([k, v]) => [k, coerceValue(v)])
-      ),
-      [key]: coerceValue(newValue),
-    };
-
-    try {
-      await createFlowSettings({
-        flowName: selectedFlow,
-        settings: mergedSettings,
-      });
-      setSettings((prev) => ({
-        ...prev,
-        [key]: newValue,
-      }));
-      setNewKey("");
-      setNewValue("");
-      setIsAddOpen(false);
-      toast.success(`${key} created`);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to add field.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsAdding(false);
     }
   };
 
@@ -296,67 +240,77 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
             </Select>
           </div>
 
-          {Object.keys(settings).length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {Object.entries(settings).map(([key, value]) => (
-                <div key={key} className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    {key}
-                  </label>
-                  <Input
-                    value={value}
-                    onChange={(event) =>
-                      setSettings((prev) => ({ ...prev, [key]: event.target.value }))
-                    }
-                  />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                BaseUrl
+              </label>
+              <Input
+                value={baseUrl}
+                onChange={(event) => {
+                  setBaseUrl(event.target.value);
+                  if (fieldErrors.baseUrl) {
+                    setFieldErrors((prev) => ({ ...prev, baseUrl: undefined }));
+                  }
+                }}
+                placeholder="e.g. https://api.example.com"
+              />
+              {fieldErrors.baseUrl && (
+                <div className="text-[11px] text-destructive">
+                  {fieldErrors.baseUrl}
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <div className="text-xs text-muted-foreground">
-              No settings found for this flow.
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Shortcode (tele)
+              </label>
+              <Input
+                value={shortcodes.tele}
+                onChange={(event) => {
+                  setShortcodes((prev) => ({
+                    ...prev,
+                    tele: event.target.value,
+                  }));
+                  if (fieldErrors.tele) {
+                    setFieldErrors((prev) => ({ ...prev, tele: undefined }));
+                  }
+                }}
+                placeholder="*126#"
+              />
+              {fieldErrors.tele && (
+                <div className="text-[11px] text-destructive">
+                  {fieldErrors.tele}
+                </div>
+              )}
             </div>
-          )}
-
-          <div className="rounded-lg border border-border bg-muted/30 p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-muted-foreground uppercase">
-                Additional fields
-              </div>
-              <button
-                type="button"
-                className="text-xs text-foreground/80 hover:text-foreground cursor-pointer"
-                onClick={() => setIsAddOpen(true)}
-              >
-                + Add field
-              </button>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Shortcode (safari)
+              </label>
+              <Input
+                value={shortcodes.safari}
+                onChange={(event) => {
+                  setShortcodes((prev) => ({
+                    ...prev,
+                    safari: event.target.value,
+                  }));
+                  if (fieldErrors.safari) {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      safari: undefined,
+                    }));
+                  }
+                }}
+                placeholder=""
+              />
+              {fieldErrors.safari && (
+                <div className="text-[11px] text-destructive">
+                  {fieldErrors.safari}
+                </div>
+              )}
             </div>
           </div>
-
-          {Object.keys(settings).length > 0 && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase">
-                Delete keys
-              </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {Object.keys(settings).map((key) => (
-                  <label key={key} className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(deleteKeys[key])}
-                      onChange={(event) =>
-                        setDeleteKeys((prev) => ({
-                          ...prev,
-                          [key]: event.target.checked,
-                        }))
-                      }
-                    />
-                    {key}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
 
           {isLoading && (
             <div className="text-xs text-muted-foreground">
@@ -369,19 +323,6 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
         <DialogFooter className="pt-2">
           <Button
             type="button"
-            variant="outline"
-            onClick={handleDelete}
-            disabled={
-              isDeleting ||
-              isLoading ||
-              Object.values(deleteKeys).every((value) => !value)
-            }
-            className="cursor-pointer border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed"
-          >
-            {isDeleting ? "Deleting..." : "Delete"}
-          </Button>
-          <Button
-            type="button"
             onClick={handleSave}
             disabled={isSaving || isLoading}
             className="cursor-pointer"
@@ -390,57 +331,6 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
           </Button>
         </DialogFooter>
       </DialogContent>
-
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Field</DialogTitle>
-            <DialogDescription>
-              Add a new setting key/value for this flow.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Field Name
-              </label>
-              <Input
-                value={newKey}
-                onChange={(event) => setNewKey(event.target.value)}
-                placeholder="e.g. timeoutMs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Value
-              </label>
-              <Input
-                value={newValue}
-                onChange={(event) => setNewValue(event.target.value)}
-                placeholder="e.g. 10000"
-              />
-            </div>
-          </div>
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsAddOpen(false)}
-              className="cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleAddField}
-              disabled={isAdding}
-              className="cursor-pointer"
-            >
-              {isAdding ? "Adding..." : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   );
 }

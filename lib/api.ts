@@ -480,32 +480,15 @@ export const fetchFlowSettings = async (flowName: string) => {
 };
 
 export interface FlowSettingsPayload {
-    flowName: string;
-    settings: {
+    data: {
+        flowName: string;
         baseUrl?: string;
-        timeoutMs?: number;
-        retryCount?: number;
+    };
+    shortcodes: {
+        tele?: string;
+        safari?: string;
     };
 }
-
-export const createFlowSettings = async (payload: FlowSettingsPayload) => {
-    try {
-        const response = await api.post("/settings/create", payload);
-        return response.data;
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            const axiosError = error as AxiosError<{ error?: string }>;
-            throw new Error(
-                axiosError.response?.data?.error ||
-                `Failed to create settings (${axiosError.response?.status})`
-            );
-        } else if (error instanceof Error) {
-            throw new Error(error.message);
-        } else {
-            throw new Error("An unknown error occurred");
-        }
-    }
-};
 
 export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
     try {
@@ -517,28 +500,6 @@ export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
             throw new Error(
                 axiosError.response?.data?.error ||
                 `Failed to update settings (${axiosError.response?.status})`
-            );
-        } else if (error instanceof Error) {
-            throw new Error(error.message);
-        } else {
-            throw new Error("An unknown error occurred");
-        }
-    }
-};
-
-export const deleteFlowSettings = async (payload: {
-    flowName: string;
-    keys: string[];
-}) => {
-    try {
-        const response = await api.delete("/settings/delete", { data: payload });
-        return response.data;
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            const axiosError = error as AxiosError<{ error?: string }>;
-            throw new Error(
-                axiosError.response?.data?.error ||
-                `Failed to delete settings (${axiosError.response?.status})`
             );
         } else if (error instanceof Error) {
             throw new Error(error.message);
