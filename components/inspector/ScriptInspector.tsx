@@ -1,6 +1,8 @@
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
-import type { Node } from "reactflow";
+import { useEffect, useRef } from "react";
+import type { Edge, Node } from "reactflow";
+import { toast } from "sonner";
 import { useFlowStore } from "@/store/flowStore";
 
 type ScriptInspectorProps = {
@@ -16,11 +18,419 @@ type ScriptRoute = {
 
 export default function ScriptInspector({ node, updateNodeData }: ScriptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
+  const edges = useFlowStore((s) => s.edges);
+  const setEdges = useFlowStore((s) => s.setEdges);
   const nextNodeId =
     typeof node.data?.nextNode === "string" ? node.data.nextNode : "";
   const nextNode = nodes.find((n) => n.id === nextNodeId);
   const routes = (node.data?.routes as ScriptRoute[]) || [];
   const createId = () => Math.random().toString(36).substr(2, 9);
+  const lastWarningKey = useRef<string | null>(null);
+
+  const getScriptScopeNodes = () => {
+    const current = nodes.find((n) => n.id === node.id) ?? node;
+    const parentId = current.parentNode ?? null;
+    return nodes.filter((n) => (n.parentNode || null) === parentId);
+  };
+
+  const parseScriptRoutes = (script: string) => {
+    const matches: Array<{ condition: string; nextName: string }> = [];
+    const len = script.length;
+
+    const isIdentChar = (ch: string) => /[A-Za-z0-9_$]/.test(ch);
+
+    const skipWhitespace = (idx: number) => {
+      let i = idx;
+      while (i < len && /\s/.test(script[i])) i += 1;
+      return i;
+    };
+
+    const skipLineComment = (idx: number) => {
+      let i = idx;
+      while (i < len && script[i] !== "\n") i += 1;
+      return i;
+    };
+
+    const skipBlockComment = (idx: number) => {
+      let i = idx + 2;
+      while (i < len) {
+        if (script[i] === "*" && script[i + 1] === "/") return i + 2;
+        i += 1;
+      }
+      return len;
+    };
+
+    const skipString = (idx: number) => {
+      const quote = script[idx];
+      let i = idx + 1;
+      while (i < len) {
+        const ch = script[i];
+        if (ch === "\\") {
+          i += 2;
+          continue;
+        }
+        if (ch === quote) return i + 1;
+        i += 1;
+      }
+      return len;
+    };
+
+    const skipTemplate = (idx: number) => {
+      let i = idx + 1;
+      while (i < len) {
+        const ch = script[i];
+        if (ch === "\\") {
+          i += 2;
+          continue;
+        }
+        if (ch === "`") return i + 1;
+        i += 1;
+      }
+      return len;
+    };
+
+    const parseCondition = (idx: number) => {
+      let i = skipWhitespace(idx);
+      if (script[i] !== "(") return null;
+      i += 1;
+      const start = i;
+      let depth = 1;
+      while (i < len) {
+        const ch = script[i];
+        const next = script[i + 1];
+        if (ch === "/" && next === "/") {
+          i = skipLineComment(i + 2);
+          continue;
+        }
+        if (ch === "/" && next === "*") {
+          i = skipBlockComment(i);
+          continue;
+        }
+        if (ch === "'" || ch === '"') {
+          i = skipString(i);
+          continue;
+        }
+        if (ch === "`") {
+          i = skipTemplate(i);
+          continue;
+        }
+        if (ch === "(") depth += 1;
+        if (ch === ")") {
+          depth -= 1;
+          if (depth === 0) {
+            const condition = script.slice(start, i);
+            return { condition, nextIndex: i + 1 };
+          }
+        }
+        i += 1;
+      }
+      return null;
+    };
+
+    const parseBlock = (idx: number) => {
+      let i = skipWhitespace(idx);
+      if (script[i] !== "{") return null;
+      i += 1;
+      const start = i;
+      let depth = 1;
+      while (i < len) {
+        const ch = script[i];
+        const next = script[i + 1];
+        if (ch === "/" && next === "/") {
+          i = skipLineComment(i + 2);
+          continue;
+        }
+        if (ch === "/" && next === "*") {
+          i = skipBlockComment(i);
+          continue;
+        }
+        if (ch === "'" || ch === '"') {
+          i = skipString(i);
+          continue;
+        }
+        if (ch === "`") {
+          i = skipTemplate(i);
+          continue;
+        }
+        if (ch === "{") depth += 1;
+        if (ch === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            const block = script.slice(start, i);
+            return { block, nextIndex: i + 1 };
+          }
+        }
+        i += 1;
+      }
+      return null;
+    };
+
+    const parseElseBlock = (idx: number) => {
+      let i = skipWhitespace(idx);
+      if (
+        script[i] !== "e" ||
+        script[i + 1] !== "l" ||
+        script[i + 2] !== "s" ||
+        script[i + 3] !== "e"
+      ) {
+        return null;
+      }
+      if (isIdentChar(script[i - 1] || "") || isIdentChar(script[i + 4] || "")) {
+        return null;
+      }
+      i += 4;
+      i = skipWhitespace(i);
+      if (
+        script[i] === "i" &&
+        script[i + 1] === "f" &&
+        !isIdentChar(script[i - 1] || "") &&
+        !isIdentChar(script[i + 2] || "")
+      ) {
+        return { type: "elseif" as const, nextIndex: i };
+      }
+      const blockResult = parseBlock(i);
+      if (!blockResult) return null;
+      return {
+        type: "else" as const,
+        block: blockResult.block,
+        nextIndex: blockResult.nextIndex,
+      };
+    };
+
+    let i = 0;
+    while (i < len) {
+      const ch = script[i];
+      const next = script[i + 1];
+      if (ch === "/" && next === "/") {
+        i = skipLineComment(i + 2);
+        continue;
+      }
+      if (ch === "/" && next === "*") {
+        i = skipBlockComment(i);
+        continue;
+      }
+      if (ch === "'" || ch === '"') {
+        i = skipString(i);
+        continue;
+      }
+      if (ch === "`") {
+        i = skipTemplate(i);
+        continue;
+      }
+
+      if (
+        ch === "i" &&
+        script[i + 1] === "f" &&
+        !isIdentChar(script[i - 1] || "") &&
+        !isIdentChar(script[i + 2] || "")
+      ) {
+        const conditionResult = parseCondition(i + 2);
+        if (!conditionResult) {
+          i += 2;
+          continue;
+        }
+        const blockResult = parseBlock(conditionResult.nextIndex);
+        if (!blockResult) {
+          i = conditionResult.nextIndex;
+          continue;
+        }
+        const returnMatch = blockResult.block.match(
+          /return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
+        );
+        if (returnMatch?.[1]) {
+          matches.push({
+            condition: conditionResult.condition.trim(),
+            nextName: returnMatch[1].trim(),
+          });
+        }
+        const elseResult = parseElseBlock(blockResult.nextIndex);
+        if (elseResult?.type === "else") {
+          const elseReturnMatch = elseResult.block.match(
+            /return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
+          );
+          if (elseReturnMatch?.[1]) {
+            matches.push({
+              condition: "else",
+              nextName: elseReturnMatch[1].trim(),
+            });
+          }
+          i = elseResult.nextIndex;
+          continue;
+        }
+        if (elseResult?.type === "elseif") {
+          i = elseResult.nextIndex;
+          continue;
+        }
+        i = blockResult.nextIndex;
+        continue;
+      }
+
+      i += 1;
+    }
+
+    const seenNextNames = new Set(matches.map((m) => m.nextName));
+
+    i = 0;
+    while (i < len) {
+      const ch = script[i];
+      const next = script[i + 1];
+      if (ch === "/" && next === "/") {
+        i = skipLineComment(i + 2);
+        continue;
+      }
+      if (ch === "/" && next === "*") {
+        i = skipBlockComment(i);
+        continue;
+      }
+      if (ch === "'" || ch === '"') {
+        i = skipString(i);
+        continue;
+      }
+      if (ch === "`") {
+        i = skipTemplate(i);
+        continue;
+      }
+
+      if (
+        ch === "r" &&
+        script.slice(i, i + 6) === "return" &&
+        !isIdentChar(script[i - 1] || "") &&
+        !isIdentChar(script[i + 6] || "")
+      ) {
+        const snippet = script.slice(i);
+        const returnMatch = snippet.match(
+          /^return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
+        );
+        if (returnMatch?.[1]) {
+          const nextName = returnMatch[1].trim();
+          if (!seenNextNames.has(nextName)) {
+            seenNextNames.add(nextName);
+            matches.push({ condition: "", nextName });
+          }
+          i += returnMatch[0].length;
+          continue;
+        }
+      }
+
+      i += 1;
+    }
+
+    return matches;
+  };
+
+  const hashId = (input: string) => {
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = (hash << 5) - hash + input.charCodeAt(i);
+      hash |= 0;
+    }
+    return `sr-${Math.abs(hash)}`;
+  };
+
+  useEffect(() => {
+    const script = String(node.data?.script ?? "");
+    const parsed = parseScriptRoutes(script);
+    const scopedNodes = getScriptScopeNodes();
+    const unresolved: string[] = [];
+
+    const nextRoutes: ScriptRoute[] = parsed.map((item) => {
+      const targetName = item.nextName.trim();
+      const candidates = scopedNodes.filter((n) => {
+        const nodeName = String((n.data as Record<string, unknown>)?.name ?? "").trim();
+        if (nodeName && nodeName === targetName) return true;
+        if (n.type === "group") {
+          const children = scopedNodes.filter((child) => child.parentNode === n.id);
+          const startNode = children.find((child) => child.type === "start");
+          const flowName = String((startNode?.data as { flowName?: string } | undefined)?.flowName ?? "").trim();
+          return flowName && flowName === targetName;
+        }
+        return false;
+      });
+      const nextNodeId = candidates.length === 1 ? candidates[0].id : "";
+      if (!nextNodeId) {
+        unresolved.push(item.nextName || "(empty)");
+      }
+      return {
+        id: hashId(`${item.condition}::${item.nextName}`),
+        key: item.condition,
+        nextNodeId,
+      };
+    });
+
+    const routesUnchanged =
+      routes.length === nextRoutes.length &&
+      routes.every((route, idx) => {
+        const next = nextRoutes[idx];
+        return (
+          route?.id === next?.id &&
+          String(route?.key ?? "") === String(next?.key ?? "") &&
+          String(route?.nextNodeId ?? "") === String(next?.nextNodeId ?? "")
+        );
+      });
+
+    if (!routesUnchanged) {
+      updateNodeData(node.id, { routes: nextRoutes });
+    }
+
+    const routeIdSet = new Set(nextRoutes.map((r) => r.id));
+    const baseEdges = edges.filter((edge) => {
+      if (edge.source !== node.id) return true;
+      if (!edge.sourceHandle || edge.sourceHandle === "default") return true;
+      return routeIdSet.has(edge.sourceHandle);
+    });
+
+    let updatedEdges = [...baseEdges];
+    nextRoutes.forEach((route) => {
+      if (!route.nextNodeId) return;
+      const existingIdx = updatedEdges.findIndex(
+        (edge) => edge.source === node.id && edge.sourceHandle === route.id
+      );
+      if (existingIdx !== -1) {
+        if (updatedEdges[existingIdx].target === route.nextNodeId) return;
+        updatedEdges = [
+          ...updatedEdges.slice(0, existingIdx),
+          ...updatedEdges.slice(existingIdx + 1),
+        ];
+      }
+      const newEdge: Edge = {
+        id: `e-${node.id}-${route.id}-${route.nextNodeId}`,
+        source: node.id,
+        target: route.nextNodeId,
+        sourceHandle: route.id,
+        targetHandle: null,
+      };
+      updatedEdges = [...updatedEdges, newEdge];
+    });
+
+    const edgesUnchanged =
+      updatedEdges.length === edges.length &&
+      updatedEdges.every((edge) =>
+        edges.some(
+          (existing) =>
+            existing.id === edge.id &&
+            existing.source === edge.source &&
+            existing.target === edge.target &&
+            existing.sourceHandle === edge.sourceHandle
+        )
+      );
+
+    if (!edgesUnchanged) {
+      setEdges(updatedEdges);
+    }
+
+    if (unresolved.length > 0) {
+      const list = Array.from(new Set(unresolved)).join(", ");
+      const key = `missing:${list}`;
+      if (lastWarningKey.current !== key) {
+        lastWarningKey.current = key;
+        toast.warning(
+          `Could not auto-connect route(s): ${list}. Name not found or not unique in this flow.`
+        );
+      }
+    } else if (lastWarningKey.current) {
+      lastWarningKey.current = null;
+    }
+  }, [node.id, node.data?.script, nodes, edges, routes, updateNodeData, setEdges]);
 
   return (
     <div className="space-y-4">
