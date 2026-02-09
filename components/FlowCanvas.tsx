@@ -390,7 +390,43 @@ export default function FlowCanvas() {
             }
           }
         }
-        // 3. Condition Routes
+        // 3. Script Routes
+        else if (sourceNode && sourceNode.type === "script") {
+          const handleId = params.sourceHandle;
+          if (!handleId || handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (
+              targetNode &&
+              !targetNode.data.name &&
+              targetNode.type !== "group" &&
+              targetNode.type !== "funnel"
+            ) {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return; // REJECT CONNECTION
+            }
+            updateNodeData(sourceNode.id, { nextNode: params.target });
+          } else {
+            interface ScriptRoute {
+              id: string;
+              key?: string;
+              nextNodeId?: string;
+            }
+            const routes = (sourceNode.data.routes as ScriptRoute[]) || [];
+            const routeIndex = routes.findIndex((r) => r.id === handleId);
+            if (routeIndex !== -1) {
+              const newRoutes = [...routes];
+              newRoutes[routeIndex] = {
+                ...newRoutes[routeIndex],
+                nextNodeId: params.target || "",
+              };
+              updateNodeData(sourceNode.id, { routes: newRoutes });
+            }
+          }
+        }
+        // 4. Condition Routes
         else if (sourceNode && sourceNode.type === "condition") {
              const handleId = params.sourceHandle;
              if (handleId === "default") {
@@ -624,7 +660,7 @@ export default function FlowCanvas() {
       } else if (type === "action") {
         data = { endpoint: "" };
       } else if (type === "script") {
-        data = { name: "", script: "", timeoutMs: 25, nextNode: "" };
+        data = { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] };
       } else if (type === "start") {
         data = { flowName: "", entryNode: "" };
       } else if (type === "group") {

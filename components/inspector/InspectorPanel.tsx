@@ -180,7 +180,8 @@ export default function InspectorPanel() {
             name: "",
             script: "",
             timeoutMs: 25,
-            nextNode: ""
+            nextNode: "",
+            routes: []
         });
     }
   };

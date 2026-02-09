@@ -58,7 +58,7 @@ export default function NodeToolbar() {
           : type === "action"
           ? { endpoint: "" }
           : type === "script"
-          ? { name: "", script: "", timeoutMs: 25, nextNode: "" }
+          ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
           : type === "condition"
           ? { name: "", nextNode: { routes: [], default: "" } }
           : type === "funnel"
