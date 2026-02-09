@@ -14,6 +14,7 @@ type ScriptRoute = {
   id: string;
   key?: string;
   nextNodeId?: string;
+  nextNodeName?: string;
 };
 
 export default function ScriptInspector({ node, updateNodeData }: ScriptInspectorProps) {
@@ -24,8 +25,8 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
     typeof node.data?.nextNode === "string" ? node.data.nextNode : "";
   const nextNode = nodes.find((n) => n.id === nextNodeId);
   const routes = (node.data?.routes as ScriptRoute[]) || [];
-  const createId = () => Math.random().toString(36).substr(2, 9);
   const lastWarningKey = useRef<string | null>(null);
+  const scriptValue = String(node.data?.script ?? "");
 
   const getScriptScopeNodes = () => {
     const current = nodes.find((n) => n.id === node.id) ?? node;
@@ -197,6 +198,20 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
       };
     };
 
+    const seenNextNames = new Set<string>();
+    const nextNodeRegex = /nextNode\s*:\s*["'`]([^"'`]+)["'`]/g;
+
+    const addFromBlock = (block: string, condition: string) => {
+      let match: RegExpExecArray | null;
+      while ((match = nextNodeRegex.exec(block))) {
+        const nextName = match[1]?.trim();
+        if (!nextName || seenNextNames.has(nextName)) continue;
+        seenNextNames.add(nextName);
+        matches.push({ condition, nextName });
+      }
+      nextNodeRegex.lastIndex = 0;
+    };
+
     let i = 0;
     while (i < len) {
       const ch = script[i];
@@ -234,26 +249,11 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
           i = conditionResult.nextIndex;
           continue;
         }
-        const returnMatch = blockResult.block.match(
-          /return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
-        );
-        if (returnMatch?.[1]) {
-          matches.push({
-            condition: conditionResult.condition.trim(),
-            nextName: returnMatch[1].trim(),
-          });
-        }
+        addFromBlock(blockResult.block, conditionResult.condition.trim());
+
         const elseResult = parseElseBlock(blockResult.nextIndex);
         if (elseResult?.type === "else") {
-          const elseReturnMatch = elseResult.block.match(
-            /return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
-          );
-          if (elseReturnMatch?.[1]) {
-            matches.push({
-              condition: "else",
-              nextName: elseReturnMatch[1].trim(),
-            });
-          }
+          addFromBlock(elseResult.block, "");
           i = elseResult.nextIndex;
           continue;
         }
@@ -267,8 +267,6 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
 
       i += 1;
     }
-
-    const seenNextNames = new Set(matches.map((m) => m.nextName));
 
     i = 0;
     while (i < len) {
@@ -292,22 +290,22 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
       }
 
       if (
-        ch === "r" &&
-        script.slice(i, i + 6) === "return" &&
+        ch === "n" &&
+        script.slice(i, i + 8) === "nextNode" &&
         !isIdentChar(script[i - 1] || "") &&
-        !isIdentChar(script[i + 6] || "")
+        !isIdentChar(script[i + 8] || "")
       ) {
         const snippet = script.slice(i);
-        const returnMatch = snippet.match(
-          /^return\s*\{\s*nextNode\s*:\s*["'`]([^"'`]+)["'`]\s*\}/
+        const nextNodeMatch = snippet.match(
+          /^nextNode\s*:\s*["'`]([^"'`]+)["'`]/
         );
-        if (returnMatch?.[1]) {
-          const nextName = returnMatch[1].trim();
+        if (nextNodeMatch?.[1]) {
+          const nextName = nextNodeMatch[1].trim();
           if (!seenNextNames.has(nextName)) {
             seenNextNames.add(nextName);
             matches.push({ condition: "", nextName });
           }
-          i += returnMatch[0].length;
+          i += nextNodeMatch[0].length;
           continue;
         }
       }
@@ -335,6 +333,16 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
 
     const nextRoutes: ScriptRoute[] = parsed.map((item) => {
       const targetName = item.nextName.trim();
+      const existingRoute = routes.find((route) => {
+        const storedName = String(route.nextNodeName ?? "").trim();
+        if (storedName && storedName === targetName) return true;
+        if (!route.nextNodeId) return false;
+        const targetNode = scopedNodes.find((n) => n.id === route.nextNodeId);
+        const nodeName = String(
+          (targetNode?.data as Record<string, unknown>)?.name ?? ""
+        ).trim();
+        return nodeName && nodeName === targetName;
+      });
       const candidates = scopedNodes.filter((n) => {
         const nodeName = String((n.data as Record<string, unknown>)?.name ?? "").trim();
         if (nodeName && nodeName === targetName) return true;
@@ -351,9 +359,10 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
         unresolved.push(item.nextName || "(empty)");
       }
       return {
-        id: hashId(`${item.condition}::${item.nextName}`),
-        key: item.condition,
+        id: existingRoute?.id || hashId(item.nextName),
+        key: existingRoute?.key ?? item.condition,
         nextNodeId,
+        nextNodeName: targetName,
       };
     });
 
@@ -364,10 +373,23 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
         return (
           route?.id === next?.id &&
           String(route?.key ?? "") === String(next?.key ?? "") &&
-          String(route?.nextNodeId ?? "") === String(next?.nextNodeId ?? "")
+          String(route?.nextNodeId ?? "") === String(next?.nextNodeId ?? "") &&
+          String(route?.nextNodeName ?? "") === String(next?.nextNodeName ?? "")
         );
       });
 
+    if (unresolved.length > 0) {
+      const list = Array.from(new Set(unresolved)).join(", ");
+      const key = `missing:${list}`;
+      if (lastWarningKey.current !== key) {
+        lastWarningKey.current = key;
+        toast.warning(
+          `Could not auto-connect route(s): ${list}. Name not found or not unique in this flow.`
+        );
+      }
+    } else if (lastWarningKey.current) {
+      lastWarningKey.current = null;
+    }
     if (!routesUnchanged) {
       updateNodeData(node.id, { routes: nextRoutes });
     }
@@ -417,19 +439,6 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
     if (!edgesUnchanged) {
       setEdges(updatedEdges);
     }
-
-    if (unresolved.length > 0) {
-      const list = Array.from(new Set(unresolved)).join(", ");
-      const key = `missing:${list}`;
-      if (lastWarningKey.current !== key) {
-        lastWarningKey.current = key;
-        toast.warning(
-          `Could not auto-connect route(s): ${list}. Name not found or not unique in this flow.`
-        );
-      }
-    } else if (lastWarningKey.current) {
-      lastWarningKey.current = null;
-    }
   }, [node.id, node.data?.script, nodes, edges, routes, updateNodeData, setEdges]);
 
   return (
@@ -447,8 +456,9 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
         <textarea
           className="w-full resize-y rounded-lg border-2 border-gray-100 bg-gray-50/50 px-3 py-2 text-sm text-gray-900 transition-all focus:border-cyan-400 focus:bg-white focus:outline-none"
           rows={8}
-          value={String(node.data?.script ?? "")}
+          value={scriptValue}
           onChange={(e) => updateNodeData(node.id, { script: e.target.value })}
+          spellCheck={false}
           placeholder="Write your script here..."
         />
       </div>
@@ -458,25 +468,11 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
           <label className="text-[10px] font-bold uppercase text-gray-400">
             Script Routes
           </label>
-          <button
-            type="button"
-            className="text-[10px] font-semibold text-cyan-600 hover:text-cyan-700"
-            onClick={() =>
-              updateNodeData(node.id, {
-                routes: [
-                  ...routes,
-                  { id: createId(), key: "", nextNodeId: "" },
-                ],
-              })
-            }
-          >
-            + Add Route
-          </button>
         </div>
 
         {routes.length === 0 ? (
           <div className="mt-2 text-[10px] text-gray-400">
-            No routes yet. Add a route and connect it on the canvas.
+            No routes detected yet. Add a return with nextNode in the script.
           </div>
         ) : (
           <div className="mt-3 space-y-2">
@@ -495,16 +491,6 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
                     updateNodeData(node.id, { routes: next });
                   }}
                 />
-                <button
-                  type="button"
-                  className="text-[10px] text-gray-400 hover:text-red-500"
-                  onClick={() => {
-                    const next = routes.filter((_, i) => i !== idx);
-                    updateNodeData(node.id, { routes: next });
-                  }}
-                >
-                  Remove
-                </button>
                 <div className="col-span-2">
                   <div className="text-[9px] font-semibold uppercase text-gray-400 mb-1">
                     Target
