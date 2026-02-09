@@ -144,6 +144,24 @@ const calculateFlowSnapshot = (groupId: string, nodes: Node[], edges: Edge[]): s
   return JSON.stringify({ nodes: cleanNodes, edges: cleanEdges });
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const replaceNextNodeNameInScript = (
+  script: string,
+  oldName: string,
+  newName: string
+) => {
+  if (!script || !oldName || oldName === newName) return script;
+  const escaped = escapeRegExp(oldName);
+  const pattern = new RegExp(
+    `(return\\s*\\{[^}]*\\bnextNode\\s*:\\s*)(['"\`])${escaped}\\2`,
+    "g"
+  );
+  return script.replace(pattern, (_match, prefix, quote) => {
+    return `${prefix}${quote}${newName}${quote}`;
+  });
+};
+
 const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
@@ -1890,6 +1908,56 @@ export const useFlowStore = create<FlowState>()(
             if (info && state.publishedGroupIds.includes(info.groupId)) {
               groupIdToMark = info.groupId;
             }
+          }
+
+          const renameTargets: Array<{ targetId: string; oldName: string; newName: string }> = [];
+          const addRenameTarget = (
+            targetId: string | null | undefined,
+            oldNameRaw: unknown,
+            newNameRaw: unknown
+          ) => {
+            if (!targetId) return;
+            const oldName = String(oldNameRaw ?? "").trim();
+            const newName = String(newNameRaw ?? "").trim();
+            if (!oldName || !newName || oldName === newName) return;
+            renameTargets.push({ targetId, oldName, newName });
+          };
+
+          if (node?.type === "start" && data.flowName !== undefined) {
+            addRenameTarget(node.parentNode, (node.data as any)?.flowName, data.flowName);
+          } else if (data.name !== undefined) {
+            addRenameTarget(node?.id, (node?.data as any)?.name, data.name);
+          }
+
+          if (renameTargets.length > 0) {
+            nextNodes = nextNodes.map((n) => {
+              if (n.type !== "script") return n;
+              const routes = Array.isArray((n.data as any)?.routes)
+                ? ((n.data as any).routes as Array<{ nextNodeId?: string }>)
+                : [];
+              if (routes.length === 0) return n;
+
+              let updatedScript = String((n.data as any)?.script ?? "");
+              let changed = false;
+              renameTargets.forEach((rename) => {
+                const isConnected = routes.some(
+                  (route) => route?.nextNodeId === rename.targetId
+                );
+                if (!isConnected) return;
+                const nextScript = replaceNextNodeNameInScript(
+                  updatedScript,
+                  rename.oldName,
+                  rename.newName
+                );
+                if (nextScript !== updatedScript) {
+                  updatedScript = nextScript;
+                  changed = true;
+                }
+              });
+
+              if (!changed) return n;
+              return { ...n, data: { ...n.data, script: updatedScript } };
+            });
           }
 
           // PROPAGATION LOGIC: Sync names from PromptNode routes to connected Menu Branch Groups
