@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { z } from "zod";
 import {
   Dialog,
@@ -252,21 +253,9 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                 </div>
               )}
               {!fieldErrors.baseUrl && !baseUrl && (
-                <div className="flex items-center gap-1 text-[11px] text-amber-600">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Base URL isn&apos;t enabled.</span>
+                <div className="flex items-center gap-2 text-[11px] text-amber-600">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>Base URL is missing.</span>
                 </div>
               )}
             </div>
@@ -293,21 +282,9 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                 </div>
               )}
               {!fieldErrors.tele && !shortcodes.tele && (
-                <div className="flex items-center gap-1 text-[11px] text-amber-600">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Short code for tele isn&apos;t enabled.</span>
+                <div className="flex items-center gap-2 text-[11px] text-amber-600">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>Short code for EthioTelecom is missing, so EthioTelecom USSD won&apos;t be available.</span>
                 </div>
               )}
             </div>
@@ -337,21 +314,9 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                 </div>
               )}
               {!fieldErrors.safari && !shortcodes.safari && (
-                <div className="flex items-center gap-1 text-[11px] text-amber-600">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Short code for safari isn&apos;t enabled.</span>
+                <div className="flex items-center gap-2 text-[11px] text-amber-600">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>Short code for Safaricom is missing, so Safaricom USSD won&apos;t be available.</span>
                 </div>
               )}
             </div>

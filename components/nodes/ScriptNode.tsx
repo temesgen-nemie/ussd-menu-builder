@@ -31,9 +31,9 @@ export default function ScriptNode({ data, selected }: ScriptNodeProps) {
         </span>
       </div>
 
-      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-[10px] text-slate-400">
+      {/* <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-[10px] text-slate-400">
         {data.script ? data.script.split("\n")[0] : "No script yet"}
-      </div>
+      </div> */}
 
       <Handle
         type="target"
