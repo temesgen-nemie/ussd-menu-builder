@@ -447,7 +447,14 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
         nodeId={node.id}
         name={String(node.data?.name ?? "")}
         onNameChange={(value) => updateNodeData(node.id, { name: value })}
+        label="Name *"
       />
+
+      {!String(node.data?.name ?? "").trim() && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Script node name is required before you can finish.
+        </div>
+      )}
 
       <div>
         <label className="mb-1 block text-[10px] font-bold uppercase text-gray-400">
