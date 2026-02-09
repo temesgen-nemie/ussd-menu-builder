@@ -422,12 +422,24 @@ export default function ResizablePhoneEmulator({
                       {/* Popup Content */}
                       <div className="p-4 flex flex-col min-h-0">
                         {/* Scrollable Message Content */}
-                        <div className={`overflow-y-auto pr-2 scroll-smooth custom-scrollbar ${
+                        <div className={`overflow-hidden pr-2 ${
                           messages.length > 0 && messages[messages.length-1].serviceType === 'EF' 
                             ? 'max-h-[240px] mb-2' 
                             : 'max-h-[180px] mb-3'
                         }`}>
-                          <p className="text-[14.5px] font-medium leading-[1.35] select-none whitespace-pre-wrap text-left break-all">
+                          <p className={`font-medium leading-[1.25] select-none whitespace-pre-wrap text-left break-words max-w-full ${
+                            messages.length > 0 && messages[messages.length - 1].type === 'system'
+                              ? messages[messages.length - 1].content.length > 160
+                                ? "text-[10px]"
+                                : messages[messages.length - 1].content.length > 130
+                                  ? "text-[11px]"
+                                  : messages[messages.length - 1].content.length > 100
+                                    ? "text-[12px]"
+                                    : messages[messages.length - 1].content.length > 70
+                                      ? "text-[13px]"
+                                      : "text-[14.5px]"
+                              : "text-[14.5px]"
+                          }`}>
                             {messages.length > 0 
                               ? messages[messages.length - 1].type === 'system' 
                                  ? messages[messages.length - 1].content.substring(0, 172)
