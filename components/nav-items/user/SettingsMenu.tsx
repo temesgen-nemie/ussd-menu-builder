@@ -37,8 +37,8 @@ const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
   return {
     baseUrl: payload?.data?.baseUrl ?? "",
     shortcodes: {
-      tele: payload?.shortcodes?.tele ?? "",
-      safari: payload?.shortcodes?.safari ?? "",
+      tele: payload?.data?.shortcodes?.tele ?? "",
+      safari: payload?.data?.shortcodes?.safari ?? "",
     },
   };
 };
@@ -187,6 +187,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       };
       await updateFlowSettings(payload);
       toast.success("Settings updated.");
+      onOpenChange(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to update settings.";
@@ -250,6 +251,24 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                   {fieldErrors.baseUrl}
                 </div>
               )}
+              {!fieldErrors.baseUrl && !baseUrl && (
+                <div className="flex items-center gap-1 text-[11px] text-amber-600">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Base URL isn&apos;t enabled.</span>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
@@ -266,11 +285,29 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                     setFieldErrors((prev) => ({ ...prev, tele: undefined }));
                   }
                 }}
-                placeholder="*126#"
+                // placeholder="*126#"
               />
               {fieldErrors.tele && (
                 <div className="text-[11px] text-destructive">
                   {fieldErrors.tele}
+                </div>
+              )}
+              {!fieldErrors.tele && !shortcodes.tele && (
+                <div className="flex items-center gap-1 text-[11px] text-amber-600">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Short code for tele isn&apos;t enabled.</span>
                 </div>
               )}
             </div>
@@ -297,6 +334,24 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
               {fieldErrors.safari && (
                 <div className="text-[11px] text-destructive">
                   {fieldErrors.safari}
+                </div>
+              )}
+              {!fieldErrors.safari && !shortcodes.safari && (
+                <div className="flex items-center gap-1 text-[11px] text-amber-600">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C18.98 16.04 18.025 18 16.518 18H3.482c-1.507 0-2.462-1.96-1.743-3.31l6.518-11.59zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Short code for safari isn&apos;t enabled.</span>
                 </div>
               )}
             </div>

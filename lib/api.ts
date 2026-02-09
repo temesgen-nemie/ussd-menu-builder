@@ -464,6 +464,10 @@ export type FlowSettingsResponse = {
     data?: {
         flowName?: string;
         baseUrl?: string;
+        shortcodes?: {
+            tele?: string;
+            safari?: string;
+        };
     };
     shortcodes?: {
         tele?: string;
