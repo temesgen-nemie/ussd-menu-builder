@@ -35,6 +35,7 @@ export type FlowNode = {
   persistInputAs?: string;
   script?: string;
   timeoutMs?: number;
+  scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
   endpoint?: string;
   method?: string;
   dataSource?: string;
@@ -473,11 +474,23 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
       if (node.type === "script") {
         const nextNodeRaw = typeof data.nextNode === "string" ? data.nextNode : "";
         const resolved = resolveTarget(nextNodeRaw || "");
+        const routesRaw =
+          (data.routes as Array<{ id?: string; key?: string; nextNodeId?: string }>) ||
+          [];
+        const scriptRoutes = routesRaw.map((route) => {
+          const target = resolveTarget(route.nextNodeId || "");
+          return {
+            key: route.key,
+            goto: target.name,
+            gotoId: target.id,
+          };
+        });
         return {
           ...base,
           script: String(data.script ?? ""),
           timeoutMs: 25,
           nextNode: resolved.name || "",
+          scriptRoutes: scriptRoutes.length > 0 ? scriptRoutes : undefined,
         };
       }
 
@@ -1530,7 +1543,17 @@ export const useFlowStore = create<FlowState>()(
             }
             // Script Node Cleanup
             else if (sourceNode.type === "script") {
-              updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const routes = Array.isArray(data.routes) ? [...data.routes] : [];
+                  const idx = routes.findIndex((r: any) => r?.id === handle);
+                  if (idx === -1) return data;
+                  routes[idx] = { ...routes[idx], nextNodeId: "" };
+                  return { ...data, routes };
+                });
+              }
             }
             // Prompt Node Cleanup
             else if (sourceNode.type === "prompt") {
@@ -1704,10 +1727,20 @@ export const useFlowStore = create<FlowState>()(
             }
 
             if (sourceNode.type === "script") {
-              updateNodeDataLocal(sourceNode.id, (data) => ({
-                ...data,
-                nextNode: "",
-              }));
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => ({
+                  ...data,
+                  nextNode: "",
+                }));
+              } else {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const routes = Array.isArray(data.routes) ? [...data.routes] : [];
+                  const idx = routes.findIndex((r: any) => r?.id === handle);
+                  if (idx === -1) return data;
+                  routes[idx] = { ...routes[idx], nextNodeId: "" };
+                  return { ...data, routes };
+                });
+              }
               return;
             }
 
@@ -2387,6 +2420,13 @@ export const useFlowStore = create<FlowState>()(
             nextData.timeoutMs =
               typeof flowNode.timeoutMs === "number" ? flowNode.timeoutMs : 25;
             nextData.nextNode = flowNode.nextNode ?? nextData.nextNode;
+            if (Array.isArray(flowNode.scriptRoutes)) {
+              nextData.routes = flowNode.scriptRoutes.map((route) => ({
+                id: uuidv4(),
+                key: route.key ?? "",
+                nextNodeId: route.gotoId || route.goto || "",
+              }));
+            }
             return { ...node, data: nextData };
           }
 
