@@ -108,6 +108,9 @@ export default function InspectorPanel() {
     );
   }
 
+  const isScriptNameMissing =
+    node.type === "script" && !String(node.data?.name ?? "").trim();
+
   const baseStyle: CSSProperties = inspectorPosition
     ? {
         position: "fixed",
@@ -324,8 +327,14 @@ export default function InspectorPanel() {
 
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
-              className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+              className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isScriptNameMissing}
+              title={isScriptNameMissing ? "Script node name is required." : undefined}
               onClick={async () => {
+                if (isScriptNameMissing) {
+                  toast.error("Script node name is required.");
+                  return;
+                }
                 if (!selectedNodeId) {
                   closeInspector();
                   return;
