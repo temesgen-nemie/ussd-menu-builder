@@ -770,7 +770,40 @@ export default function FlowCanvas() {
       } else if (e.key === "Escape") {
         // Close the inspector if open
         closeInspector();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        const visibleNodeIds = new Set(
+          nodes
+            .filter(
+              (n) => (n.parentNode || null) === (currentSubflowId || null)
+            )
+            .map((n) => n.id)
+        );
+        setNodes((prev) =>
+          prev.map((n) => ({
+            ...n,
+            selected: visibleNodeIds.has(n.id),
+          }))
+        );
+        setEdges((prev) =>
+          prev.map((e) => ({
+            ...e,
+            selected:
+              visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target),
+          }))
+        );
+        const firstSelected = nodes.find((n) => visibleNodeIds.has(n.id))?.id;
+        setSelectedNodeId(firstSelected ?? null);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
         if (selectedNodeId) {
           // Check if multiple are selected via internal state or just pass selection
           // ReactFlow handles selection state on nodes. We can find selected.
@@ -798,6 +831,11 @@ export default function FlowCanvas() {
     pasteNodes,
     visibleNodes,
     visibleEdges,
+    setNodes,
+    setEdges,
+    nodes,
+    currentSubflowId,
+    setSelectedNodeId,
   ]);
 
   // Auto-load flows on mount
