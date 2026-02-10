@@ -281,13 +281,25 @@ export default function ResizablePhoneEmulator({
                     <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">
                       Phone No:
                     </label>
-                    <input
-                      type="text"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
-                      placeholder="e.g. +251..."
-                    />
+                    <div className="flex-1 relative flex items-center">
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="w-full pl-3 pr-16 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
+                        placeholder="e.g. +251..."
+                      />
+                      {phoneNumber.startsWith("+2519") && (
+                        <span className="absolute right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm transition-all animate-in fade-in zoom-in-95" style={{ backgroundColor: '#A2D149' }}>
+                          Tele
+                        </span>
+                      )}
+                      {phoneNumber.startsWith("+2517") && (
+                        <span className="absolute right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm transition-all animate-in fade-in zoom-in-95" style={{ backgroundColor: '#28A745' }}>
+                          Safaricom
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={resetSession}
@@ -425,13 +437,25 @@ export default function ResizablePhoneEmulator({
                     <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">
                       Phone No:
                     </label>
-                    <input
-                      type="text"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
-                      placeholder="e.g. +251..."
-                    />
+                    <div className="flex-1 relative flex items-center">
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="w-full pl-3 pr-16 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
+                        placeholder="e.g. +251..."
+                      />
+                      {phoneNumber.startsWith("+2519") && (
+                        <span className="absolute right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm transition-all animate-in fade-in zoom-in-95" style={{ backgroundColor: '#A2D149' }}>
+                          Tele
+                        </span>
+                      )}
+                      {phoneNumber.startsWith("+2517") && (
+                        <span className="absolute right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm transition-all animate-in fade-in zoom-in-95" style={{ backgroundColor: '#28A745' }}>
+                          Safaricom
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={resetSession}
