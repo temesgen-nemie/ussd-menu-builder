@@ -154,7 +154,7 @@ const replaceNextNodeNameInScript = (
   if (!script || !oldName || oldName === newName) return script;
   const escaped = escapeRegExp(oldName);
   const pattern = new RegExp(
-    `(return\\s*\\{[^}]*\\bnextNode\\s*:\\s*)(['"\`])${escaped}\\2`,
+    `(\\bnextNode\\s*:\\s*)(['"\`])${escaped}\\2`,
     "g"
   );
   return script.replace(pattern, (_match, prefix, quote) => {

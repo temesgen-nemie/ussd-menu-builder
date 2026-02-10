@@ -316,6 +316,55 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
     return matches;
   };
 
+  const syncEdgesForRoutes = (routeList: ScriptRoute[]) => {
+    if (routeList.length === 0) return;
+    setEdges((prevEdges) => {
+      const routeIdSet = new Set(routeList.map((r) => r.id));
+      const baseEdges = prevEdges.filter((edge) => {
+        if (edge.source !== node.id) return true;
+        if (!edge.sourceHandle || edge.sourceHandle === "default") return true;
+        return routeIdSet.has(edge.sourceHandle);
+      });
+
+      let updatedEdges = [...baseEdges];
+      routeList.forEach((route) => {
+        if (!route.nextNodeId) return;
+        const existingIdx = updatedEdges.findIndex(
+          (edge) => edge.source === node.id && edge.sourceHandle === route.id
+        );
+        if (existingIdx !== -1) {
+          if (updatedEdges[existingIdx].target === route.nextNodeId) return;
+          updatedEdges = [
+            ...updatedEdges.slice(0, existingIdx),
+            ...updatedEdges.slice(existingIdx + 1),
+          ];
+        }
+        const newEdge: Edge = {
+          id: `e-${node.id}-${route.id}-${route.nextNodeId}`,
+          source: node.id,
+          target: route.nextNodeId,
+          sourceHandle: route.id,
+          targetHandle: null,
+        };
+        updatedEdges = [...updatedEdges, newEdge];
+      });
+
+      const edgesUnchanged =
+        updatedEdges.length === prevEdges.length &&
+        updatedEdges.every((edge) =>
+          prevEdges.some(
+            (existing) =>
+              existing.id === edge.id &&
+              existing.source === edge.source &&
+              existing.target === edge.target &&
+              existing.sourceHandle === edge.sourceHandle
+          )
+        );
+
+      return edgesUnchanged ? prevEdges : updatedEdges;
+    });
+  };
+
   const hashId = (input: string) => {
     let hash = 0;
     for (let i = 0; i < input.length; i += 1) {
@@ -394,51 +443,13 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
       updateNodeData(node.id, { routes: nextRoutes });
     }
 
-    const routeIdSet = new Set(nextRoutes.map((r) => r.id));
-    const baseEdges = edges.filter((edge) => {
-      if (edge.source !== node.id) return true;
-      if (!edge.sourceHandle || edge.sourceHandle === "default") return true;
-      return routeIdSet.has(edge.sourceHandle);
-    });
-
-    let updatedEdges = [...baseEdges];
-    nextRoutes.forEach((route) => {
-      if (!route.nextNodeId) return;
-      const existingIdx = updatedEdges.findIndex(
-        (edge) => edge.source === node.id && edge.sourceHandle === route.id
-      );
-      if (existingIdx !== -1) {
-        if (updatedEdges[existingIdx].target === route.nextNodeId) return;
-        updatedEdges = [
-          ...updatedEdges.slice(0, existingIdx),
-          ...updatedEdges.slice(existingIdx + 1),
-        ];
-      }
-      const newEdge: Edge = {
-        id: `e-${node.id}-${route.id}-${route.nextNodeId}`,
-        source: node.id,
-        target: route.nextNodeId,
-        sourceHandle: route.id,
-        targetHandle: null,
-      };
-      updatedEdges = [...updatedEdges, newEdge];
-    });
-
-    const edgesUnchanged =
-      updatedEdges.length === edges.length &&
-      updatedEdges.every((edge) =>
-        edges.some(
-          (existing) =>
-            existing.id === edge.id &&
-            existing.source === edge.source &&
-            existing.target === edge.target &&
-            existing.sourceHandle === edge.sourceHandle
-        )
-      );
-
-    if (!edgesUnchanged) {
-      setEdges(updatedEdges);
+    let raf = 0;
+    if (nextRoutes.length > 0) {
+      raf = window.requestAnimationFrame(() => syncEdgesForRoutes(nextRoutes));
     }
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+    };
   }, [node.id, node.data?.script, nodes, edges, routes, updateNodeData, setEdges]);
 
   return (
