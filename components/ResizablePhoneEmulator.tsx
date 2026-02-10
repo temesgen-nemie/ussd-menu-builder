@@ -96,7 +96,22 @@ export default function ResizablePhoneEmulator({
       .substring(0, 19)
       .replace(/-/g, "/");
 
-    const xmlRequest = `<cps-message>
+    // Dynamic XML Generation based on Phone Number
+    const isSafaricomFormat = phoneNumber.startsWith("+2517");
+    let xmlRequest: string;
+
+    if (isSafaricomFormat) {
+      // Format for +2517... numbers
+      const numericType = serviceType === "BR" ? "1" : "2";
+      xmlRequest = `<ussd>
+    <msisdn>${phoneNumber}</msisdn>
+    <sessionid>${currentSequence}</sessionid>
+    <type>${numericType}</type>
+    <msg>${messageInput}</msg>
+</ussd>`;
+    } else {
+      // Default format for +2519... numbers
+      xmlRequest = `<cps-message>
     <sequence_number>${currentSequence}</sequence_number>
     <version>32</version>  
     <service_type>${serviceType}</service_type> 
@@ -109,6 +124,7 @@ export default function ResizablePhoneEmulator({
     <IMSI>1234</IMSI>
     <msg_content>${messageInput}</msg_content>
 </cps-message>`;
+    }
 
     try {
       const response = await sendUssdRequest(xmlRequest);
@@ -117,19 +133,39 @@ export default function ResizablePhoneEmulator({
         return;
       }
       
-      const msgContentMatch = response.data.match(
-        /<msg_content>([\s\S]*?)<\/msg_content>/
-      );
-      const responseContent = msgContentMatch
-        ? msgContentMatch[1].trim()
-        : "No response content";
+      let responseContent = "No response content";
+      let responseServiceType = "CA";
 
-      const serviceTypeMatch = response.data.match(
-        /<service_type>([\s\S]*?)<\/service_type>/
-      );
-      const responseServiceType = serviceTypeMatch
-        ? serviceTypeMatch[1].trim()
-        : "CA";
+      if (isSafaricomFormat) {
+        // Parse USSD format
+        const msgMatch = response.data.match(/<msg>([\s\S]*?)<\/msg>/);
+        const typeMatch = response.data.match(/<type>([\s\S]*?)<\/type>/);
+        
+        if (msgMatch) responseContent = msgMatch[1].trim();
+        
+        if (typeMatch) {
+          const typeValue = typeMatch[1].trim();
+          // Map back to string types: 1=BR, 2=CA/CR, 3=EF
+          if (typeValue === "3") responseServiceType = "EF";
+          else if (typeValue === "1") responseServiceType = "BR";
+          else responseServiceType = "CA";
+        }
+      } else {
+        // Parse CPS format
+        const msgContentMatch = response.data.match(
+          /<msg_content>([\s\S]*?)<\/msg_content>/
+        );
+        responseContent = msgContentMatch
+          ? msgContentMatch[1].trim()
+          : "No response content";
+
+        const serviceTypeMatch = response.data.match(
+          /<service_type>([\s\S]*?)<\/service_type>/
+        );
+        responseServiceType = serviceTypeMatch
+          ? serviceTypeMatch[1].trim()
+          : "CA";
+      }
 
       const systemMessage: Message = {
         content: responseContent,
