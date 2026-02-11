@@ -68,6 +68,11 @@ export type FlowNode = {
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
   nextNodeId?: string;
   isMainMenu?: boolean;
+  messageTranslation?: Record<string, string>;
+  invalidMessageTranslation?: Record<string, string>;
+  nextLabelTranslation?: Record<string, string>;
+  prevLabelTranslation?: Record<string, string>;
+  paginationTranslationEnabled?: Record<string, boolean>;
 };
 
 export type FlowJson = {
@@ -248,13 +253,13 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(
           (data as Record<string, unknown>).invalidInputMessage ??
-            (data as Record<string, unknown>).invalidIndexMessage ??
-            ""
+          (data as Record<string, unknown>).invalidIndexMessage ??
+          ""
         );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
         const inputType = String(
           data.inputType ??
-            (data.inputValidationEnabled ? "STRING" : "")
+          (data.inputValidationEnabled ? "STRING" : "")
         );
         const invalidInputTypeMessage = String(
           data.invalidInputTypeMessage ?? ""
@@ -314,6 +319,29 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               controlsVar: String((data.pagination as any).controlsVar ?? ""),
             }
             : undefined,
+          messageTranslation: (data.messageTranslation as Record<string, string>) || undefined,
+          invalidMessageTranslation: (data.invalidMessageTranslation as Record<string, string>) || undefined,
+          nextLabelTranslation: (() => {
+            if (!(data.pagination as any)?.enabled) return undefined;
+            const trans = (data.nextLabelTranslation as Record<string, string>) || {};
+            const enabled = (data.paginationTranslationEnabled as Record<string, boolean>) || {};
+            const result: Record<string, string> = {};
+            Object.keys(trans).forEach(lang => {
+              if (enabled[lang]) result[lang] = trans[lang];
+            });
+            return Object.keys(result).length > 0 ? result : undefined;
+          })(),
+          prevLabelTranslation: (() => {
+            if (!(data.pagination as any)?.enabled) return undefined;
+            const trans = (data.prevLabelTranslation as Record<string, string>) || {};
+            const enabled = (data.paginationTranslationEnabled as Record<string, boolean>) || {};
+            const result: Record<string, string> = {};
+            Object.keys(trans).forEach(lang => {
+              if (enabled[lang]) result[lang] = trans[lang];
+            });
+            return Object.keys(result).length > 0 ? result : undefined;
+          })(),
+          paginationTranslationEnabled: (data.paginationTranslationEnabled as Record<string, boolean>) || undefined,
         };
 
         if (routingMode === "linear") {
@@ -1589,7 +1617,16 @@ export const useFlowStore = create<FlowState>()(
                   });
                 }
               } else {
-                updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode;
+                  if (nextNode && typeof nextNode === "object") {
+                    return {
+                      ...data,
+                      nextNode: { ...nextNode, default: "", defaultId: "" },
+                    };
+                  }
+                  return { ...data, nextNode: "" };
+                });
               }
             }
             // Condition Node Cleanup
@@ -1776,10 +1813,16 @@ export const useFlowStore = create<FlowState>()(
                   return { ...data, nextNode: { ...nextNode, routes } };
                 });
               } else {
-                updateNodeDataLocal(sourceNode.id, (data) => ({
-                  ...data,
-                  nextNode: "",
-                }));
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode;
+                  if (nextNode && typeof nextNode === "object") {
+                    return {
+                      ...data,
+                      nextNode: { ...nextNode, default: "", defaultId: "" },
+                    };
+                  }
+                  return { ...data, nextNode: "" };
+                });
               }
               return;
             }

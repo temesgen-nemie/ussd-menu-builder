@@ -45,6 +45,11 @@ type PromptNodeData = {
     prevLabel: string;
     controlsVar: string;
   };
+  messageTranslation?: Record<string, string>;
+  invalidMessageTranslation?: Record<string, string>;
+  nextLabelTranslation?: Record<string, string>;
+  prevLabelTranslation?: Record<string, string>;
+  paginationTranslationEnabled?: Record<string, boolean>;
 };
 
 type PromptNodeProps = NodeProps<PromptNodeData>;
