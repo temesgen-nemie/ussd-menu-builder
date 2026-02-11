@@ -248,13 +248,13 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const indexedListVar = String(data.indexedListVar ?? "");
         const invalidInputMessage = String(
           (data as Record<string, unknown>).invalidInputMessage ??
-            (data as Record<string, unknown>).invalidIndexMessage ??
-            ""
+          (data as Record<string, unknown>).invalidIndexMessage ??
+          ""
         );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
         const inputType = String(
           data.inputType ??
-            (data.inputValidationEnabled ? "STRING" : "")
+          (data.inputValidationEnabled ? "STRING" : "")
         );
         const invalidInputTypeMessage = String(
           data.invalidInputTypeMessage ?? ""
@@ -1589,7 +1589,16 @@ export const useFlowStore = create<FlowState>()(
                   });
                 }
               } else {
-                updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode;
+                  if (nextNode && typeof nextNode === "object") {
+                    return {
+                      ...data,
+                      nextNode: { ...nextNode, default: "", defaultId: "" },
+                    };
+                  }
+                  return { ...data, nextNode: "" };
+                });
               }
             }
             // Condition Node Cleanup
@@ -1776,10 +1785,16 @@ export const useFlowStore = create<FlowState>()(
                   return { ...data, nextNode: { ...nextNode, routes } };
                 });
               } else {
-                updateNodeDataLocal(sourceNode.id, (data) => ({
-                  ...data,
-                  nextNode: "",
-                }));
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode;
+                  if (nextNode && typeof nextNode === "object") {
+                    return {
+                      ...data,
+                      nextNode: { ...nextNode, default: "", defaultId: "" },
+                    };
+                  }
+                  return { ...data, nextNode: "" };
+                });
               }
               return;
             }
