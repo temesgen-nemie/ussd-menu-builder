@@ -38,6 +38,7 @@ import FunnelNode from "./nodes/FunnelNode";
 import ScriptNode from "./nodes/ScriptNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
+import NodeJsonModal from "./modals/NodeJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
 import RefreshConfirmModal from "./modals/RefreshConfirmModal";
 import FlowBreadcrumb from "./FlowBreadcrumb";
@@ -98,9 +99,11 @@ export default function FlowCanvas() {
     openNamer,
     ungroupNodes,
     openGroupJson,
+    openNodeJson,
     publishGroup,
     namerModal,
     groupJsonModal,
+    nodeJsonModal,
     loadAllFlows,
     isLoading,
     _hasHydrated,
@@ -1513,6 +1516,32 @@ export default function FlowCanvas() {
                   </div>
                   Copy Node
                 </button>
+
+                <button
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item border-t border-gray-50"
+                  onClick={() => {
+                    openNodeJson(menu.id);
+                    setMenu(null);
+                  }}
+                >
+                  <div className="p-1.5 bg-emerald-100 rounded-lg group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                      />
+                    </svg>
+                  </div>
+                  View JSON
+                </button>
               </>
             )}
           </div>
@@ -1522,6 +1551,7 @@ export default function FlowCanvas() {
       {/* Modals */}
       {namerModal?.isOpen && <GroupNamerModal />}
       {groupJsonModal?.isOpen && <GroupJsonModal />}
+      {nodeJsonModal?.isOpen && <NodeJsonModal />}
       <RefreshConfirmModal />
       {deleteModal.isOpen && (
         <DeleteConfirmModal

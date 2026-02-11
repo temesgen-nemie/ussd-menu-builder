@@ -28,6 +28,8 @@ type PromptNodeData = {
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
+  invalidInputMessageTranslation?: Record<string, string>;
+  invalidInputTypeMessageTranslation?: Record<string, string>;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
@@ -57,10 +59,10 @@ type PromptNodeData = {
   };
   isMainMenu?: boolean;
   messageTranslation?: Record<string, string>;
-  invalidMessageTranslation?: Record<string, string>;
   nextLabelTranslation?: Record<string, string>;
   prevLabelTranslation?: Record<string, string>;
   paginationTranslationEnabled?: Record<string, boolean>;
+  indexPerPageTranslation?: Record<string, number>;
 };
 
 type PromptNode = {
@@ -234,6 +236,10 @@ export default function PromptInspector({
   const currentPrevLabel = selectedLanguage === "en"
     ? (node.data.pagination?.prevLabel || defaultPaginationLabels.en.prev)
     : (node.data.prevLabelTranslation?.[selectedLanguage] || defaultPaginationLabels[selectedLanguage]?.prev || "");
+
+  const currentIndexPerPage = selectedLanguage === "en"
+    ? (node.data.indexPerPage ?? 3)
+    : (node.data.indexPerPageTranslation?.[selectedLanguage] ?? node.data.indexPerPage ?? 3);
 
   return (
     <div className="grid grid-cols-2 gap-6">
@@ -1086,14 +1092,14 @@ export default function PromptInspector({
                     rows={2}
                     value={selectedLanguage === "en" 
                       ? String(node.data.invalidInputMessage ?? "") 
-                      : (node.data.invalidMessageTranslation?.[selectedLanguage] || "")}
+                      : (node.data.invalidInputMessageTranslation?.[selectedLanguage] || "")}
                     onChange={(e) => {
                       if (selectedLanguage === "en") {
                         updateNodeData(node.id, { invalidInputMessage: e.target.value });
                       } else {
-                        const translations = { ...(node.data.invalidMessageTranslation || {}) };
+                        const translations = { ...(node.data.invalidInputMessageTranslation || {}) };
                         translations[selectedLanguage] = e.target.value;
-                        updateNodeData(node.id, { invalidMessageTranslation: translations });
+                        updateNodeData(node.id, { invalidInputMessageTranslation: translations });
                       }
                     }}
                     placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid message...`}
@@ -1154,13 +1160,21 @@ export default function PromptInspector({
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
-                    value={String(node.data.invalidInputTypeMessage ?? "")}
-                    onChange={(e) =>
-                      updateNodeData(node.id, {
-                        invalidInputTypeMessage: e.target.value,
-                      })
-                    }
-                    placeholder="Input must be a valid string."
+                    value={selectedLanguage === "en"
+                      ? String(node.data.invalidInputTypeMessage ?? "")
+                      : (node.data.invalidInputTypeMessageTranslation?.[selectedLanguage] || "")}
+                    onChange={(e) => {
+                      if (selectedLanguage === "en") {
+                        updateNodeData(node.id, {
+                          invalidInputTypeMessage: e.target.value,
+                        });
+                      } else {
+                        const translations = { ...(node.data.invalidInputTypeMessageTranslation || {}) };
+                        translations[selectedLanguage] = e.target.value;
+                        updateNodeData(node.id, { invalidInputTypeMessageTranslation: translations });
+                      }
+                    }}
+                    placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid input message...`}
                   />
                 </div>
               </div>
@@ -1238,12 +1252,23 @@ export default function PromptInspector({
                   Has Multiple Page
                 </label>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Index Per Page</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Index Per Page {selectedLanguage !== "en" && `(${languages.find(l => l.code === selectedLanguage)?.name})`}
+                  </label>
                   <input
                     type="number"
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.indexPerPage ?? ""}
-                    onChange={(e) => updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })}
+                    value={currentIndexPerPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      if (selectedLanguage === "en") {
+                        updateNodeData(node.id, { indexPerPage: val });
+                      } else {
+                        const translations = { ...(node.data.indexPerPageTranslation || {}) };
+                        translations[selectedLanguage] = val;
+                        updateNodeData(node.id, { indexPerPageTranslation: translations });
+                      }
+                    }}
                     placeholder="3"
                   />
                 </div>
