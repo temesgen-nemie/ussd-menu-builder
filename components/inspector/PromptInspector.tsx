@@ -28,6 +28,8 @@ type PromptNodeData = {
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
+  invalidInputMessageTranslation?: Record<string, string>;
+  invalidInputTypeMessageTranslation?: Record<string, string>;
   routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
@@ -56,6 +58,11 @@ type PromptNodeData = {
     controlsVar: string;
   };
   isMainMenu?: boolean;
+  messageTranslation?: Record<string, string>;
+  nextLabelTranslation?: Record<string, string>;
+  prevLabelTranslation?: Record<string, string>;
+  paginationTranslationEnabled?: Record<string, boolean>;
+  indexPerPageTranslation?: Record<string, number>;
 };
 
 type PromptNode = {
@@ -197,6 +204,43 @@ export default function PromptInspector({
       : routingLines.join("\n");
   };
 
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+
+  const languages = [
+    { code: "en", name: "English" },
+    { code: "am", name: "Amharic" },
+    { code: "om", name: "Afaan Oromo" },
+    { code: "ti", name: "Tigrigna" },
+    { code: "so", name: "Somali" },
+  ];
+
+  const currentMessage = selectedLanguage === "en" 
+    ? (node.data.message || "") 
+    : (node.data.messageTranslation?.[selectedLanguage] || "");
+
+  const defaultPaginationLabels: Record<string, { next: string; prev: string }> = {
+    en: { next: "#. Next Page", prev: "##. Previous Page" },
+    am: { next: "#. የሚቀጥለው ገጽ", prev: "##. የቀድሞው ገጽ" },
+    om: { next: "#. Fuula Itti Aanu", prev: "##. Fuula Duraa" },
+    ti: { next: "#. ዝቕጽል ገጽ", prev: "##. ዝሓለፈ ገጽ" },
+    so: { next: "#. Bogga Xiga", prev: "##. Bogga Hore" },
+  };
+
+  const isPaginationEnabledForLang = selectedLanguage === "en" || 
+    !!node.data.paginationTranslationEnabled?.[selectedLanguage];
+
+  const currentNextLabel = selectedLanguage === "en"
+    ? (node.data.pagination?.nextLabel || defaultPaginationLabels.en.next)
+    : (node.data.nextLabelTranslation?.[selectedLanguage] || defaultPaginationLabels[selectedLanguage]?.next || "");
+
+  const currentPrevLabel = selectedLanguage === "en"
+    ? (node.data.pagination?.prevLabel || defaultPaginationLabels.en.prev)
+    : (node.data.prevLabelTranslation?.[selectedLanguage] || defaultPaginationLabels[selectedLanguage]?.prev || "");
+
+  const currentIndexPerPage = selectedLanguage === "en"
+    ? (node.data.indexPerPage ?? 3)
+    : (node.data.indexPerPageTranslation?.[selectedLanguage] ?? node.data.indexPerPage ?? 3);
+
   return (
     <div className="grid grid-cols-2 gap-6">
       {/* Left Column: Basic Info + Routing */}
@@ -207,16 +251,52 @@ export default function PromptInspector({
           onNameChange={(val) => updateNodeData(node.id, { name: val })}
         />
 
-        <div>
-          <label className="text-xs font-medium text-gray-600">Message</label>
+        <div className="flex items-center justify-start gap-4">
+          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0 w-20">
+            Language
+          </label>
+          <div className="relative group/lang flex-1 max-w-[150px]">
+            <select
+              className="w-full appearance-none bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-medium text-gray-700 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none cursor-pointer hover:bg-white hover:shadow-sm"
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+            >
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover/lang:text-indigo-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Message {selectedLanguage !== "en" && (
+              <span className="text-indigo-500 ml-1">
+                ({languages.find(l => l.code === selectedLanguage)?.name})
+              </span>
+            )}
+          </label>
           <textarea
-            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
-            value={node.data.message || ""}
+            className="mt-1 w-full rounded-xl border border-gray-100 p-3 bg-white shadow-sm placeholder-gray-400 text-gray-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+            value={currentMessage}
             rows={8}
-            placeholder="Enter message text..."
-            onChange={(e) =>
-              updateNodeData(node.id, { message: e.target.value })
-            }
+            placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} message text...`}
+            onChange={(e) => {
+              if (selectedLanguage === "en") {
+                updateNodeData(node.id, { message: e.target.value });
+              } else {
+                const translations = { ...(node.data.messageTranslation || {}) };
+                translations[selectedLanguage] = e.target.value;
+                updateNodeData(node.id, { messageTranslation: translations });
+              }
+            }}
           />
         </div>
 
@@ -1010,11 +1090,19 @@ export default function PromptInspector({
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
-                    value={String(node.data.invalidInputMessage ?? "")}
-                    onChange={(e) =>
-                      updateNodeData(node.id, { invalidInputMessage: e.target.value })
-                    }
-                    placeholder="Invalid selection. Please try again."
+                    value={selectedLanguage === "en" 
+                      ? String(node.data.invalidInputMessage ?? "") 
+                      : (node.data.invalidInputMessageTranslation?.[selectedLanguage] || "")}
+                    onChange={(e) => {
+                      if (selectedLanguage === "en") {
+                        updateNodeData(node.id, { invalidInputMessage: e.target.value });
+                      } else {
+                        const translations = { ...(node.data.invalidInputMessageTranslation || {}) };
+                        translations[selectedLanguage] = e.target.value;
+                        updateNodeData(node.id, { invalidInputMessageTranslation: translations });
+                      }
+                    }}
+                    placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid message...`}
                   />
                 </div>
               </div>
@@ -1072,13 +1160,21 @@ export default function PromptInspector({
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
-                    value={String(node.data.invalidInputTypeMessage ?? "")}
-                    onChange={(e) =>
-                      updateNodeData(node.id, {
-                        invalidInputTypeMessage: e.target.value,
-                      })
-                    }
-                    placeholder="Input must be a valid string."
+                    value={selectedLanguage === "en"
+                      ? String(node.data.invalidInputTypeMessage ?? "")
+                      : (node.data.invalidInputTypeMessageTranslation?.[selectedLanguage] || "")}
+                    onChange={(e) => {
+                      if (selectedLanguage === "en") {
+                        updateNodeData(node.id, {
+                          invalidInputTypeMessage: e.target.value,
+                        });
+                      } else {
+                        const translations = { ...(node.data.invalidInputTypeMessageTranslation || {}) };
+                        translations[selectedLanguage] = e.target.value;
+                        updateNodeData(node.id, { invalidInputTypeMessageTranslation: translations });
+                      }
+                    }}
+                    placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid input message...`}
                   />
                 </div>
               </div>
@@ -1097,30 +1193,53 @@ export default function PromptInspector({
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={Boolean(node.data.pagination?.enabled)}
+                checked={selectedLanguage === "en" 
+                  ? Boolean(node.data.pagination?.enabled) 
+                  : !!node.data.paginationTranslationEnabled?.[selectedLanguage]}
+                disabled={selectedLanguage !== "en" && !node.data.pagination?.enabled}
                 onChange={(e) => {
-                  const currentPag = node.data.pagination || {
-                    enabled: false,
-                    actionNode: "",
-                    pageField: "",
-                    totalPagesField: "totalPages",
-                    nextInput: "#",
-                    prevInput: "##",
-                    nextLabel: "#. Next Page",
-                    prevLabel: "##. Previous Page",
-                    controlsVar: "paginationControls",
-                  };
-                  updateNodeData(node.id, {
-                    pagination: { ...currentPag, enabled: e.target.checked },
-                  });
+                  if (selectedLanguage === "en") {
+                    const currentPag = node.data.pagination || {
+                      enabled: false,
+                      actionNode: "",
+                      pageField: "",
+                      totalPagesField: "totalPages",
+                      nextInput: "#",
+                      prevInput: "##",
+                      nextLabel: "#. Next Page",
+                      prevLabel: "##. Previous Page",
+                      controlsVar: "paginationControls",
+                    };
+                    updateNodeData(node.id, {
+                      pagination: { ...currentPag, enabled: e.target.checked },
+                    });
+                  } else {
+                    const enabled = { ...(node.data.paginationTranslationEnabled || {}) };
+                    enabled[selectedLanguage] = e.target.checked;
+                    
+                    const updates: any = { paginationTranslationEnabled: enabled };
+                    if (e.target.checked) {
+                      if (!node.data.nextLabelTranslation?.[selectedLanguage]) {
+                        const nextTrans = { ...(node.data.nextLabelTranslation || {}) };
+                        nextTrans[selectedLanguage] = defaultPaginationLabels[selectedLanguage].next;
+                        updates.nextLabelTranslation = nextTrans;
+                      }
+                      if (!node.data.prevLabelTranslation?.[selectedLanguage]) {
+                        const prevTrans = { ...(node.data.prevLabelTranslation || {}) };
+                        prevTrans[selectedLanguage] = defaultPaginationLabels[selectedLanguage].prev;
+                        updates.prevLabelTranslation = prevTrans;
+                      }
+                    }
+                    updateNodeData(node.id, updates);
+                  }
                 }}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-px after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-purple-500"></div>
+              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-px after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-purple-500 disabled:opacity-50"></div>
             </label>
           </div>
 
-          {node.data.pagination?.enabled && (
+          {(selectedLanguage === "en" ? node.data.pagination?.enabled : !!node.data.paginationTranslationEnabled?.[selectedLanguage]) && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <div className="grid grid-cols-2 gap-3 items-center">
                 <label className="flex items-center gap-2 text-xs text-gray-700 font-medium cursor-pointer">
@@ -1133,12 +1252,23 @@ export default function PromptInspector({
                   Has Multiple Page
                 </label>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Index Per Page</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Index Per Page {selectedLanguage !== "en" && `(${languages.find(l => l.code === selectedLanguage)?.name})`}
+                  </label>
                   <input
                     type="number"
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.indexPerPage ?? ""}
-                    onChange={(e) => updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })}
+                    value={currentIndexPerPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      if (selectedLanguage === "en") {
+                        updateNodeData(node.id, { indexPerPage: val });
+                      } else {
+                        const translations = { ...(node.data.indexPerPageTranslation || {}) };
+                        translations[selectedLanguage] = val;
+                        updateNodeData(node.id, { indexPerPageTranslation: translations });
+                      }
+                    }}
                     placeholder="3"
                   />
                 </div>
@@ -1198,26 +1328,54 @@ export default function PromptInspector({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Next Label</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination?.nextLabel || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, nextLabel: e.target.value } })}
-                    placeholder="#. Next Page"
-                  />
+              {/* Next/Prev Label fields show if English OR translation is enabled for current language */}
+
+              {isPaginationEnabledForLang && (
+                <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                      Next Label {selectedLanguage !== "en" && `(${languages.find(l => l.code === selectedLanguage)?.name})`}
+                    </label>
+                    <input
+                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
+                      value={currentNextLabel}
+                      onChange={(e) => {
+                        if (selectedLanguage === "en") {
+                          updateNodeData(node.id, { 
+                            pagination: { ...node.data.pagination!, nextLabel: e.target.value } 
+                          });
+                        } else {
+                          const translations = { ...(node.data.nextLabelTranslation || {}) };
+                          translations[selectedLanguage] = e.target.value;
+                          updateNodeData(node.id, { nextLabelTranslation: translations });
+                        }
+                      }}
+                      placeholder={defaultPaginationLabels[selectedLanguage]?.next}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                      Prev Label {selectedLanguage !== "en" && `(${languages.find(l => l.code === selectedLanguage)?.name})`}
+                    </label>
+                    <input
+                      className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
+                      value={currentPrevLabel}
+                      onChange={(e) => {
+                        if (selectedLanguage === "en") {
+                          updateNodeData(node.id, { 
+                            pagination: { ...node.data.pagination!, prevLabel: e.target.value } 
+                          });
+                        } else {
+                          const translations = { ...(node.data.prevLabelTranslation || {}) };
+                          translations[selectedLanguage] = e.target.value;
+                          updateNodeData(node.id, { prevLabelTranslation: translations });
+                        }
+                      }}
+                      placeholder={defaultPaginationLabels[selectedLanguage]?.prev}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Prev Label</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination?.prevLabel || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, prevLabel: e.target.value } })}
-                    placeholder="##. Previous Page"
-                  />
-                </div>
-              </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Controls Variable</label>

@@ -68,6 +68,13 @@ export type FlowNode = {
   | { routes?: FlowRoute[]; default?: string; defaultId?: string };
   nextNodeId?: string;
   isMainMenu?: boolean;
+  messageTranslation?: Record<string, string>;
+  invalidInputMessageTranslation?: Record<string, string>;
+  invalidInputTypeMessageTranslation?: Record<string, string>;
+  nextLabelTranslation?: Record<string, string>;
+  prevLabelTranslation?: Record<string, string>;
+  paginationTranslationEnabled?: Record<string, boolean>;
+  indexPerPageTranslation?: Record<string, number>;
 };
 
 export type FlowJson = {
@@ -314,6 +321,40 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               controlsVar: String((data.pagination as any).controlsVar ?? ""),
             }
             : undefined,
+          messageTranslation: (data.messageTranslation as Record<string, string>) || undefined,
+          invalidInputMessageTranslation: (data.invalidInputMessageTranslation as Record<string, string>) || undefined,
+          invalidInputTypeMessageTranslation: (data.invalidInputTypeMessageTranslation as Record<string, string>) || undefined,
+          nextLabelTranslation: (() => {
+            if (!(data.pagination as any)?.enabled) return undefined;
+            const trans = (data.nextLabelTranslation as Record<string, string>) || {};
+            const enabled = (data.paginationTranslationEnabled as Record<string, boolean>) || {};
+            const result: Record<string, string> = {};
+            Object.keys(trans).forEach(lang => {
+              if (enabled[lang]) result[lang] = trans[lang];
+            });
+            return Object.keys(result).length > 0 ? result : undefined;
+          })(),
+          prevLabelTranslation: (() => {
+            if (!(data.pagination as any)?.enabled) return undefined;
+            const trans = (data.prevLabelTranslation as Record<string, string>) || {};
+            const enabled = (data.paginationTranslationEnabled as Record<string, boolean>) || {};
+            const result: Record<string, string> = {};
+            Object.keys(trans).forEach(lang => {
+              if (enabled[lang]) result[lang] = trans[lang];
+            });
+            return Object.keys(result).length > 0 ? result : undefined;
+          })(),
+          paginationTranslationEnabled: (data.paginationTranslationEnabled as Record<string, boolean>) || undefined,
+          indexPerPageTranslation: (() => {
+            if (!(data.pagination as any)?.enabled) return undefined;
+            const trans = (data.indexPerPageTranslation as Record<string, number>) || {};
+            const enabled = (data.paginationTranslationEnabled as Record<string, boolean>) || {};
+            const result: Record<string, number> = {};
+            Object.keys(trans).forEach(lang => {
+              if (enabled[lang]) result[lang] = trans[lang];
+            });
+            return Object.keys(result).length > 0 ? result : undefined;
+          })(),
         };
 
         if (routingMode === "linear") {
@@ -607,6 +648,14 @@ interface FlowState {
   closeGroupJson: () => void;
   applyGroupJson: (groupId: string, jsonText: string) => void;
 
+  nodeJsonModal: {
+    isOpen: boolean;
+    nodeId: string | null;
+    json: string;
+  } | null;
+  openNodeJson: (nodeId: string) => void;
+  closeNodeJson: () => void;
+
   rfInstance: ReactFlowInstance | null;
   setRfInstance: (instance: ReactFlowInstance) => void;
 
@@ -660,6 +709,7 @@ export const useFlowStore = create<FlowState>()(
       currentSubflowId: null,
       namerModal: null,
       groupJsonModal: null,
+      nodeJsonModal: null,
       isLoading: false,
       publishedGroupIds: [],
       modifiedGroupIds: [],
@@ -2325,6 +2375,38 @@ export const useFlowStore = create<FlowState>()(
         });
       },
       closeGroupJson: () => set({ groupJsonModal: null }),
+
+      openNodeJson: (nodeId) => {
+        const { nodes, edges } = get();
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        // Use the already built flow json if possible, or rebuild it
+        const flowJson = buildFlowJson(nodes, edges);
+        const flowNode = flowJson.nodes.find(fn => fn.id === nodeId);
+
+        if (flowNode) {
+          set({
+            nodeJsonModal: {
+              isOpen: true,
+              nodeId,
+              json: JSON.stringify(flowNode, null, 2),
+            },
+          });
+        } else {
+          // For nodes not processed by buildFlowJson (like Start, Group, Funnel)
+          // we show their raw data or a simplified version
+          set({
+            nodeJsonModal: {
+              isOpen: true,
+              nodeId,
+              json: JSON.stringify(node.data, null, 2),
+            },
+          });
+        }
+      },
+      closeNodeJson: () => set({ nodeJsonModal: null }),
+
       applyGroupJson: (groupId, jsonText) => {
         if (!groupId) {
           throw new Error("Missing group id.");
