@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { FlowJson, FlowNode } from "../store/flowStore";
 
-export const API_BASE_URL = "https://ussdtool.profilesage.com";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://ussdtool.profilesage.com";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -256,21 +256,21 @@ export const revokeFlowPermissions = async (
 };
 
 export type FlowPermissionCheckResponse = {
-  hasPermission: boolean;
+    hasPermission: boolean;
 };
 
 export async function checkMyFlowPermission(
-  flowName: string,
-  userId: string
+    flowName: string,
+    userId: string
 ): Promise<boolean> {
-  const res = await api.get<FlowPermissionCheckResponse>(
-    `/flows/${encodeURIComponent(flowName)}/permissions/check`,
-    {
-      params: { userId },
-    }
-  );
+    const res = await api.get<FlowPermissionCheckResponse>(
+        `/flows/${encodeURIComponent(flowName)}/permissions/check`,
+        {
+            params: { userId },
+        }
+    );
 
-  return Boolean(res.data?.hasPermission);
+    return Boolean(res.data?.hasPermission);
 }
 
 
