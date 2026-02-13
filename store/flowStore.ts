@@ -496,9 +496,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
             }
           }
           const target = resolveTarget(route.nextNodeId || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             when,
-            goto: target.name,
+            [isGroup ? "gotoFlow" : "goto"]: target.name,
             gotoId: target.id,
           };
         });
@@ -548,11 +549,12 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           [];
         const scriptRoutes = routesRaw.map((route) => {
           const target = resolveTarget(route.nextNodeId || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             key: route.key,
-            goto: target.name,
+            [isGroup ? "gotoFlow" : "goto"]: target.name,
             gotoId: target.id,
-          };
+          } as any;
         });
         return {
           ...base,
@@ -577,9 +579,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
 
         const routes = routesRaw.map((route) => {
           const target = resolveTarget(route.goto || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             when: route.when,
-            goto: target.name || ""
+            [isGroup ? "gotoFlow" : "goto"]: target.name || ""
           };
         });
 
@@ -813,8 +816,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateFlow(flowName, subflowJson), {
             loading: `Updating flow '${flowName}'...`,
             success: () => {
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== groupId),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [groupId]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [groupId]: calculateFlowSnapshot(groupId, nodes, edges),
+                },
               });
               return `Flow '${flowName}' updated successfully!`;
             },
@@ -2845,9 +2857,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
             loading: `Syncing changes from '${currentName}'...`,
             success: () => {
-              const { modifiedGroupIds } = get();
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== parentGroup.id),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [parentGroup.id]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [parentGroup.id]: calculateFlowSnapshot(parentGroup.id, nodes, edges),
+                },
               });
               return `Synced '${currentName}' with backend flow '${flowName}'`;
             },
