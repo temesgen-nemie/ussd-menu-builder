@@ -47,7 +47,7 @@ const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
   };
 };
 
-const phoneRegex = /^\+\d{10,15}$/;
+const phoneRegex = /^(\+2519\d{8}|09\d{8})$/;
 
 const settingsSchema = z.object({
   baseUrl: z
@@ -79,7 +79,7 @@ const settingsSchema = z.object({
       .trim()
       .refine(
         (value) => phoneRegex.test(value),
-        "Phone must be in international format, e.g. +251946270789"
+        "Phone must be in format +2519xxxxxxxx or 09xxxxxxxx"
       )
   ),
 });
@@ -244,7 +244,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       setFieldErrors((prev) => ({
         ...prev,
         whiteListedPhones:
-          "Phone must be in international format, e.g. +251946270789",
+        "Phone must be in format +2519xxxxxxxx or 09xxxxxxxx"
       }));
       return;
     }
@@ -399,7 +399,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                       addWhiteListedPhone();
                     }
                   }}
-                  placeholder="e.g. +251946270789"
+                  placeholder="e.g. +2519xxxxxxxx or 09xxxxxxxx"
                 />
                 <Button
                   type="button"
