@@ -41,8 +41,13 @@ const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
       tele: payload?.data?.shortcodes?.tele ?? "",
       safari: payload?.data?.shortcodes?.safari ?? "",
     },
+    whiteListedPhones: Array.isArray(payload?.data?.whiteListedPhones)
+      ? payload.data.whiteListedPhones
+      : [],
   };
 };
+
+const phoneRegex = /^\+\d{10,15}$/;
 
 const settingsSchema = z.object({
   baseUrl: z
@@ -68,6 +73,15 @@ const settingsSchema = z.object({
         "Shortcode must look like *123#"
       ),
   }),
+  whiteListedPhones: z.array(
+    z
+      .string()
+      .trim()
+      .refine(
+        (value) => phoneRegex.test(value),
+        "Phone must be in international format, e.g. +251946270789"
+      )
+  ),
 });
 
 export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) {
@@ -76,10 +90,13 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
   const [selectedFlow, setSelectedFlow] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [shortcodes, setShortcodes] = useState({ tele: "", safari: "" });
+  const [whiteListedPhones, setWhiteListedPhones] = useState<string[]>([]);
+  const [whiteListedPhoneInput, setWhiteListedPhoneInput] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
     baseUrl?: string;
     tele?: string;
     safari?: string;
+    whiteListedPhones?: string;
   }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -127,11 +144,19 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
           tele: String(parsed.shortcodes.tele ?? ""),
           safari: String(parsed.shortcodes.safari ?? ""),
         });
+        setWhiteListedPhones(
+          parsed.whiteListedPhones
+            .map((phone) => String(phone ?? "").trim())
+            .filter(Boolean)
+        );
+        setWhiteListedPhoneInput("");
         setFieldErrors({});
       } catch (err) {
         if (!isActive) return;
         setBaseUrl("");
         setShortcodes({ tele: "", safari: "" });
+        setWhiteListedPhones([]);
+        setWhiteListedPhoneInput("");
         setFieldErrors({});
         setError(err instanceof Error ? err.message : "Unable to load settings.");
       } finally {
@@ -151,15 +176,26 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       return;
     }
     setError(null);
-    const result = settingsSchema.safeParse({ baseUrl, shortcodes });
+    const result = settingsSchema.safeParse({
+      baseUrl,
+      shortcodes,
+      whiteListedPhones,
+    });
     if (!result.success) {
-      const nextErrors: { baseUrl?: string; tele?: string; safari?: string } =
-        {};
+      const nextErrors: {
+        baseUrl?: string;
+        tele?: string;
+        safari?: string;
+        whiteListedPhones?: string;
+      } = {};
       result.error.issues.forEach((issue) => {
         const path = issue.path.join(".");
         if (path === "baseUrl") nextErrors.baseUrl = issue.message;
         if (path === "shortcodes.tele") nextErrors.tele = issue.message;
         if (path === "shortcodes.safari") nextErrors.safari = issue.message;
+        if (path.startsWith("whiteListedPhones")) {
+          nextErrors.whiteListedPhones = issue.message;
+        }
       });
       setFieldErrors(nextErrors);
       return;
@@ -171,7 +207,8 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       if (
         !result.data.baseUrl &&
         !result.data.shortcodes.tele &&
-        !result.data.shortcodes.safari
+        !result.data.shortcodes.safari &&
+        result.data.whiteListedPhones.length === 0
       ) {
         setError("Provide at least one value before saving.");
         return;
@@ -184,7 +221,8 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
         shortcodes: {
           tele: result.data.shortcodes.tele,
           safari: result.data.shortcodes.safari,
-        }
+        },
+        whiteListedPhones: result.data.whiteListedPhones,
       };
       await updateFlowSettings(payload);
       toast.success("Settings updated.");
@@ -197,6 +235,26 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const addWhiteListedPhone = () => {
+    const normalized = whiteListedPhoneInput.replace(/\s+/g, "").trim();
+    if (!normalized) return;
+    if (!phoneRegex.test(normalized)) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        whiteListedPhones:
+          "Phone must be in international format, e.g. +251946270789",
+      }));
+      return;
+    }
+    setWhiteListedPhones((prev) => [...prev, normalized]);
+    setWhiteListedPhoneInput("");
+    setFieldErrors((prev) => ({ ...prev, whiteListedPhones: undefined }));
+  };
+
+  const removeWhiteListedPhone = (index: number) => {
+    setWhiteListedPhones((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   return (
@@ -316,6 +374,69 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                 <div className="flex items-center gap-2 text-[11px] text-amber-600">
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span>Short code for Safaricom is missing, so Safaricom USSD won&apos;t be available.</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Whitelisted Phones
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  value={whiteListedPhoneInput}
+                  onChange={(event) => {
+                    setWhiteListedPhoneInput(event.target.value);
+                    if (fieldErrors.whiteListedPhones) {
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        whiteListedPhones: undefined,
+                      }));
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addWhiteListedPhone();
+                    }
+                  }}
+                  placeholder="e.g. +251946270789"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={addWhiteListedPhone}
+                >
+                  Add
+                </Button>
+              </div>
+              {whiteListedPhones.length > 0 ? (
+                <div className="flex flex-wrap gap-2 rounded-md border border-border bg-muted/20 p-2">
+                  {whiteListedPhones.map((phone, index) => (
+                    <div
+                      key={`${phone}-${index}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                    >
+                      <span>{phone}</span>
+                      <button
+                        type="button"
+                        className="cursor-pointer rounded-full bg-indigo-100 px-1 text-[10px] leading-none text-indigo-700 hover:bg-indigo-200"
+                        onClick={() => removeWhiteListedPhone(index)}
+                        aria-label={`Remove ${phone}`}
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  No whitelisted phones added.
+                </div>
+              )}
+              {fieldErrors.whiteListedPhones && (
+                <div className="text-[11px] text-destructive">
+                  {fieldErrors.whiteListedPhones}
                 </div>
               )}
             </div>
