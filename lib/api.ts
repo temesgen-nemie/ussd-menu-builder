@@ -468,11 +468,13 @@ export type FlowSettingsResponse = {
             tele?: string;
             safari?: string;
         };
+        whiteListedPhones?: string[] | null;
     };
     shortcodes?: {
         tele?: string;
         safari?: string;
     };
+    whiteListedPhones?: string[] | null;
 };
 
 export const fetchFlowSettings = async (
@@ -508,6 +510,7 @@ export interface FlowSettingsPayload {
         tele?: string;
         safari?: string;
     };
+    whiteListedPhones?: string[];
 }
 
 export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
