@@ -559,7 +559,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
         return {
           ...base,
           script: String(data.script ?? ""),
-          timeoutMs: 25,
+          timeoutMs:
+            typeof data.timeoutMs === "number" ? data.timeoutMs : 25,
           nextNode: resolved.name || "",
           scriptRoutes: scriptRoutes.length > 0 ? scriptRoutes : undefined,
         };
@@ -569,10 +570,12 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
         interface ConditionRoute {
           when?: any;
           goto?: string;
+          gotoId?: string;
         }
         interface ConditionNext {
           routes?: ConditionRoute[];
           default?: string;
+          defaultId?: string;
         }
         const nextNode = data.nextNode as ConditionNext;
         const routesRaw = nextNode?.routes || [];
@@ -581,7 +584,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           const target = resolveTarget(route.goto || "");
           return {
             when: route.when,
-            goto: target.name || ""
+            goto: target.name || "",
+            gotoId: target.id || "",
           };
         });
 
@@ -591,7 +595,8 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           ...base,
           nextNode: {
             routes,
-            default: defaultTarget.name || ""
+            default: defaultTarget.name || "",
+            defaultId: defaultTarget.id || "",
           }
         };
       }
@@ -879,8 +884,14 @@ export const useFlowStore = create<FlowState>()(
 
         const { nodes: currentNodes, edges: currentEdges, currentSubflowId } = get();
         const idMap = new Map<string, string>();
+        const existingNodeIds = new Set(currentNodes.map((n) => n.id));
+        const existingEdgeIds = new Set(currentEdges.map((e) => e.id));
 
-        parsed.visualState.nodes.forEach((n) => idMap.set(n.id, uuidv4()));
+        parsed.visualState.nodes.forEach((n) => {
+          const mappedId = existingNodeIds.has(n.id) ? uuidv4() : n.id;
+          idMap.set(n.id, mappedId);
+          existingNodeIds.add(mappedId);
+        });
 
         const incomingIds = new Set(parsed.visualState.nodes.map((n) => n.id));
         const roots = parsed.visualState.nodes.filter(
@@ -937,13 +948,20 @@ export const useFlowStore = create<FlowState>()(
 
         const newEdges: Edge[] = parsed.visualState.edges
           .filter(e => idMap.has(e.source) && idMap.has(e.target))
-          .map(e => ({
-            ...e,
-            id: uuidv4(),
-            source: idMap.get(e.source)!,
-            target: idMap.get(e.target)!,
-            selected: false,
-          }));
+          .map(e => {
+            let edgeId = e.id;
+            if (!edgeId || existingEdgeIds.has(edgeId)) {
+              edgeId = uuidv4();
+            }
+            existingEdgeIds.add(edgeId);
+            return {
+              ...e,
+              id: edgeId,
+              source: idMap.get(e.source)!,
+              target: idMap.get(e.target)!,
+              selected: false,
+            };
+          });
 
         set({
           nodes: [...currentNodes, ...newNodes],
@@ -1180,7 +1198,7 @@ export const useFlowStore = create<FlowState>()(
               // Preserve important local UI state like selection
               acc.push({
                 ...backendNode,
-                data: { ...backendNode.data, ...freshLogicalData },
+                data: { ...freshLogicalData, ...backendNode.data },
                 selected: node.selected,
               } as Node);
             } else {
@@ -1196,7 +1214,7 @@ export const useFlowStore = create<FlowState>()(
             .map(bn => {
               const freshLogicalData = allLogicalDataMap.get(bn.id);
               if (freshLogicalData) {
-                return { ...bn, data: { ...bn.data, ...freshLogicalData } };
+                return { ...bn, data: { ...freshLogicalData, ...bn.data } };
               }
               return bn;
             });
@@ -1339,7 +1357,7 @@ export const useFlowStore = create<FlowState>()(
               const parentNode = bn.parentNode || groupId;
               return {
                 ...bn,
-                data: { ...bn.data, ...freshLogicalData },
+                data: { ...freshLogicalData, ...bn.data },
                 parentNode,
                 selected: false,
                 extent: parentNode ? ("parent" as const) : undefined,
@@ -1352,7 +1370,7 @@ export const useFlowStore = create<FlowState>()(
               const freshLogicalData = logicalDataMap.get(n.id);
               return {
                 ...n,
-                data: { ...n.data, ...backendGroupNode.data, ...freshLogicalData }
+                data: { ...n.data, ...freshLogicalData, ...backendGroupNode.data }
               };
             }
             return n;
@@ -2520,155 +2538,23 @@ export const useFlowStore = create<FlowState>()(
           (e) => normalizedIds.has(e.source) && normalizedIds.has(e.target)
         );
 
-        const flowNodesById = new Map(parsed.nodes.map((node) => [node.id, node]));
+        const normalizedNodesWithData = normalizedNodes.map((node) => {
+          if (node.type !== "start") return node;
 
-        const applyFlowNodeData = (node: Node): Node => {
-          if (node.type === "start") {
-            const startData = (node.data as Record<string, unknown>) || {};
-            const entryNodeValue = parsed.entryNodeId || parsed.entryNode || "";
-            return {
-              ...node,
-              data: {
-                ...startData,
-                flowName: parsed.flowName ?? startData.flowName,
-                entryNode: entryNodeValue || startData.entryNode,
-              },
-            };
+          const startData = { ...((node.data as Record<string, unknown>) || {}) };
+          const entryNodeValue = parsed.entryNodeId || parsed.entryNode || "";
+          if (!startData.flowName && parsed.flowName) {
+            startData.flowName = parsed.flowName;
+          }
+          if (!startData.entryNode && entryNodeValue) {
+            startData.entryNode = entryNodeValue;
           }
 
-          const flowNode = flowNodesById.get(node.id);
-          if (!flowNode) return node;
-
-          const nextData = { ...(node.data as Record<string, unknown>) };
-          nextData.name = flowNode.name ?? nextData.name;
-
-          if (node.type === "prompt") {
-            nextData.message = flowNode.message ?? nextData.message;
-            nextData.persistByIndex =
-              typeof flowNode.persistByIndex === "boolean"
-                ? flowNode.persistByIndex
-                : nextData.persistByIndex;
-            nextData.persistByIndexValue =
-              flowNode.persistByIndexValue ?? nextData.persistByIndexValue;
-            nextData.persistSourceField =
-              flowNode.persistSourceField ?? nextData.persistSourceField;
-            nextData.persistFieldName =
-              flowNode.persistFieldName ?? nextData.persistFieldName;
-            nextData.validateIndexedList =
-              typeof flowNode.validateIndexedList === "boolean"
-                ? flowNode.validateIndexedList
-                : nextData.validateIndexedList;
-            nextData.indexedListVar =
-              flowNode.indexedListVar ?? nextData.indexedListVar;
-            nextData.invalidInputMessage =
-              flowNode.invalidInputMessage ?? nextData.invalidInputMessage;
-            nextData.emptyInputMessage =
-              flowNode.emptyInputMessage ?? nextData.emptyInputMessage;
-            nextData.inputType = flowNode.inputType ?? nextData.inputType;
-            nextData.invalidInputTypeMessage =
-              flowNode.invalidInputTypeMessage ??
-              nextData.invalidInputTypeMessage;
-            nextData.inputValidationEnabled =
-              typeof flowNode.inputValidationEnabled === "boolean"
-                ? flowNode.inputValidationEnabled
-                : nextData.inputValidationEnabled;
-            nextData.encryptInput =
-              typeof flowNode.encryptInput === "boolean"
-                ? flowNode.encryptInput
-                : nextData.encryptInput;
-
-            if (
-              flowNode.nextNode &&
-              typeof flowNode.nextNode === "object" &&
-              flowNode.nextNode.routes
-            ) {
-              const routes = flowNode.nextNode.routes.map((route) => ({
-                when: route.when,
-                gotoFlow: route.gotoFlow || route.goto || "",
-                gotoId: route.gotoId,
-              }));
-              nextData.nextNode = {
-                routes,
-                default: flowNode.nextNode.default || "",
-                defaultId: flowNode.nextNode.defaultId || "",
-              };
-            } else if (typeof flowNode.nextNode === "string") {
-              nextData.nextNode = flowNode.nextNode;
-            }
-
-            return { ...node, data: nextData };
-          }
-
-          if (node.type === "action") {
-            nextData.endpoint = flowNode.endpoint ?? nextData.endpoint;
-            nextData.method = flowNode.method ?? nextData.method;
-            nextData.dataSource = flowNode.dataSource ?? nextData.dataSource;
-            const flowFields = Array.isArray(flowNode.fields)
-              ? flowNode.fields
-              : flowNode.field
-                ? [flowNode.field]
-                : undefined;
-            const flowOutputVars = Array.isArray(flowNode.outputVars)
-              ? flowNode.outputVars
-              : flowNode.outputVar
-                ? [flowNode.outputVar]
-                : undefined;
-            nextData.fields = flowFields ?? nextData.fields;
-            nextData.outputVars = flowOutputVars ?? nextData.outputVars;
-            nextData.field = flowFields?.[0] ?? nextData.field;
-            nextData.outputVar = flowOutputVars?.[0] ?? nextData.outputVar;
-            nextData.format = flowNode.format ?? nextData.format;
-            nextData.headers = flowNode.headers ?? nextData.headers;
-            nextData.apiBody = flowNode.apiBody ?? nextData.apiBody;
-            nextData.responseMapping =
-              flowNode.responseMapping ?? nextData.responseMapping;
-            nextData.persistResponseMapping =
-              typeof flowNode.persistResponseMapping === "boolean"
-                ? flowNode.persistResponseMapping
-                : nextData.persistResponseMapping;
-
-            if (
-              flowNode.nextNode &&
-              typeof flowNode.nextNode === "object" &&
-              flowNode.nextNode.routes
-            ) {
-              const routes = flowNode.nextNode.routes.map((route) => ({
-                id: uuidv4(),
-                condition: route.when ? JSON.stringify(route.when) : "",
-                nextNodeId: route.gotoId || route.goto || route.gotoFlow || "",
-              }));
-              nextData.routes = routes;
-
-              nextData.nextNode =
-                flowNode.nextNode.defaultId ||
-                flowNode.nextNode.default ||
-                "";
-            } else if (typeof flowNode.nextNode === "string") {
-              nextData.nextNode = flowNode.nextNode;
-            }
-
-            return { ...node, data: nextData };
-          }
-
-          if (node.type === "script") {
-            nextData.script = flowNode.script ?? nextData.script;
-            nextData.timeoutMs =
-              typeof flowNode.timeoutMs === "number" ? flowNode.timeoutMs : 25;
-            nextData.nextNode = flowNode.nextNode ?? nextData.nextNode;
-            if (Array.isArray(flowNode.scriptRoutes)) {
-              nextData.routes = flowNode.scriptRoutes.map((route) => ({
-                id: uuidv4(),
-                key: route.key ?? "",
-                nextNodeId: route.gotoId || route.goto || "",
-              }));
-            }
-            return { ...node, data: nextData };
-          }
-
-          return { ...node, data: nextData };
-        };
-
-        const normalizedNodesWithData = normalizedNodes.map(applyFlowNodeData);
+          return {
+            ...node,
+            data: startData,
+          };
+        });
 
         const { nodes: currentNodes, edges: currentEdges, groupJsonModal } =
           get();
