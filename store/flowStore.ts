@@ -175,15 +175,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
   const typeById = new Map<string, string>();
 
   allNodes.forEach((node) => {
-    if (node.type === "start" || node.type === "group" || node.type === "funnel") {
+    const isSpecial = node.type === "start" || node.type === "group" || node.type === "funnel";
+    if (isSpecial) {
       if (node.type === "group" || node.type === "funnel") {
         typeById.set(node.id, node.type);
       }
-      return;
+    } else {
+      typeById.set(node.id, node.type || "");
     }
+
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
-    typeById.set(node.id, node.type || "");
-    // Always map ID to name (or empty string/Unnamed)
+    // Always map ID to name for all nodes (including groups/funnels) for resolution
     nameById.set(node.id, name || "");
     if (name) {
       idByName.set(name, node.id);
@@ -496,10 +498,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
             }
           }
           const target = resolveTarget(route.nextNodeId || "");
-          const isGroup = typeById.get(target.id) === "group";
           return {
             when,
-            [isGroup ? "gotoFlow" : "goto"]: target.name,
+            goto: target.name,
             gotoId: target.id,
           };
         });
@@ -549,12 +550,11 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           [];
         const scriptRoutes = routesRaw.map((route) => {
           const target = resolveTarget(route.nextNodeId || "");
-          const isGroup = typeById.get(target.id) === "group";
           return {
             key: route.key,
-            [isGroup ? "gotoFlow" : "goto"]: target.name,
+            goto: target.name,
             gotoId: target.id,
-          } as any;
+          };
         });
         return {
           ...base,
@@ -579,10 +579,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
 
         const routes = routesRaw.map((route) => {
           const target = resolveTarget(route.goto || "");
-          const isGroup = typeById.get(target.id) === "group";
           return {
             when: route.when,
-            [isGroup ? "gotoFlow" : "goto"]: target.name || ""
+            goto: target.name || ""
           };
         });
 
