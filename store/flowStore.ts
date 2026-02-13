@@ -175,15 +175,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
   const typeById = new Map<string, string>();
 
   allNodes.forEach((node) => {
-    if (node.type === "start" || node.type === "group" || node.type === "funnel") {
+    const isSpecial = node.type === "start" || node.type === "group" || node.type === "funnel";
+    if (isSpecial) {
       if (node.type === "group" || node.type === "funnel") {
         typeById.set(node.id, node.type);
       }
-      return;
+    } else {
+      typeById.set(node.id, node.type || "");
     }
+
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
-    typeById.set(node.id, node.type || "");
-    // Always map ID to name (or empty string/Unnamed)
+    // Always map ID to name for all nodes (including groups/funnels) for resolution
     nameById.set(node.id, name || "");
     if (name) {
       idByName.set(name, node.id);
@@ -813,8 +815,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateFlow(flowName, subflowJson), {
             loading: `Updating flow '${flowName}'...`,
             success: () => {
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== groupId),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [groupId]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [groupId]: calculateFlowSnapshot(groupId, nodes, edges),
+                },
               });
               return `Flow '${flowName}' updated successfully!`;
             },
@@ -2845,9 +2856,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
             loading: `Syncing changes from '${currentName}'...`,
             success: () => {
-              const { modifiedGroupIds } = get();
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== parentGroup.id),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [parentGroup.id]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [parentGroup.id]: calculateFlowSnapshot(parentGroup.id, nodes, edges),
+                },
               });
               return `Synced '${currentName}' with backend flow '${flowName}'`;
             },
