@@ -12,12 +12,10 @@ const loginSchema = z.object({
   username: z
     .string()
     .trim()
-    .min(1, "Username is required")
-    .max(64, "Username is too long"),
+    .min(1, "Username is required"),
   password: z
     .string()
-    .min(1, "Password is required")
-    .max(12, "Password is too long"),
+    .min(1, "Password is required"),
 });
 
 export default function LoginForm() {
