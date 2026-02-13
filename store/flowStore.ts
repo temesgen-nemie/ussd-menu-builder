@@ -182,8 +182,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
       return;
     }
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
-    typeById.set(node.id, node.type || "");
-    // Always map ID to name (or empty string/Unnamed)
+    // Always map ID to name for all nodes (including groups/funnels) for resolution
     nameById.set(node.id, name || "");
     if (name) {
       idByName.set(name, node.id);
