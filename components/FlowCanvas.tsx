@@ -236,11 +236,13 @@ export default function FlowCanvas() {
                 nextNode: {
                   ...currentNextNode,
                   default: params.target,
+                  defaultId: params.target,
                 },
               });
             } else {
               updateNodeData(sourceNode.id, {
                 nextNode: params.target,
+                nextNodeId: params.target,
                 routingMode: sourceNode.data.routingMode || "linear",
               });
             }
@@ -373,7 +375,7 @@ export default function FlowCanvas() {
               });
               return; // REJECT CONNECTION
             }
-            updateNodeData(sourceNode.id, { nextNode: params.target });
+            updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
           } else {
             // It's a conditional route
             interface ActionRoute {
@@ -410,7 +412,7 @@ export default function FlowCanvas() {
               });
               return; // REJECT CONNECTION
             }
-            updateNodeData(sourceNode.id, { nextNode: params.target });
+            updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
           } else {
             interface ScriptRoute {
               id: string;
@@ -465,13 +467,13 @@ export default function FlowCanvas() {
                  }
                  
                  const nextNode = sourceNode.data.nextNode as ConditionNext;
-                 const routeIdx = parseInt(handleId.split("-")[1]);
+                 const routeIdx = parseInt(handleId.split("-")[1], 10);
                  
                  if (nextNode && nextNode.routes && nextNode.routes[routeIdx]) {
                      const newRoutes = [...nextNode.routes];
                      
                      // Helper: Resolve Target Name
-                     const targetNode = nodes.find(n => n.id === params.target);
+                     const targetNode = nodes.find((n) => n.id === params.target);
                      let targetName = targetNode?.data.name; 
                      
                      // Use ID if no name
@@ -490,7 +492,7 @@ export default function FlowCanvas() {
                  }
              }
         }
-        // 4. Funnel Node
+        // 5. Funnel Node
         else if (sourceNode && sourceNode.type === "funnel") {
           const filteredEdges = edges.filter((e) => e.source !== sourceNode.id);
           updateNodeData(sourceNode.id, { nextNode: params.target });
@@ -516,7 +518,7 @@ export default function FlowCanvas() {
             });
             return; // REJECT CONNECTION
           }
-          updateNodeData(sourceNode.id, { nextNode: params.target });
+          updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
         }
         // Action Node Logic (legacy fallback or default handle if no ID)
         else if (sourceNode && sourceNode.type === "action") {
@@ -534,7 +536,7 @@ export default function FlowCanvas() {
             });
             return; // REJECT CONNECTION
           }
-          updateNodeData(sourceNode.id, { nextNode: params.target });
+          updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
         }
         // Script Node Logic
         else if (sourceNode && sourceNode.type === "script") {
@@ -552,7 +554,7 @@ export default function FlowCanvas() {
             });
             return; // REJECT CONNECTION
           }
-          updateNodeData(sourceNode.id, { nextNode: params.target });
+          updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
         }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
@@ -570,7 +572,7 @@ export default function FlowCanvas() {
             });
             return; // REJECT CONNECTION
           }
-          updateNodeData(sourceNode.id, { entryNode: params.target });
+          updateNodeData(sourceNode.id, { entryNode: params.target, entryNodeId: params.target });
         }
         // Funnel Node Logic (Default/Legacy)
         else if (sourceNode && sourceNode.type === "funnel") {
