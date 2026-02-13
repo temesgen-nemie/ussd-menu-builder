@@ -1171,79 +1171,56 @@ export const useFlowStore = create<FlowState>()(
             f.nodes.forEach(fn => allLogicalDataMap.set(fn.id, fn));
           });
 
-          // Create Maps for fast lookup of backend items
-          const backendNodeMap = new Map(backendNodes.map((n) => [n.id, n]));
-          const backendEdgeMap = new Map(backendEdges.map((e) => [e.id, e]));
-
           // Get current local state
           const { nodes: currentNodes, edges: currentEdges } = get();
 
-          // Merge Nodes:
-          // 1. Update existing nodes with backend data (rehydrated)
-          // STRICT SYNC: If a node is in a published group locally but NOT in the backend, discard it.
-          const backendGroupIds = new Set(backendNodes.filter(n => n.type === 'group').map(n => n.id));
+          // Identify published group IDs from backend flows.
+          // Those groups must be treated as backend-owned source of truth.
+          const publishedGroupIdsFromBackend = flows.map(f => {
+            if (!f.visualState) return null;
+            const startNode = f.visualState.nodes.find(n => n.type === 'start');
+            return startNode?.parentNode;
+          }).filter((id): id is string => !!id);
+          const publishedGroupSet = new Set(publishedGroupIdsFromBackend);
 
-          const updatedNodes = currentNodes.reduce((acc, node) => {
-            // Check if node is in a known backend group
-            if (node.parentNode && backendGroupIds.has(node.parentNode)) {
-              // If it's not in the backend map, it's a local stray in a published flow. Drop it.
-              if (!backendNodeMap.has(node.id)) {
-                return acc;
-              }
+          const currentNodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+          const belongsToPublishedGroup = (node: Node) => {
+            if (publishedGroupSet.has(node.id)) return true;
+            let parentId = node.parentNode;
+            while (parentId) {
+              if (publishedGroupSet.has(parentId)) return true;
+              parentId = currentNodeMap.get(parentId)?.parentNode;
             }
+            return false;
+          };
 
-            const backendNode = backendNodeMap.get(node.id);
-            if (backendNode) {
-              const freshLogicalData = allLogicalDataMap.get(node.id);
-              // Preserve important local UI state like selection
-              acc.push({
-                ...backendNode,
-                data: { ...freshLogicalData, ...backendNode.data },
-                selected: node.selected,
-              } as Node);
-            } else {
-              acc.push(node);
-            }
-            return acc;
-          }, [] as Node[]);
+          // Keep only local unpublished work.
+          const localUnpublishedNodes = currentNodes.filter(
+            (node) => !belongsToPublishedGroup(node)
+          );
+          const localUnpublishedNodeIds = new Set(localUnpublishedNodes.map((n) => n.id));
+          const localUnpublishedEdges = currentEdges.filter(
+            (e) => localUnpublishedNodeIds.has(e.source) && localUnpublishedNodeIds.has(e.target)
+          );
 
-          // 2. Add nodes that are in backend but not present locally (rehydrated)
-          const currentNodeIds = new Set(currentNodes.map((n) => n.id));
-          const missingNodes = backendNodes
-            .filter((bn) => !currentNodeIds.has(bn.id))
-            .map(bn => {
-              const freshLogicalData = allLogicalDataMap.get(bn.id);
-              if (freshLogicalData) {
-                return { ...bn, data: { ...freshLogicalData, ...bn.data } };
-              }
-              return bn;
-            });
-
-          const mergedNodes = [...updatedNodes, ...missingNodes];
-
-          // Merge Edges:
-          // 1. Update existing edges with backend data
-          const updatedEdges = currentEdges.map((edge) => {
-            const backendEdge = backendEdgeMap.get(edge.id);
-            if (backendEdge) {
-              return {
-                ...backendEdge,
-                selected: edge.selected,
-              };
-            }
-            return edge;
+          // Rehydrate backend nodes (logical + visual, visual fields win).
+          const rehydratedBackendNodes = backendNodes.map((bn) => {
+            const freshLogicalData = allLogicalDataMap.get(bn.id);
+            const local = currentNodeMap.get(bn.id);
+            return {
+              ...bn,
+              data: { ...freshLogicalData, ...bn.data },
+              selected: local?.selected ?? false,
+            } as Node;
           });
 
-          // 2. Add edges that are in backend but not present locally
-          const currentEdgeIds = new Set(currentEdges.map((e) => e.id));
-          const missingEdges = backendEdges.filter((be) => !currentEdgeIds.has(be.id));
+          // Compose deterministic final graph:
+          // - local unpublished cache
+          // - backend published groups
+          const mergedNodes = [...localUnpublishedNodes, ...rehydratedBackendNodes];
+          const mergedEdges = [...localUnpublishedEdges, ...backendEdges];
 
-          const mergedEdges = [...updatedEdges, ...missingEdges];
-
-          // Combine names from existing published backend flows
-          const allBackendFlowNames = flows.map((f) => f.flowName).filter(Boolean);
-
-          // Re-apply orphan fixing on the MERGED set (safety net)
+          // Re-apply orphan fixing on the merged set (safety net)
           const nodeMap = new Map(mergedNodes.map((n) => [n.id, n]));
 
           // Fix Orphan Nodes
@@ -1265,21 +1242,21 @@ export const useFlowStore = create<FlowState>()(
           }
 
           const finalNodes = Array.from(nodeMap.values());
+          const finalNodeIds = new Set(finalNodes.map((n) => n.id));
+          const finalEdges = mergedEdges.filter(
+            (e) => finalNodeIds.has(e.source) && finalNodeIds.has(e.target)
+          );
 
-          // Identify group IDs for published flows
-          const publishedGroupIdsFromBackend = flows.map(f => {
-            if (!f.visualState) return null;
-            const startNode = f.visualState.nodes.find(n => n.type === 'start');
-            return startNode?.parentNode;
-          }).filter((id): id is string => !!id);
+          // Combine names from existing published backend flows
+          const allBackendFlowNames = flows.map((f) => f.flowName).filter(Boolean);
 
           set({
             nodes: finalNodes,
-            edges: mergedEdges,
-            flow: buildFlowJson(finalNodes, mergedEdges, finalNodes),
+            edges: finalEdges,
+            flow: buildFlowJson(finalNodes, finalEdges, finalNodes),
             publishedGroupIds: publishedGroupIdsFromBackend,
             lastSyncedSnapshots: publishedGroupIdsFromBackend.reduce((acc, id) => {
-              acc[id] = calculateFlowSnapshot(id, finalNodes, mergedEdges);
+              acc[id] = calculateFlowSnapshot(id, finalNodes, finalEdges);
               return acc;
             }, {} as Record<string, string>),
             modifiedGroupIds: get().modifiedGroupIds.filter(groupId => {
@@ -1309,7 +1286,7 @@ export const useFlowStore = create<FlowState>()(
           });
 
           toast.success(
-            `Loaded flows: ${missingNodes.length} new nodes added from backend.`
+            `Loaded flows: ${backendNodes.length} backend nodes synchronized.`
           );
         } catch (error) {
           console.error("Failed to load flows", error);
