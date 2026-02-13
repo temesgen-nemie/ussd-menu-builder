@@ -274,7 +274,6 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                     setFieldErrors((prev) => ({ ...prev, tele: undefined }));
                   }
                 }}
-                // placeholder="*126#"
               />
               {fieldErrors.tele && (
                 <div className="text-[11px] text-destructive">
