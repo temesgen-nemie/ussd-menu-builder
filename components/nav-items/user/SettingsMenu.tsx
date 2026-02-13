@@ -27,6 +27,7 @@ import {
   type FlowSettingsResponse,
 } from "@/lib/api";
 import { toast } from "sonner";
+import { useSettingsStore } from "@/store/settingsStore";
 
 type SettingsMenuProps = {
   open: boolean;
@@ -87,6 +88,8 @@ const settingsSchema = z.object({
 export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) {
   const nodes = useFlowStore((state) => state.nodes);
   const publishedGroupIds = useFlowStore((state) => state.publishedGroupIds);
+  const { setDefaultPhoneNumber, clearDefaultPhoneNumber, getDefaultPhoneNumber } =
+    useSettingsStore();
   const [selectedFlow, setSelectedFlow] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [shortcodes, setShortcodes] = useState({ tele: "", safari: "" });
@@ -149,6 +152,15 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
             .map((phone) => String(phone ?? "").trim())
             .filter(Boolean)
         );
+        // Ensure default exists in the whitelist; if not, clear it.
+        const currentDefault = getDefaultPhoneNumber(selectedFlow);
+        if (currentDefault && !parsed.whiteListedPhones.includes(currentDefault)) {
+          clearDefaultPhoneNumber(selectedFlow);
+          // Keep global in sync if it pointed to the same value.
+          if (getDefaultPhoneNumber("global") === currentDefault) {
+            clearDefaultPhoneNumber("global");
+          }
+        }
         setWhiteListedPhoneInput("");
         setFieldErrors({});
       } catch (err) {
@@ -168,7 +180,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
     return () => {
       isActive = false;
     };
-  }, [open, selectedFlow]);
+  }, [open, selectedFlow, clearDefaultPhoneNumber, getDefaultPhoneNumber]);
 
   const handleSave = async () => {
     if (!selectedFlow) {
@@ -243,18 +255,37 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
     if (!phoneRegex.test(normalized)) {
       setFieldErrors((prev) => ({
         ...prev,
-        whiteListedPhones:
-        "Phone must be in format +2519xxxxxxxx or 09xxxxxxxx"
+        whiteListedPhones: "Phone must be in format +2519xxxxxxxx or 09xxxxxxxx",
       }));
       return;
     }
     setWhiteListedPhones((prev) => [...prev, normalized]);
+    if (!getDefaultPhoneNumber(selectedFlow)) {
+      setDefaultPhoneNumber(selectedFlow, normalized);
+      setDefaultPhoneNumber("global", normalized);
+    }
     setWhiteListedPhoneInput("");
-    setFieldErrors((prev) => ({ ...prev, whiteListedPhones: undefined }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      whiteListedPhones: undefined,
+    }));
   };
 
   const removeWhiteListedPhone = (index: number) => {
-    setWhiteListedPhones((prev) => prev.filter((_, idx) => idx !== index));
+    setWhiteListedPhones((prev) => {
+      const removed = prev[index];
+      const next = prev.filter((_, idx) => idx !== index);
+      const currentDefault = getDefaultPhoneNumber(selectedFlow);
+      if (currentDefault === removed) {
+        if (next[0]) setDefaultPhoneNumber(selectedFlow, next[0]);
+        else clearDefaultPhoneNumber(selectedFlow);
+        if (getDefaultPhoneNumber("global") === removed) {
+          if (next[0]) setDefaultPhoneNumber("global", next[0]);
+          else clearDefaultPhoneNumber("global");
+        }
+      }
+      return next;
+    });
   };
 
   return (
@@ -418,6 +449,31 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                       className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
                     >
                       <span>{phone}</span>
+                      <button
+                        type="button"
+                        className={`cursor-pointer rounded-full border px-2 text-[10px] leading-none ${
+                          getDefaultPhoneNumber(selectedFlow) === phone
+                            ? "border-emerald-300 bg-emerald-100 text-emerald-700"
+                            : "border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50"
+                        }`}
+                        onClick={() => {
+                          const currentDefault = getDefaultPhoneNumber(selectedFlow);
+                          if (currentDefault === phone) {
+                            clearDefaultPhoneNumber(selectedFlow);
+                            if (getDefaultPhoneNumber("global") === phone) {
+                              clearDefaultPhoneNumber("global");
+                            }
+                          } else {
+                            setDefaultPhoneNumber(selectedFlow, phone);
+                            setDefaultPhoneNumber("global", phone);
+                          }
+                        }}
+                        aria-label={`Set ${phone} as default`}
+                      >
+                        {getDefaultPhoneNumber(selectedFlow) === phone
+                          ? "Default"
+                          : "Set default"}
+                      </button>
                       <button
                         type="button"
                         className="cursor-pointer rounded-full bg-indigo-100 px-1 text-[10px] leading-none text-indigo-700 hover:bg-indigo-200"

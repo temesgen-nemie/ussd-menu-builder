@@ -5,6 +5,7 @@ import { X, Smartphone, Wifi, Signal, Battery } from "lucide-react";
 import { toast } from "sonner";
 import { sendUssdRequest } from "../lib/api";
 import Draggable from "react-draggable";
+import { useSettingsStore } from "@/store/settingsStore";
 
 type Message = {
   content: string;
@@ -24,7 +25,8 @@ export default function ResizablePhoneEmulator({
   isOpen,
   onClose,
 }: ResizablePhoneProps) {
-  const [phoneNumber, setPhoneNumber] = useState("+251910899167");
+  const initialPhone = "+251910899167";
+  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [shortCode, setShortCode] = useState("*675#");
   const [viewMode, setViewMode] = useState<'classic' | 'real'>('real');
   const [messageInput, setMessageInput] = useState("");
@@ -32,6 +34,9 @@ export default function ResizablePhoneEmulator({
   const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const defaultPhone = useSettingsStore(
+    (s) => s.defaultPhoneNumberByFlow["global"] ?? ""
+  );
 
   const nodeRef = useRef(null);
 
@@ -39,6 +44,15 @@ export default function ResizablePhoneEmulator({
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    // Always reflect store immediately:
+    // - if default exists: force it
+    // - if cleared: fall back
+    setPhoneNumber(defaultPhone || initialPhone);
+  }, [defaultPhone]);
+
+  const handlePhoneNumberChange = (value: string) => setPhoneNumber(value);
 
   const generateSequenceNumber = () => {
     return Math.floor(Math.random() * 1000000);
@@ -285,7 +299,7 @@ export default function ResizablePhoneEmulator({
                       <input
                         type="text"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => handlePhoneNumberChange(e.target.value)}
                         className="w-full pl-3 pr-16 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
                         placeholder="e.g. +251..."
                       />
@@ -441,7 +455,7 @@ export default function ResizablePhoneEmulator({
                       <input
                         type="text"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => handlePhoneNumberChange(e.target.value)}
                         className="w-full pl-3 pr-16 py-2 rounded-lg text-sm border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-gray-900 font-medium bg-white"
                         placeholder="e.g. +251..."
                       />

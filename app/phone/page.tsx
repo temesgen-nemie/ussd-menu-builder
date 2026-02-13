@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { sendUssdRequest } from "@/lib/api";
+import { useSettingsStore } from "@/store/settingsStore";
 
 type Message = {
   content: string;
@@ -13,13 +14,24 @@ type Message = {
 };
 
 export default function PhoneSessionPage() {
-  const [phoneNumber, setPhoneNumber] = useState("+251910899167");
+  const initialPhone = "+251910899167";
+  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [shortCode, setShortCode] = useState("*675#");
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const defaultPhone = useSettingsStore(
+    (s) => s.defaultPhoneNumberByFlow["global"] ?? ""
+  );
+
+  useEffect(() => {
+    // Always reflect store immediately:
+    // - if default exists: force it
+    // - if cleared: fall back
+    setPhoneNumber(defaultPhone || initialPhone);
+  }, [defaultPhone]);
 
   const generateSequenceNumber = () => Math.floor(Math.random() * 1000000);
 
