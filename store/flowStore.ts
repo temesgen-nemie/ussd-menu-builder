@@ -169,13 +169,18 @@ const replaceNextNodeNameInScript = (
   });
 };
 
-const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
+const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): FlowJson => {
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
   const typeById = new Map<string, string>();
 
-  nodes.forEach((node) => {
-    if (node.type === "start") return;
+  allNodes.forEach((node) => {
+    if (node.type === "start" || node.type === "group" || node.type === "funnel") {
+      if (node.type === "group" || node.type === "funnel") {
+        typeById.set(node.id, node.type);
+      }
+      return;
+    }
     const name = String((node.data as Record<string, unknown>)?.name ?? "");
     typeById.set(node.id, node.type || "");
     // Always map ID to name (or empty string/Unnamed)
@@ -184,6 +189,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
       idByName.set(name, node.id);
     }
   });
+
+  const isUuid = (val: any): val is string =>
+    typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
   const resolveTarget = (value?: string | unknown) => {
     if (typeof value !== "string" || !value) return { id: "", name: "" };
@@ -195,7 +203,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     } else if (idByName.has(value)) {
       targetId = idByName.get(value) || "";
     } else {
-      return { id: "", name: value };
+      // If NOT found and it's a UUID, it's a stale or external ID we can't resolve.
+      // If it's NOT a UUID, it might be a manually entered name (e.g. goto flow).
+      return { id: "", name: isUuid(value) ? "" : value };
     }
 
     // 2. Follow Funnels recursively
@@ -205,7 +215,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
       if (visited.has(currentId)) break; // Loop protection
       visited.add(currentId);
 
-      const funnelNode = nodes.find((n) => n.id === currentId);
+      const funnelNode = allNodes.find((n) => n.id === currentId);
       const funnelNext = funnelNode?.data?.nextNode;
       if (typeof funnelNext === "string" && funnelNext) {
         // Find next target by ID or name
@@ -215,7 +225,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           currentId = idByName.get(funnelNext) || "";
         } else {
           // Pointing to something unknown
-          return { id: "", name: funnelNext };
+          return { id: "", name: isUuid(funnelNext) ? "" : funnelNext };
         }
       } else {
         // Unconnected funnel
@@ -486,9 +496,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             }
           }
           const target = resolveTarget(route.nextNodeId || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             when,
-            goto: target.name,
+            [isGroup ? "gotoFlow" : "goto"]: target.name,
             gotoId: target.id,
           };
         });
@@ -538,11 +549,12 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           [];
         const scriptRoutes = routesRaw.map((route) => {
           const target = resolveTarget(route.nextNodeId || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             key: route.key,
-            goto: target.name,
+            [isGroup ? "gotoFlow" : "goto"]: target.name,
             gotoId: target.id,
-          };
+          } as any;
         });
         return {
           ...base,
@@ -567,9 +579,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
 
         const routes = routesRaw.map((route) => {
           const target = resolveTarget(route.goto || "");
+          const isGroup = typeById.get(target.id) === "group";
           return {
             when: route.when,
-            goto: target.name || ""
+            [isGroup ? "gotoFlow" : "goto"]: target.name || ""
           };
         });
 
@@ -790,7 +803,7 @@ export const useFlowStore = create<FlowState>()(
 
         const groupNode = nodes.find((n) => n.id === groupId);
         const nodesToSave = groupNode ? [...children, groupNode] : children;
-        const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
+        const subflowJson = buildFlowJson(nodesToSave, relevantEdges, nodes);
         const flowName = subflowJson.flowName;
 
         if (!flowName) {
@@ -803,8 +816,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateFlow(flowName, subflowJson), {
             loading: `Updating flow '${flowName}'...`,
             success: () => {
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== groupId),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [groupId]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [groupId]: calculateFlowSnapshot(groupId, nodes, edges),
+                },
               });
               return `Flow '${flowName}' updated successfully!`;
             },
@@ -840,7 +862,7 @@ export const useFlowStore = create<FlowState>()(
           (e) => descendantIds.has(e.source) && descendantIds.has(e.target)
         );
 
-        return JSON.stringify(buildFlowJson(nodesToExport, relevantEdges), null, 2);
+        return JSON.stringify(buildFlowJson(nodesToExport, relevantEdges, nodes), null, 2);
       },
       importSubflow: (jsonText: string, position?: { x: number; y: number }) => {
         let parsed: FlowJson;
@@ -1104,7 +1126,7 @@ export const useFlowStore = create<FlowState>()(
         set({
           nodes: finalNodes,
           edges: [...edges, ...newEdges],
-          flow: buildFlowJson(finalNodes, [...edges, ...newEdges]),
+          flow: buildFlowJson(finalNodes, [...edges, ...newEdges], finalNodes),
           selectedNodeId: newNodes.length === 1 ? newNodes[0].id : null,
         });
 
@@ -1237,7 +1259,7 @@ export const useFlowStore = create<FlowState>()(
           set({
             nodes: finalNodes,
             edges: mergedEdges,
-            flow: buildFlowJson(finalNodes, mergedEdges),
+            flow: buildFlowJson(finalNodes, mergedEdges, finalNodes),
             publishedGroupIds: publishedGroupIdsFromBackend,
             lastSyncedSnapshots: publishedGroupIdsFromBackend.reduce((acc, id) => {
               acc[id] = calculateFlowSnapshot(id, finalNodes, mergedEdges);
@@ -1354,7 +1376,7 @@ export const useFlowStore = create<FlowState>()(
           set({
             nodes: nextNodes,
             edges: nextEdges,
-            flow: buildFlowJson(nextNodes, nextEdges),
+            flow: buildFlowJson(nextNodes, nextEdges, nextNodes),
             publishedGroupIds: nextPublishedGroupIds,
             lastSyncedSnapshots: {
               ...get().lastSyncedSnapshots,
@@ -1436,7 +1458,7 @@ export const useFlowStore = create<FlowState>()(
 
           return {
             nodes: correctedNodes,
-            flow: buildFlowJson(correctedNodes, state.edges),
+            flow: buildFlowJson(correctedNodes, state.edges, correctedNodes),
             modifiedGroupIds: nextModifiedGroupIds,
             modifiedGroupsLog: nextModifiedGroupsLog,
           };
@@ -1482,7 +1504,7 @@ export const useFlowStore = create<FlowState>()(
 
           return {
             edges: nextEdges,
-            flow: buildFlowJson(currentNodes, nextEdges),
+            flow: buildFlowJson(currentNodes, nextEdges, currentNodes),
             modifiedGroupIds: nextModifiedGroupIds,
             modifiedGroupsLog: nextModifiedGroupsLog
           };
@@ -1529,7 +1551,7 @@ export const useFlowStore = create<FlowState>()(
 
           return {
             nodes: nextNodes,
-            flow: buildFlowJson(nextNodes, state.edges),
+            flow: buildFlowJson(nextNodes, state.edges, nextNodes),
             modifiedGroupIds: nextModifiedGroupIds,
             modifiedGroupsLog: nextModifiedGroupsLog,
           };
@@ -1678,10 +1700,59 @@ export const useFlowStore = create<FlowState>()(
             }
           });
 
-          // Use the updated nodeMap values for the nextNodes list
           const nextNodes = Array.from(nodeMap.values()).filter(
             (n) => !nodesToRemoveIds.has(n.id)
           );
+
+          // ------------------------------------------------------------------
+          // NEW: FULL REFERENCE SCAN (Safety net for references without edges)
+          // ------------------------------------------------------------------
+          nextNodes.forEach(node => {
+            const data = (node.data as Record<string, any>) || {};
+
+            // 1. nextNodeId
+            if (data.nextNodeId && nodesToRemoveIds.has(data.nextNodeId)) {
+              data.nextNodeId = "";
+            }
+
+            // 2. nextNode (string mode)
+            if (typeof data.nextNode === "string" && nodesToRemoveIds.has(data.nextNode)) {
+              data.nextNode = "";
+            }
+
+            // 3. nextNode (object mode)
+            if (data.nextNode && typeof data.nextNode === "object") {
+              const nx = data.nextNode;
+              if (nx.defaultId && nodesToRemoveIds.has(nx.defaultId)) {
+                nx.defaultId = "";
+              }
+              if (nx.default && nodesToRemoveIds.has(nx.default)) {
+                nx.default = "";
+              }
+              if (Array.isArray(nx.routes)) {
+                nx.routes = nx.routes.map((r: any) => {
+                  if (nodesToRemoveIds.has(r.gotoId || "")) return { ...r, gotoId: "" };
+                  if (nodesToRemoveIds.has(r.goto || "")) return { ...r, goto: "" };
+                  return r;
+                });
+              }
+            }
+
+            // 4. Action/Script Routes
+            if (Array.isArray(data.routes)) {
+              data.routes = data.routes.map((r: any) => {
+                if (r.nextNodeId && nodesToRemoveIds.has(r.nextNodeId)) {
+                  return { ...r, nextNodeId: "" };
+                }
+                return r;
+              });
+            }
+
+            // 5. Start Node entry
+            if (data.entryNode && nodesToRemoveIds.has(data.entryNode)) {
+              data.entryNode = "";
+            }
+          });
 
           // If we are deleting the current subflow we are in, exit to main
           const nextSubflowId = nodesToRemoveIds.has(
@@ -1733,7 +1804,7 @@ export const useFlowStore = create<FlowState>()(
               ? null
               : state.selectedNodeId,
             currentSubflowId: nextSubflowId,
-            flow: buildFlowJson(nextNodes, nextEdges),
+            flow: buildFlowJson(nextNodes, nextEdges, nextNodes),
             modifiedGroupIds: nextModifiedGroupIds.filter(id => !nodesToRemoveIds.has(id)),
             modifiedGroupsLog: nextModifiedGroupsLog,
           };
@@ -1746,7 +1817,7 @@ export const useFlowStore = create<FlowState>()(
           if (edgesToRemove.length === 0) {
             return {
               edges: state.edges,
-              flow: buildFlowJson(state.nodes, state.edges),
+              flow: buildFlowJson(state.nodes, state.edges, state.nodes),
             };
           }
 
@@ -1892,7 +1963,7 @@ export const useFlowStore = create<FlowState>()(
           return {
             nodes: nextNodes,
             edges: nextEdges,
-            flow: buildFlowJson(nextNodes, nextEdges),
+            flow: buildFlowJson(nextNodes, nextEdges, nextNodes),
             modifiedGroupIds: nextModifiedGroupIds,
           };
         }),
@@ -2165,7 +2236,7 @@ export const useFlowStore = create<FlowState>()(
 
           return {
             nodes: nextNodes,
-            flow: buildFlowJson(nextNodes, state.edges),
+            flow: buildFlowJson(nextNodes, state.edges, nextNodes),
             modifiedGroupIds: nextModifiedGroupIds,
             modifiedGroupsLog: nextModifiedGroupsLog,
           };
@@ -2253,7 +2324,7 @@ export const useFlowStore = create<FlowState>()(
           const nextNodes = [...nodes, newNode, startNode];
           set({
             nodes: nextNodes,
-            flow: buildFlowJson(nextNodes, edges),
+            flow: buildFlowJson(nextNodes, edges, nextNodes),
             selectedNodeId: groupId,
           });
           return;
@@ -2304,7 +2375,7 @@ export const useFlowStore = create<FlowState>()(
           );
           set({
             nodes: finalNodes,
-            flow: buildFlowJson(finalNodes, edges),
+            flow: buildFlowJson(finalNodes, edges, finalNodes),
             selectedNodeId: groupId,
           });
         } else {
@@ -2320,7 +2391,7 @@ export const useFlowStore = create<FlowState>()(
           const finalNodes = [...nextNodes, startNode];
           set({
             nodes: finalNodes,
-            flow: buildFlowJson(finalNodes, edges),
+            flow: buildFlowJson(finalNodes, edges, finalNodes),
             selectedNodeId: groupId,
           });
         }
@@ -2350,7 +2421,7 @@ export const useFlowStore = create<FlowState>()(
 
         set((state) => ({
           nodes: nextNodes,
-          flow: buildFlowJson(nextNodes, state.edges),
+          flow: buildFlowJson(nextNodes, state.edges, nextNodes),
           selectedNodeId: null,
         }));
       },
@@ -2365,7 +2436,7 @@ export const useFlowStore = create<FlowState>()(
         const relevantEdges = edges.filter(
           (e) => childIds.includes(e.source) && childIds.includes(e.target)
         );
-        const subflowJson = buildFlowJson(children, relevantEdges);
+        const subflowJson = buildFlowJson(children, relevantEdges, nodes);
         set({
           groupJsonModal: {
             isOpen: true,
@@ -2382,7 +2453,7 @@ export const useFlowStore = create<FlowState>()(
         if (!node) return;
 
         // Use the already built flow json if possible, or rebuild it
-        const flowJson = buildFlowJson(nodes, edges);
+        const flowJson = buildFlowJson(nodes, edges, nodes);
         const flowNode = flowJson.nodes.find(fn => fn.id === nodeId);
 
         if (flowNode) {
@@ -2656,7 +2727,7 @@ export const useFlowStore = create<FlowState>()(
         set({
           nodes: nextNodes,
           edges: nextEdges,
-          flow: buildFlowJson(nextNodes, nextEdges),
+          flow: buildFlowJson(nextNodes, nextEdges, nextNodes),
           groupJsonModal:
             groupJsonModal && groupJsonModal.groupId === groupId
               ? { ...groupJsonModal, json: normalizedJson }
@@ -2677,7 +2748,7 @@ export const useFlowStore = create<FlowState>()(
         // If group node exists, add it. Otherwise just use children.
         const nodesToSave = groupNode ? [...children, groupNode] : children;
 
-        const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
+        const subflowJson = buildFlowJson(nodesToSave, relevantEdges, nodes);
 
         try {
           // Verify we have a start node if we want it to be a valid flow
@@ -2769,7 +2840,7 @@ export const useFlowStore = create<FlowState>()(
         const relevantEdges = edges.filter(
           (e) => childIds.includes(e.source) && childIds.includes(e.target)
         );
-        const subflowJson = buildFlowJson(groupChildren, relevantEdges);
+        const subflowJson = buildFlowJson(groupChildren, relevantEdges, nodes);
         const flowNode = subflowJson.nodes.find((fn) => fn.id === nodeId);
 
         if (!flowNode) return;
@@ -2786,9 +2857,17 @@ export const useFlowStore = create<FlowState>()(
           toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
             loading: `Syncing changes from '${currentName}'...`,
             success: () => {
-              const { modifiedGroupIds } = get();
+              const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
               set({
                 modifiedGroupIds: modifiedGroupIds.filter((id) => id !== parentGroup.id),
+                modifiedGroupsLog: {
+                  ...modifiedGroupsLog,
+                  [parentGroup.id]: [],
+                },
+                lastSyncedSnapshots: {
+                  ...lastSyncedSnapshots,
+                  [parentGroup.id]: calculateFlowSnapshot(parentGroup.id, nodes, edges),
+                },
               });
               return `Synced '${currentName}' with backend flow '${flowName}'`;
             },
