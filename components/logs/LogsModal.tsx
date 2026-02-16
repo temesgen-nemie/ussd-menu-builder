@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsTable from "@/components/logs/LogsTable";
-import { API_BASE_URL } from "@/lib/api";
 
 type LogsModalProps = {
   open: boolean;
@@ -46,7 +45,10 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const socketUrl = new URL("/admin/logs/stream", API_BASE_URL);
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "https://ussdtool.profilesage.com";
+    const socketUrl = new URL("/admin/logs/stream", baseUrl);
     socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(socketUrl.toString());
 
