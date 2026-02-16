@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsTable from "@/components/logs/LogsTable";
+import { API_BASE_URL } from "@/lib/api";
 
 type LogsModalProps = {
   open: boolean;
@@ -45,10 +46,9 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(
-      `${wsProtocol}://ussdtool.profilesage.com/admin/logs/stream`
-    );
+    const socketUrl = new URL("/admin/logs/stream", API_BASE_URL);
+    socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(socketUrl.toString());
 
     socket.addEventListener("open", () => {
       setIsLiveConnected(true);
@@ -148,7 +148,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
           acc[key] = parseNestedJson(val, depth + 1);
           return acc;
         },
-        {} as Record<string, unknown>
+        {} as Record<string, unknown>,
       );
     }
     return value;
