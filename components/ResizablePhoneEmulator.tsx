@@ -125,12 +125,17 @@ export default function ResizablePhoneEmulator({
 </ussd>`;
     } else {
       // Default format for +2519... numbers
+      // Strip trailing # for dest_addr
+      const xmlShortCode = effectiveShortCode.endsWith("#") 
+        ? effectiveShortCode.slice(0, -1) 
+        : effectiveShortCode;
+
       xmlRequest = `<cps-message>
     <sequence_number>${currentSequence}</sequence_number>
     <version>32</version>  
     <service_type>${serviceType}</service_type> 
     <source_addr>${phoneNumber}</source_addr>
-    <dest_addr>${effectiveShortCode}</dest_addr>
+    <dest_addr>${xmlShortCode}</dest_addr>
     <timestamp>${timestamp}</timestamp>
     <command_status>0</command_status>
     <data_coding>0</data_coding>
