@@ -677,6 +677,7 @@ interface FlowState {
   setRfInstance: (instance: ReactFlowInstance) => void;
 
   publishGroup: (groupId: string) => Promise<void>;
+  publishGroupRecursive: (groupId: string) => Promise<void>;
 
   loadAllFlows: () => Promise<void>;
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
@@ -817,7 +818,7 @@ export const useFlowStore = create<FlowState>()(
 
         try {
           const { updateFlow } = await import("../lib/api");
-          toast.promise(updateFlow(flowName, subflowJson), {
+          await toast.promise(updateFlow(flowName, subflowJson), {
             loading: `Updating flow '${flowName}'...`,
             success: () => {
               const { nodes, edges, modifiedGroupIds, modifiedGroupsLog, lastSyncedSnapshots } = get();
@@ -2618,7 +2619,7 @@ export const useFlowStore = create<FlowState>()(
             throw new Error("Cannot publish a group without a Start node.");
           }
 
-          toast.promise(createFlow(subflowJson), {
+          await toast.promise(createFlow(subflowJson), {
             loading: "Publishing to backend...",
             success: (data: unknown) => {
               // Add to published list
@@ -2640,8 +2641,87 @@ export const useFlowStore = create<FlowState>()(
               error instanceof Error
                 ? error.message
                 : "An unknown error occurred";
-            alert(message);
+            toast.error(message);
           }
+        }
+      },
+
+      publishGroupRecursive: async (groupId: string) => {
+        const { nodes, publishedGroupIds, updatePublishedFlow, publishGroup } = get();
+
+        // Dynamic import to avoid circular dependency if any, and for consistency with other methods
+        const { checkMyFlowPermission } = await import("../lib/api");
+        const { useAuthStore } = await import("./authStore");
+        const authUser = useAuthStore.getState().user;
+
+        if (!authUser?.userId) {
+          toast.error("Authentication required for recursive publish.");
+          return;
+        }
+
+        const collectGroups = (pid: string, list: string[]) => {
+          const children = nodes.filter(n => n.parentNode === pid);
+          children.forEach(child => {
+            if (child.type === 'group') {
+              collectGroups(child.id, list);
+              list.push(child.id);
+            }
+          });
+        };
+
+        const targetGroups: string[] = [];
+        collectGroups(groupId, targetGroups);
+        targetGroups.push(groupId); // Include the root group
+
+        // Filter for groups that have a start node
+        const validGroups = targetGroups.filter(id => {
+          return nodes.some(n => n.parentNode === id && n.type === 'start');
+        });
+
+        if (validGroups.length === 0) {
+          toast.error("No groups with Start nodes found to publish.");
+          return;
+        }
+
+        toast.info(`Recursive Publish: Processing ${validGroups.length} groups...`);
+
+        let successCount = 0;
+        let failCount = 0;
+        let skipCount = 0;
+
+        for (const id of validGroups) {
+          const children = nodes.filter(n => n.parentNode === id);
+          const startNode = children.find(n => n.type === 'start');
+          const flowName = (startNode?.data as any)?.flowName;
+          const groupNode = nodes.find(n => n.id === id);
+          const groupLabel = groupNode?.data?.name || flowName || "Untitled Group";
+
+          try {
+            if (publishedGroupIds.includes(id)) {
+              // Check permission for existing flow
+              if (!authUser.isAdmin && flowName) {
+                const hasPermission = await checkMyFlowPermission(flowName, authUser.userId);
+                if (!hasPermission) {
+                  toast.warning(`Skipping '${groupLabel}': No update permission.`);
+                  skipCount++;
+                  continue;
+                }
+              }
+              await updatePublishedFlow(id);
+            } else {
+              await publishGroup(id);
+            }
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to publish group ${groupLabel}`, error);
+            failCount++;
+          }
+        }
+
+        if (failCount > 0) {
+          toast.error(`Recursive publish finished with ${failCount} errors.`);
+        } else {
+          toast.success(`Recursive publish completed successfully (${successCount} published/updated, ${skipCount} skipped).`);
         }
       },
 
