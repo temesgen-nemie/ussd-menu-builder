@@ -71,7 +71,8 @@ export default function FlowCanvas() {
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     flowName: string;
-  }>({ isOpen: false, flowName: "" });
+    groupId: string | null;
+  }>({ isOpen: false, flowName: "", groupId: null });
   const [permissionsDialog, setPermissionsDialog] = useState<{
     open: boolean;
     flowName: string | null;
@@ -1389,7 +1390,7 @@ export default function FlowCanvas() {
                                     return;
                                   }
                                 }
-                                setDeleteModal({ isOpen: true, flowName });
+                                setDeleteModal({ isOpen: true, flowName, groupId: menu.id });
                                 setMenu(null);
                               } catch (error) {
                                 toast.error(
@@ -1612,10 +1613,11 @@ export default function FlowCanvas() {
       <RefreshConfirmModal />
       {deleteModal.isOpen && (
         <DeleteConfirmModal
-          flowName={deleteModal.flowName}
-          isOpen={deleteModal.isOpen}
-          onClose={() => setDeleteModal({ isOpen: false, flowName: "" })}
-        />
+        isOpen={deleteModal.isOpen}
+        flowName={deleteModal.flowName}
+        groupId={deleteModal.groupId}
+        onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+      />
       )}
       <FlowPermissionsDialog
         open={permissionsDialog.open}
