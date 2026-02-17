@@ -85,8 +85,25 @@ export default function RequestBar({
   const endpointSegments =
     endpointPath === "/" ? [] : endpointPath.split("/").filter(Boolean);
 
-  const isStrictBaseMatch =
-    Boolean(normalizedBase) && normalizedEndpoint.startsWith(normalizedBase);
+  const isStrictPathMatch = Boolean(
+    baseUrl &&
+      endpointUrl &&
+      basePath !== "/" &&
+      (endpointPath === basePath || endpointPath.startsWith(`${basePath}/`))
+  );
+
+  const isStrictBaseMatch = (() => {
+    // Prefer path-safe strict matching to avoid partial segment bugs:
+    // e.g. "/v1/starpay" should NOT match "/v1/starpay-api".
+    if (isStrictPathMatch) return true;
+
+    // Fallback for non-URL values: still enforce boundary after base prefix.
+    if (!normalizedBase || !normalizedEndpoint.startsWith(normalizedBase)) {
+      return false;
+    }
+    const nextChar = normalizedEndpoint[normalizedBase.length];
+    return !nextChar || nextChar === "/" || nextChar === "?" || nextChar === "#";
+  })();
   const isLooseLevenshteinMatch = (() => {
     if (!baseUrl || !endpointUrl) return false;
     if (baseSegments.length === 0) return false;
@@ -109,13 +126,17 @@ export default function RequestBar({
     baseUrl &&
       endpointUrl &&
       basePath !== "/" &&
-      (endpointPath === basePath ||
-        endpointPath.startsWith(`${basePath}/`) ||
-        isLooseLevenshteinMatch)
+      (isStrictPathMatch || isLooseLevenshteinMatch)
   );
 
   const displayEndpoint = (() => {
     if (isStrictBaseMatch) {
+      if (baseUrl && endpointUrl) {
+        const relativePathSegments = endpointSegments.slice(baseSegments.length);
+        const relativePath = relativePathSegments.join("/");
+        const relative = `${relativePath}${endpointUrl.search}${endpointUrl.hash}`;
+        return relative.replace(/^\/+/, "");
+      }
       return normalizedEndpoint.slice(normalizedBase.length).replace(/^\/+/, "");
     }
     if (isLoosePathMatch && endpointUrl) {
