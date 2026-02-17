@@ -678,11 +678,11 @@ interface FlowState {
 
   publishGroup: (groupId: string) => Promise<void>;
   publishGroupRecursive: (groupId: string) => Promise<void>;
+  deletePublishedFlowRecursive: (groupId: string) => Promise<void>;
 
   loadAllFlows: () => Promise<void>;
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
   deletePublishedFlow: (flowName: string) => Promise<void>;
-  syncNodeWithBackend: (nodeId: string, previousName?: string) => Promise<void>;
   isLoading: boolean;
   publishedGroupIds: string[];
   clipboard: Node[] | null;
@@ -2723,6 +2723,88 @@ export const useFlowStore = create<FlowState>()(
         } else {
           toast.success(`Recursive publish completed successfully (${successCount} published/updated, ${skipCount} skipped).`);
         }
+      },
+
+      deletePublishedFlowRecursive: async (groupId: string) => {
+        const { nodes, publishedGroupIds } = get();
+        const { deleteFlow, checkMyFlowPermission } = await import("../lib/api");
+        const { useAuthStore } = await import("./authStore");
+        const authUser = useAuthStore.getState().user;
+
+        if (!authUser?.userId) {
+          toast.error("Authentication required for recursive delete.");
+          return;
+        }
+
+        const collectGroups = (pid: string, list: string[]) => {
+          const children = nodes.filter(n => n.parentNode === pid);
+          children.forEach(child => {
+            if (child.type === 'group') {
+              collectGroups(child.id, list);
+              list.push(child.id);
+            }
+          });
+        };
+
+        const targetGroups: string[] = [];
+        collectGroups(groupId, targetGroups);
+        targetGroups.push(groupId);
+
+        // Filter for groups that are actually published and have a start node
+        const groupsToDelete = targetGroups.filter(id => {
+          const isPublished = publishedGroupIds.includes(id);
+          const hasStart = nodes.some(n => n.parentNode === id && n.type === 'start');
+          return isPublished && hasStart;
+        });
+
+        if (groupsToDelete.length === 0) {
+          toast.error("No published backend flows found to delete recursively.");
+          return;
+        }
+
+        toast.info(`Recursive Delete: Checking permissions for ${groupsToDelete.length} flows...`);
+
+        const flowsToProcess: { id: string; flowName: string; label: string }[] = [];
+
+        for (const id of groupsToDelete) {
+          const children = nodes.filter(n => n.parentNode === id);
+          const startNode = children.find(n => n.type === 'start');
+          const flowName = (startNode?.data as any)?.flowName;
+          const groupNode = nodes.find(n => n.id === id);
+          const groupLabel = groupNode?.data?.name || flowName || "Untitled Group";
+
+          if (!flowName) continue;
+
+          if (!authUser.isAdmin) {
+            const hasPermission = await checkMyFlowPermission(flowName, authUser.userId);
+            if (!hasPermission) {
+              toast.warning(`Permission denied for '${groupLabel}'. Skipping.`);
+              continue;
+            }
+          }
+          flowsToProcess.push({ id, flowName, label: groupLabel });
+        }
+
+        if (flowsToProcess.length === 0) {
+          toast.error("No permissions to delete any of the selected flows.");
+          return;
+        }
+
+        toast.promise(
+          Promise.all(flowsToProcess.map(f => deleteFlow(f.flowName))),
+          {
+            loading: `Deleting ${flowsToProcess.length} flows from backend...`,
+            success: () => {
+              const { publishedGroupIds: currentIds } = get();
+              const idsToRemove = new Set(flowsToProcess.map(f => f.id));
+              set({
+                publishedGroupIds: currentIds.filter(id => !idsToRemove.has(id))
+              });
+              return `Successfully deleted ${flowsToProcess.length} flows locally and from backend.`;
+            },
+            error: (err: any) => `Failed recursive delete: ${err.message || 'Unknown error'}`
+          }
+        );
       },
 
       deletePublishedFlow: async (flowName: string) => {
