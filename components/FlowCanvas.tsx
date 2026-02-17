@@ -1219,11 +1219,71 @@ export default function FlowCanvas() {
 
                       if (!isPublished) {
                         return (
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
+                              onClick={() => {
+                                publishGroup(menu.id);
+                                setMenu(null);
+                              }}
+                            >
+                              <div className="p-1.5 bg-violet-100 rounded-lg group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3.5 w-3.5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2.5}
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                  />
+                                </svg>
+                              </div>
+                              Publish to Backend
+                            </button>
+                            <button
+                              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-fuchsia-600 hover:bg-fuchsia-50 font-bold transition-all group/item border-b border-gray-50"
+                              onClick={() => {
+                                useFlowStore.getState().publishGroupRecursive(menu.id);
+                                setMenu(null);
+                              }}
+                            >
+                              <div className="p-1.5 bg-fuchsia-100 rounded-lg group-hover/item:bg-fuchsia-600 group-hover/item:text-white transition-colors">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3.5 w-3.5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2.5}
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                                  />
+                                </svg>
+                              </div>
+                              Recursive Publish
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-col gap-0.5">
                           <button
-                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-violet-600 hover:bg-violet-50 font-bold transition-all group/item border-b border-gray-50"
-                            onClick={() => publishGroup(menu.id)}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-fuchsia-600 hover:bg-fuchsia-50 font-bold transition-all group/item border-b border-gray-50"
+                            onClick={() => {
+                              useFlowStore.getState().publishGroupRecursive(menu.id);
+                              setMenu(null);
+                            }}
                           >
-                            <div className="p-1.5 bg-violet-100 rounded-lg group-hover/item:bg-violet-600 group-hover/item:text-white transition-colors">
+                            <div className="p-1.5 bg-fuchsia-100 rounded-lg group-hover/item:bg-fuchsia-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="h-3.5 w-3.5"
@@ -1235,17 +1295,12 @@ export default function FlowCanvas() {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2.5}
-                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
                                 />
                               </svg>
                             </div>
-                            Publish to Backend
+                            Recursive Update
                           </button>
-                        );
-                      }
-
-                      return (
-                        <div className="flex flex-col gap-0.5">
                           <button
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item border-b border-gray-50"
                             onClick={async () => {
