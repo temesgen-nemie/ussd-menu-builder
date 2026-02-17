@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/authStore";
@@ -62,31 +62,36 @@ export default function FlowPermissionsDialog({
     setPage(1);
   }, [open, flowName]);
 
-  useEffect(() => {
-    if (!open || !flowName) return;
+  const loadAssignableUsers = useCallback(async () => {
+    if (!flowName) return;
     setIsLoading(true);
     setError(null);
-    const load = async () => {
-      try {
-        const data = await getAssignableUsers(flowName, { page, pageSize: 10 });
-        const list: AssignableUser[] = Array.isArray(data?.users) ? data.users : [];
-        setUsers(list);
-        setTotalPages(Number(data?.totalPages ?? 1));
-        setPermissions((prev) => {
-          const next = { ...prev };
-          list.forEach((entry) => {
-            next[entry.id] = entry.flowAccess ?? next[entry.id] ?? { ...emptyAccess };
-          });
-          return next;
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load users.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [flowName, open, page]);
+    try {
+      const data = await getAssignableUsers(flowName, { page, pageSize: 10 });
+      const list: AssignableUser[] = Array.isArray(data?.users) ? data.users : [];
+      setUsers(list);
+      setTotalPages(Number(data?.totalPages ?? 1));
+
+      // Always derive checkbox state from backend truth.
+      const nextPermissions = list.reduce<Record<string, FlowAccess>>(
+        (acc, entry) => {
+          acc[entry.id] = entry.flowAccess ?? { ...emptyAccess };
+          return acc;
+        },
+        {}
+      );
+      setPermissions(nextPermissions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load users.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [flowName, page]);
+
+  useEffect(() => {
+    if (!open || !flowName) return;
+    loadAssignableUsers();
+  }, [flowName, open, page, loadAssignableUsers]);
 
 
   const handleAssignToggle = (userId: string) => {
@@ -139,6 +144,7 @@ export default function FlowPermissionsDialog({
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to assign permissions");
+      await loadAssignableUsers();
     } finally {
       setIsSaving(false);
     }

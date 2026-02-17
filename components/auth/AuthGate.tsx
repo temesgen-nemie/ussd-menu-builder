@@ -25,8 +25,13 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        Checking session...
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex items-center gap-4 rounded-2xl border border-border bg-card px-8 py-6 shadow-lg">
+          <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-200 border-t-indigo-600" />
+          <div className="text-sm font-medium text-foreground">
+            Checking session<span className="animate-pulse">...</span>
+          </div>
+        </div>
       </div>
     );
   }
