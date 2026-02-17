@@ -29,14 +29,103 @@ export default function RequestBar({
   onImportCurl,
   onSend,
 }: RequestBarProps) {
+  const parseAbsoluteUrl = (value: string): URL | null => {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  };
+  const LEVENSHTEIN_THRESHOLD = 2;
+
+  const levenshtein = (left: string, right: string) => {
+    const a = left.toLowerCase();
+    const b = right.toLowerCase();
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+
+    const dp = Array.from({ length: a.length + 1 }, () =>
+      Array<number>(b.length + 1).fill(0)
+    );
+
+    for (let i = 0; i <= a.length; i += 1) dp[i][0] = i;
+    for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
+
+    for (let i = 1; i <= a.length; i += 1) {
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    return dp[a.length][b.length];
+  };
+
   const token = baseUrlToken ?? "";
   const normalizedEndpoint = endpoint || "";
   const normalizedBase =
     baseUrlValue?.replace(/\/+$/, "") ?? "";
-  const displayEndpoint =
-    normalizedBase && normalizedEndpoint.startsWith(normalizedBase)
-      ? normalizedEndpoint.slice(normalizedBase.length).replace(/^\/+/, "")
-      : normalizedEndpoint;
+  const baseUrl = parseAbsoluteUrl(normalizedBase);
+  const endpointUrl = parseAbsoluteUrl(normalizedEndpoint);
+
+  const normalizePath = (value: string) => {
+    const trimmed = value.replace(/\/+$/, "");
+    return trimmed || "/";
+  };
+
+  const basePath = baseUrl ? normalizePath(baseUrl.pathname) : "";
+  const endpointPath = endpointUrl ? normalizePath(endpointUrl.pathname) : "";
+  const baseSegments =
+    basePath === "/" ? [] : basePath.split("/").filter(Boolean);
+  const endpointSegments =
+    endpointPath === "/" ? [] : endpointPath.split("/").filter(Boolean);
+
+  const isStrictBaseMatch =
+    Boolean(normalizedBase) && normalizedEndpoint.startsWith(normalizedBase);
+  const isLooseLevenshteinMatch = (() => {
+    if (!baseUrl || !endpointUrl) return false;
+    if (baseSegments.length === 0) return false;
+    if (endpointSegments.length < baseSegments.length) return false;
+
+    const sharedPrefixCount = baseSegments.length - 1;
+    for (let i = 0; i < sharedPrefixCount; i += 1) {
+      if (baseSegments[i].toLowerCase() !== endpointSegments[i].toLowerCase()) {
+        return false;
+      }
+    }
+
+    const baseLast = baseSegments[baseSegments.length - 1];
+    const endpointComparable = endpointSegments[baseSegments.length - 1];
+    return (
+      levenshtein(baseLast, endpointComparable) <= LEVENSHTEIN_THRESHOLD
+    );
+  })();
+  const isLoosePathMatch = Boolean(
+    baseUrl &&
+      endpointUrl &&
+      basePath !== "/" &&
+      (endpointPath === basePath ||
+        endpointPath.startsWith(`${basePath}/`) ||
+        isLooseLevenshteinMatch)
+  );
+
+  const displayEndpoint = (() => {
+    if (isStrictBaseMatch) {
+      return normalizedEndpoint.slice(normalizedBase.length).replace(/^\/+/, "");
+    }
+    if (isLoosePathMatch && endpointUrl) {
+      const relativePathSegments = endpointSegments.slice(baseSegments.length);
+      const relativePath = relativePathSegments.join("/");
+      const relative = `${relativePath}${endpointUrl.search}${endpointUrl.hash}`;
+      return relative.replace(/^\/+/, "");
+    }
+    return normalizedEndpoint;
+  })();
 
   return (
     <div className="space-y-3">
