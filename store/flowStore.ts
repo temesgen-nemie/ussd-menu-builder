@@ -683,6 +683,7 @@ interface FlowState {
   loadAllFlows: () => Promise<void>;
   refreshFlow: (flowName: string, groupId: string) => Promise<void>;
   deletePublishedFlow: (flowName: string) => Promise<void>;
+  syncNodeWithBackend: (nodeId: string, previousName?: string) => Promise<void>;
   isLoading: boolean;
   publishedGroupIds: string[];
   clipboard: Node[] | null;
@@ -1815,6 +1816,7 @@ export const useFlowStore = create<FlowState>()(
               flow: buildFlowJson(state.nodes, state.edges, state.nodes),
             };
           }
+
 
           const nodeMap = new Map(state.nodes.map((n) => [n.id, n]));
           let nextModifiedGroupIds = [...state.modifiedGroupIds];
