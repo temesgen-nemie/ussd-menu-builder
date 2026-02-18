@@ -20,11 +20,11 @@ const passwordChangeSchema = z
   .object({
     currentPassword: z
       .string()
-      .min(6, "Password must be at least 6 characters")
+      .min(2, "Password must be at least 6 characters")
       .max(12, "Current password is too long"),
     newPassword: z
       .string()
-      .min(6, "Password must be at least 6 characters")
+      .min(2, "Password must be at least 6 characters")
       .max(12, "New password is too long"),
   })
   .refine((value) => value.currentPassword !== value.newPassword, {
