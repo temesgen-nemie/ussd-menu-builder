@@ -29,6 +29,7 @@ export type FlowNode = {
   invalidInputMessage?: string;
   emptyInputMessage?: string;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
+  inputLength?: number;
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
   persistInput?: boolean;
@@ -297,6 +298,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
           inputType: (inputType || undefined) as FlowNode["inputType"],
+          inputLength:
+            typeof data.inputLength === "number" && data.inputLength > 0
+              ? Math.floor(data.inputLength)
+              : undefined,
           invalidInputTypeMessage: invalidInputTypeMessage || undefined,
           inputValidationEnabled:
             typeof data.inputValidationEnabled === "boolean"
