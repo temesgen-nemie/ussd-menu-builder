@@ -26,6 +26,7 @@ type PromptNodeData = {
   name?: string;
   message?: string;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
+  inputLength?: number;
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
   invalidInputMessageTranslation?: Record<string, string>;
@@ -1138,7 +1139,7 @@ export default function PromptInspector({
 
           {node.data.inputValidationEnabled && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-              <div className="flex flex-col space-y-5">
+              <div className="flex flex-col space-y-3">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Type</label>
                   <select
@@ -1175,6 +1176,28 @@ export default function PromptInspector({
                       }
                     }}
                     placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid input message...`}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block -mt-2">Input Length</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 focus:bg-white transition-all text-gray-900"
+                    value={String(node.data.inputLength ?? "")}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      if (!raw) {
+                        updateNodeData(node.id, { inputLength: undefined });
+                        return;
+                      }
+                      const parsed = Number(raw);
+                      if (!Number.isFinite(parsed) || parsed <= 0) {
+                        return;
+                      }
+                      updateNodeData(node.id, { inputLength: Math.floor(parsed) });
+                    }}
+                    placeholder="4"
                   />
                 </div>
               </div>
