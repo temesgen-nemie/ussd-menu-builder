@@ -7,6 +7,7 @@ type NodeNameInputProps = {
   name: string;
   onNameChange: (value: string) => void;
   label?: string;
+  inputClassName?: string;
 };
 
 export default function NodeNameInput({
@@ -14,6 +15,7 @@ export default function NodeNameInput({
   name,
   onNameChange,
   label = "Name",
+  inputClassName = "",
 }: NodeNameInputProps) {
   // Subscribe to nodes array to ensure re-render when nodes are deleted/added
   const nodes = useFlowStore((s) => s.nodes);
@@ -36,7 +38,7 @@ export default function NodeNameInput({
         className={`mt-2 w-full rounded-xl border p-3 transition-all duration-200 outline-none ${
           isCollision
             ? "border-red-300 bg-red-50 text-red-900 focus:ring-4 focus:ring-red-500/10"
-            : "border-gray-200 bg-white text-gray-900 hover:border-cyan-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+            : `border-gray-200 bg-white text-gray-900 hover:border-cyan-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 ${inputClassName}`
         }`}
         value={name}
         placeholder="Enter unique name..."

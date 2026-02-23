@@ -38,6 +38,7 @@ export type FlowNode = {
   timeoutMs?: number;
   scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
   endpoint?: string;
+  url?: string;
   method?: string;
   dataSource?: string;
   field?: string;
@@ -603,6 +604,74 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
             default: defaultTarget.name || "",
             defaultId: defaultTarget.id || "",
           }
+        };
+      }
+
+      if (node.type === "router") {
+        interface RouterRoute {
+          when?: Record<string, unknown>;
+          goto?: string;
+          toMainMenu?: boolean;
+          isGoBack?: boolean;
+          goBackTarget?: string;
+          goBackToFlow?: string;
+        }
+        interface RouterNext {
+          routes?: RouterRoute[];
+          default?: string;
+        }
+
+        const nextNode = (data.nextNode as RouterNext) || {};
+        const routesRaw = nextNode.routes || [];
+        const responseMappingRaw =
+          (data.responseMapping as Record<string, unknown>) || {};
+        const responseMapping = Object.fromEntries(
+          Object.entries(responseMappingRaw)
+            .filter(([key]) => key.trim().length > 0)
+            .map(([key, value]) => [key, String(value ?? "")])
+        );
+        const routes: FlowRoute[] = routesRaw.map((route) => {
+          if (route.toMainMenu) {
+            return {
+              when: route.when,
+              toMainMenu: true,
+            };
+          }
+
+          if (route.isGoBack) {
+            const routeObj: FlowRoute = {
+              when: route.when,
+              isGoBack: true,
+              goBackTarget: route.goBackTarget || "",
+            };
+            if (route.goBackToFlow && route.goBackToFlow !== flowName) {
+              routeObj.goBackToFlow = route.goBackToFlow;
+            }
+            return routeObj;
+          }
+
+          const target = resolveTarget(route.goto || "");
+          return {
+            when: route.when,
+            goto: target.name || "",
+            gotoId: target.id || "",
+          };
+        });
+
+        const defaultTarget = resolveTarget(nextNode.default || "");
+
+        return {
+          ...base,
+          url: String(data.url ?? ""),
+          method: String(data.method ?? "POST"),
+          responseMapping:
+            Object.keys(responseMapping).length > 0
+              ? responseMapping
+              : undefined,
+          nextNode: {
+            routes,
+            default: defaultTarget.name || "",
+          },
         };
       }
 
@@ -1695,6 +1764,27 @@ export const useFlowStore = create<FlowState>()(
                 }
               }
             }
+            // Router Node Cleanup
+            else if (sourceNode.type === "router") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = (data.nextNode as { routes?: any[]; default?: string }) || {};
+                  return { ...data, nextNode: { ...nextNode, default: "" } };
+                });
+              } else if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (!Number.isNaN(routeIdx)) {
+                  updateNodeDataLocal(sourceNode.id, (data) => {
+                    const nextNode = data.nextNode as { routes?: any[]; default?: string } | undefined;
+                    if (!nextNode || !nextNode.routes) return data;
+                    const routes = [...nextNode.routes];
+                    if (!routes[routeIdx]) return data;
+                    routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+                    return { ...data, nextNode: { ...nextNode, routes } };
+                  });
+                }
+              }
+            }
             // Start Node Cleanup
             else if (sourceNode.type === "start") {
               updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, entryNode: "" }));
@@ -1943,6 +2033,27 @@ export const useFlowStore = create<FlowState>()(
               return;
             }
 
+            if (sourceNode.type === "router") {
+              if (!handle || handle === "default") {
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = (data.nextNode as { routes?: any[]; default?: string }) || {};
+                  return { ...data, nextNode: { ...nextNode, default: "" } };
+                });
+              } else if (handle.startsWith("route-")) {
+                const routeIdx = parseInt(handle.split("-")[1], 10);
+                if (Number.isNaN(routeIdx)) return;
+                updateNodeDataLocal(sourceNode.id, (data) => {
+                  const nextNode = data.nextNode as { routes?: any[]; default?: string } | undefined;
+                  if (!nextNode || !nextNode.routes) return data;
+                  const routes = [...nextNode.routes];
+                  if (!routes[routeIdx]) return data;
+                  routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+                  return { ...data, nextNode: { ...nextNode, routes } };
+                });
+              }
+              return;
+            }
+
             if (sourceNode.type === "funnel") {
               updateNodeDataLocal(sourceNode.id, (data) => ({
                 ...data,
@@ -1975,7 +2086,7 @@ export const useFlowStore = create<FlowState>()(
       openInspector: (id) => {
         try {
           const node = get().nodes.find((n) => n.id === id);
-          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "funnel" || node?.type === "script";
+          const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "router" || node?.type === "funnel" || node?.type === "script";
 
           const el = document.querySelector(
             `.react-flow__node[data-id="${id}"]`
