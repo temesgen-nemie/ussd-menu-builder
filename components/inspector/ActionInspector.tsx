@@ -13,7 +13,11 @@ import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 import { useFlowStore } from "@/store/flowStore";
-import { fetchFlowSettings, type FlowSettingsResponse } from "@/lib/api";
+import {
+  fetchFlowSettings,
+  sendRequestThroughCurlProxy,
+  type FlowSettingsResponse,
+} from "@/lib/api";
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -661,25 +665,19 @@ export default function ActionInspector({
                 }
 
                 try {
-                  const response = await fetch(endpoint, {
+                  const result = await sendRequestThroughCurlProxy({
+                    url: endpoint,
                     method,
-                    headers,
+                    header: headers,
                     body,
                   });
 
                   updateResponse(node.id, {
-                    status: response.status,
-                    statusText: response.statusText,
+                    status: result.status,
+                    statusText: result.statusText,
+                    headers: result.headers,
+                    body: result.body,
                   });
-
-                  const headerRecord: Record<string, string> = {};
-                  response.headers.forEach((value, key) => {
-                    headerRecord[key] = value;
-                  });
-                  updateResponse(node.id, { headers: headerRecord });
-
-                  const text = await response.text();
-                  updateResponse(node.id, { body: text });
                 } catch (err) {
                   updateResponse(node.id, {
                     error: err instanceof Error ? err.message : "Request failed.",

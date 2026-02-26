@@ -11,7 +11,6 @@ import StartInspector from "./StartInspector";
 import ConditionInspector from "./ConditionInspector";
 import FunnelInspector from "./FunnelInspector";
 import ScriptInspector from "./ScriptInspector";
-import RouterInspector from "./RouterInspector";
 
 export default function InspectorPanel() {
   const {
@@ -87,7 +86,6 @@ export default function InspectorPanel() {
           node.type === "action" ||
           node.type === "prompt" ||
           node.type === "condition" ||
-          node.type === "router" ||
           node.type === "funnel" ||
           node.type === "script"
             ? 720
@@ -174,14 +172,6 @@ export default function InspectorPanel() {
     } else if (node.type === "condition") {
         updateNodeData(node.id, {
             name: "",
-            nextNode: { routes: [], default: "" }
-        });
-    } else if (node.type === "router") {
-        updateNodeData(node.id, {
-            name: "",
-            url: "",
-            method: "POST",
-            responseMapping: {},
             nextNode: { routes: [], default: "" }
         });
     } else if (node.type === "funnel") {
@@ -327,14 +317,6 @@ export default function InspectorPanel() {
               <ConditionInspector node={node} updateNodeData={updateNodeData} />
             )}
 
-            {node.type === "router" && (
-              <RouterInspector
-                key={`router-${node.id}`}
-                node={node}
-                updateNodeData={updateNodeData}
-              />
-            )}
-
             {node.type === "funnel" && (
               <FunnelInspector node={node} updateNodeData={updateNodeData} />
             )}
@@ -345,11 +327,7 @@ export default function InspectorPanel() {
 
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
-              className={`px-3 py-1 rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50 ${
-                node.type === "router"
-                  ? "bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 cursor-pointer"
-                  : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
-              }`}
+              className="px-3 py-1 rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
               disabled={isScriptNameMissing}
               title={isScriptNameMissing ? "Script node name is required." : undefined}
               onClick={async () => {

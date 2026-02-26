@@ -36,7 +36,6 @@ import GroupNode from "./nodes/GroupNode";
 import ConditionNode from "./nodes/ConditionNode";
 import FunnelNode from "./nodes/FunnelNode";
 import ScriptNode from "./nodes/ScriptNode";
-import RouterNode from "./nodes/RouterNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import NodeJsonModal from "./modals/NodeJsonModal";
@@ -54,7 +53,6 @@ const nodeTypes = {
   condition: ConditionNode,
   funnel: FunnelNode,
   script: ScriptNode,
-  router: RouterNode,
 };
 
 export default function FlowCanvas() {
@@ -495,64 +493,6 @@ export default function FlowCanvas() {
                  }
              }
         }
-        // 5. Router Routes
-        else if (sourceNode && sourceNode.type === "router") {
-          const handleId = params.sourceHandle;
-          if (handleId === "default") {
-            const targetNode = nodes.find((n) => n.id === params.target);
-            if (
-              targetNode &&
-              !targetNode.data.name &&
-              targetNode.type !== "group" &&
-              targetNode.type !== "funnel" &&
-              (sourceNode?.type as string) !== "funnel"
-            ) {
-              toast.error("Unnamed Target Node", {
-                description: "The target node must have a name before you can connect to it.",
-                duration: 5000,
-              });
-              return;
-            }
-            updateNodeData(sourceNode.id, {
-              nextNode: {
-                ...((sourceNode.data.nextNode as object) || {}),
-                default: params.target,
-              },
-            });
-          } else {
-            const routeIdx = parseInt(handleId.split("-")[1], 10);
-            const nextNode = (sourceNode.data.nextNode || { routes: [] }) as {
-              routes?: Array<{
-                toMainMenu?: boolean;
-                isGoBack?: boolean;
-                goto?: string;
-              }>;
-              default?: string;
-            };
-
-            if (
-              !Number.isNaN(routeIdx) &&
-              nextNode.routes &&
-              nextNode.routes[routeIdx]
-            ) {
-              const currentRoute = nextNode.routes[routeIdx];
-              if (currentRoute.toMainMenu || currentRoute.isGoBack) {
-                toast.error("Special routes cannot be connected to a node.");
-                return;
-              }
-
-              const newRoutes = [...nextNode.routes];
-              newRoutes[routeIdx] = {
-                ...newRoutes[routeIdx],
-                goto: params.target || "",
-              };
-
-              updateNodeData(sourceNode.id, {
-                nextNode: { ...nextNode, routes: newRoutes },
-              });
-            }
-          }
-        }
         // 5. Funnel Node
         else if (sourceNode && sourceNode.type === "funnel") {
           const filteredEdges = edges.filter((e) => e.source !== sourceNode.id);
@@ -616,28 +556,6 @@ export default function FlowCanvas() {
             return; // REJECT CONNECTION
           }
           updateNodeData(sourceNode.id, { nextNode: params.target, nextNodeId: params.target });
-        }
-        else if (sourceNode && sourceNode.type === "router") {
-          const targetNode = nodes.find((n) => n.id === params.target);
-          if (
-            targetNode &&
-            !targetNode.data.name &&
-            targetNode.type !== "group" &&
-            targetNode.type !== "funnel" &&
-            (sourceNode?.type as string) !== "funnel"
-          ) {
-            toast.error("Unnamed Target Node", {
-              description: "The target node must have a name before you can connect to it.",
-              duration: 5000,
-            });
-            return;
-          }
-          updateNodeData(sourceNode.id, {
-            nextNode: {
-              ...((sourceNode.data.nextNode as object) || {}),
-              default: params.target,
-            },
-          });
         }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
@@ -755,14 +673,6 @@ export default function FlowCanvas() {
         data = { name: "Untitled Group" };
       } else if (type === "condition") {
         data = { name: "", nextNode: { routes: [], default: "" } };
-      } else if (type === "router") {
-        data = {
-          name: "",
-          url: "",
-          method: "POST",
-          responseMapping: {},
-          nextNode: { routes: [], default: "" },
-        };
       } else if (type === "funnel") {
         data = { nextNode: "" };
       }
