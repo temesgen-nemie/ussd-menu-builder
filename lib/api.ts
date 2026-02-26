@@ -460,6 +460,85 @@ export const sendUssdRequest = async (
     }
 };
 
+export type CurlProxyPayload = {
+    url: string;
+    method: string;
+    header?: Record<string, string>;
+    body?: string;
+};
+
+export type CurlProxyResult = {
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+};
+
+export const sendRequestThroughCurlProxy = async (
+    payload: CurlProxyPayload
+): Promise<CurlProxyResult> => {
+    try {
+        const response = await api.post(
+            "/admin/flows/curlProxyController",
+            JSON.stringify(payload),
+            {
+                headers: { "Content-Type": "text/plain" },
+            }
+        );
+
+        const responseHeaders: Record<string, string> = {};
+        Object.entries(response.headers ?? {}).forEach(([key, value]) => {
+            responseHeaders[key] = Array.isArray(value)
+                ? value.join(", ")
+                : String(value ?? "");
+        });
+
+        const body =
+            typeof response.data === "string"
+                ? response.data
+                : JSON.stringify(response.data ?? {}, null, 2);
+
+        return {
+            status: response.status,
+            statusText: response.statusText || "",
+            headers: responseHeaders,
+            body,
+        };
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            const status = axiosError.response?.status ?? 0;
+            const statusText = axiosError.response?.statusText ?? "Request failed";
+            const headersRaw = axiosError.response?.headers ?? {};
+            const headers: Record<string, string> = {};
+
+            Object.entries(headersRaw).forEach(([key, value]) => {
+                headers[key] = Array.isArray(value)
+                    ? value.join(", ")
+                    : String(value ?? "");
+            });
+
+            const data = axiosError.response?.data;
+            const body =
+                typeof data === "string"
+                    ? data
+                    : JSON.stringify(data ?? { error: axiosError.message }, null, 2);
+
+            return {
+                status,
+                statusText,
+                headers,
+                body,
+            };
+        }
+
+        if (error instanceof Error) {
+            throw new Error(error.message);
+        }
+        throw new Error("An unknown error occurred");
+    }
+};
+
 export type FlowSettingsResponse = {
     data?: {
         flowName?: string;

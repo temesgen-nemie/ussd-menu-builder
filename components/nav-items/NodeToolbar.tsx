@@ -50,7 +50,15 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "script" | "start" | "condition" | "funnel") => {
+    (
+      type:
+        | "prompt"
+        | "action"
+        | "script"
+        | "start"
+        | "condition"
+        | "funnel"
+    ) => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
@@ -78,7 +86,13 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "script" | "start" | "condition" | "funnel"
+    nodeType:
+      | "prompt"
+      | "action"
+      | "script"
+      | "start"
+      | "condition"
+      | "funnel"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);

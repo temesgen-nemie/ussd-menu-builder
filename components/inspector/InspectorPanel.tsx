@@ -280,13 +280,13 @@ export default function InspectorPanel() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
-              className="px-2 py-1 rounded-md text-sm text-gray-500 hover:bg-gray-100"
+              className="px-2 py-1 rounded-md text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
               onClick={handleReset}
             >
               Reset
             </button>
             <button
-              className="px-2 py-1 rounded-md text-sm bg-white text-gray-600 hover:bg-gray-100"
+              className="px-2 py-1 rounded-md text-sm bg-white text-gray-600 hover:bg-gray-100 cursor-pointer"
               onClick={() => closeInspector()}
               aria-label="Close inspector"
             >
@@ -327,7 +327,7 @@ export default function InspectorPanel() {
 
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
-              className="px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-3 py-1 rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
               disabled={isScriptNameMissing}
               title={isScriptNameMissing ? "Script node name is required." : undefined}
               onClick={async () => {
