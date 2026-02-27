@@ -552,6 +552,7 @@ export default function ActionInspector({
         .toLowerCase()
         .includes("application/x-www-form-urlencoded");
       const hasBody = Boolean(body && body.trim());
+      const bodyText = body ?? "";
       const effectiveMethod =
         hasBody && (method === "GET" || method === "HEAD") ? "POST" : method;
 
@@ -566,7 +567,7 @@ export default function ActionInspector({
 
       if (hasBody) {
         if (isFormUrlEncoded) {
-          const parts = String(body)
+          const parts = bodyText
             .split("&")
             .map((part) => part.trim())
             .filter(Boolean);
@@ -576,10 +577,10 @@ export default function ActionInspector({
               lines.push(`--data-urlencode ${toCurlQuoted(part)}${suffix}`);
             });
           } else {
-            lines.push(`--data-urlencode ${toCurlQuoted(String(body))}`);
+            lines.push(`--data-urlencode ${toCurlQuoted(bodyText)}`);
           }
         } else {
-          lines.push(`--data-raw ${toCurlQuoted(body)}`);
+          lines.push(`--data-raw ${toCurlQuoted(bodyText)}`);
         }
       } else {
         // remove trailing "\" from the last header/method line when no body exists
