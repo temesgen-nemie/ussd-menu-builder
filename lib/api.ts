@@ -460,13 +460,6 @@ export const sendUssdRequest = async (
     }
 };
 
-export type CurlProxyPayload = {
-    url: string;
-    method: string;
-    header?: Record<string, string>;
-    body?: string;
-};
-
 export type CurlProxyResult = {
     status: number;
     statusText: string;
@@ -474,62 +467,116 @@ export type CurlProxyResult = {
     body: string;
 };
 
+const toHeaderRecord = (raw: unknown): Record<string, string> => {
+    if (!raw || typeof raw !== "object") return {};
+    const record: Record<string, string> = {};
+    Object.entries(raw as Record<string, unknown>).forEach(([key, value]) => {
+        record[key] = Array.isArray(value)
+            ? value.map((v) => String(v ?? "")).join(", ")
+            : String(value ?? "");
+    });
+    return record;
+};
+
+const normalizeCurlProxyResult = (
+    payload: unknown,
+    fallbackStatus: number,
+    fallbackStatusText: string,
+    fallbackHeaders: Record<string, string>
+): CurlProxyResult => {
+    if (typeof payload === "string") {
+        return {
+            status: fallbackStatus,
+            statusText: fallbackStatusText,
+            headers: fallbackHeaders,
+            body: payload,
+        };
+    }
+
+    if (!payload || typeof payload !== "object") {
+        return {
+            status: fallbackStatus,
+            statusText: fallbackStatusText,
+            headers: fallbackHeaders,
+            body: "",
+        };
+    }
+
+    const obj = payload as Record<string, unknown>;
+    const status =
+        typeof obj.status === "number"
+            ? obj.status
+            : typeof obj.statusCode === "number"
+                ? obj.statusCode
+                : fallbackStatus;
+
+    const statusText =
+        typeof obj.statusText === "string"
+            ? obj.statusText
+            : typeof obj.message === "string"
+                ? obj.message
+                : fallbackStatusText;
+
+    const headersFromPayload = [
+        toHeaderRecord(obj.headers),
+        toHeaderRecord(obj.header),
+        toHeaderRecord(obj.responseHeaders),
+    ].find((entry) => Object.keys(entry).length > 0);
+
+    const bodyCandidate =
+        obj.body ??
+        obj.responseBody ??
+        obj.data ??
+        obj.response ??
+        obj.result ??
+        obj.payload;
+
+    let body = "";
+    if (typeof bodyCandidate === "string") {
+        body = bodyCandidate;
+    } else if (bodyCandidate !== undefined) {
+        body = JSON.stringify(bodyCandidate, null, 2);
+    } else {
+        body = JSON.stringify(obj, null, 2);
+    }
+
+    return {
+        status,
+        statusText,
+        headers: headersFromPayload ?? fallbackHeaders,
+        body,
+    };
+};
+
 export const sendRequestThroughCurlProxy = async (
-    payload: CurlProxyPayload
+    curlText: string
 ): Promise<CurlProxyResult> => {
     try {
         const response = await api.post(
             "/admin/flows/curlProxyController",
-            JSON.stringify(payload),
+            curlText,
             {
                 headers: { "Content-Type": "text/plain" },
             }
         );
 
-        const responseHeaders: Record<string, string> = {};
-        Object.entries(response.headers ?? {}).forEach(([key, value]) => {
-            responseHeaders[key] = Array.isArray(value)
-                ? value.join(", ")
-                : String(value ?? "");
-        });
+        const responseHeaders = toHeaderRecord(response.headers ?? {});
 
-        const body =
-            typeof response.data === "string"
-                ? response.data
-                : JSON.stringify(response.data ?? {}, null, 2);
-
-        return {
-            status: response.status,
-            statusText: response.statusText || "",
-            headers: responseHeaders,
-            body,
-        };
+        return normalizeCurlProxyResult(
+            response.data,
+            response.status,
+            response.statusText || "",
+            responseHeaders
+        );
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError<{ error?: string }>;
             const status = axiosError.response?.status ?? 0;
             const statusText = axiosError.response?.statusText ?? "Request failed";
-            const headersRaw = axiosError.response?.headers ?? {};
-            const headers: Record<string, string> = {};
+            const headers = toHeaderRecord(axiosError.response?.headers ?? {});
+            const data = axiosError.response?.data ?? { error: axiosError.message };
 
-            Object.entries(headersRaw).forEach(([key, value]) => {
-                headers[key] = Array.isArray(value)
-                    ? value.join(", ")
-                    : String(value ?? "");
-            });
-
-            const data = axiosError.response?.data;
-            const body =
-                typeof data === "string"
-                    ? data
-                    : JSON.stringify(data ?? { error: axiosError.message }, null, 2);
-
-            return {
-                status,
-                statusText,
-                headers,
-                body,
-            };
+            return normalizeCurlProxyResult(data, status, statusText, headers);
         }
 
         if (error instanceof Error) {
