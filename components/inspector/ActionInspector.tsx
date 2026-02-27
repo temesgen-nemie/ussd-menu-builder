@@ -417,6 +417,7 @@ export default function ActionInspector({
     let url = "";
     const headers: Record<string, string> = {};
     let body = "";
+    const formUrlEncodedParts: string[] = [];
 
     for (let i = 0; i < tokens.length; i += 1) {
       const token = tokens[i];
@@ -453,13 +454,26 @@ export default function ActionInspector({
         continue;
       }
 
+      if (token === "--data-urlencode") {
+        const part = tokens[i + 1] || "";
+        i += 1;
+        if (part) {
+          formUrlEncodedParts.push(part);
+        }
+        continue;
+      }
+
       if (!token.startsWith("-") && !url) {
         url = token;
       }
     }
 
+    if (formUrlEncodedParts.length > 0) {
+      body = formUrlEncodedParts.join("&");
+    }
+
     if (!method) {
-      method = body ? "POST" : "GET";
+      method = body || formUrlEncodedParts.length > 0 ? "POST" : "GET";
     }
 
     return { method, url, headers, body };
@@ -514,6 +528,70 @@ export default function ActionInspector({
       }
     } catch {}
   };
+
+  const toCurlQuoted = (value: string) => {
+    const escaped = value.replace(/'/g, `'\"'\"'`);
+    return `'${escaped}'`;
+  };
+
+  const buildCurlCommand = React.useCallback(
+    (
+      endpoint: string,
+      method: string,
+      headers: Record<string, string>,
+      body?: string
+    ) => {
+      const normalizedHeaderEntries = Object.entries(headers).map(([key, value]) => [
+        key.trim(),
+        value,
+      ] as const);
+      const contentType = normalizedHeaderEntries.find(
+        ([key]) => key.toLowerCase() === "content-type"
+      )?.[1];
+      const isFormUrlEncoded = String(contentType ?? "")
+        .toLowerCase()
+        .includes("application/x-www-form-urlencoded");
+      const hasBody = Boolean(body && body.trim());
+      const bodyText = body ?? "";
+      const effectiveMethod =
+        hasBody && (method === "GET" || method === "HEAD") ? "POST" : method;
+
+      const lines: string[] = [`curl --location ${toCurlQuoted(endpoint)} \\`];
+      if (effectiveMethod !== "GET") {
+        lines.push(`--request ${effectiveMethod} \\`);
+      }
+
+      normalizedHeaderEntries.forEach(([key, value]) => {
+        lines.push(`--header ${toCurlQuoted(`${key}: ${value}`)} \\`);
+      });
+
+      if (hasBody) {
+        if (isFormUrlEncoded) {
+          const parts = bodyText
+            .split("&")
+            .map((part) => part.trim())
+            .filter(Boolean);
+          if (parts.length > 0) {
+            parts.forEach((part, idx) => {
+              const suffix = idx === parts.length - 1 ? "" : " \\";
+              lines.push(`--data-urlencode ${toCurlQuoted(part)}${suffix}`);
+            });
+          } else {
+            lines.push(`--data-urlencode ${toCurlQuoted(bodyText)}`);
+          }
+        } else {
+          lines.push(`--data-raw ${toCurlQuoted(bodyText)}`);
+        }
+      } else {
+        // remove trailing "\" from the last header/method line when no body exists
+        const lastIdx = lines.length - 1;
+        lines[lastIdx] = lines[lastIdx].replace(/\s+\\$/, "");
+      }
+
+      return lines.join("\n");
+    },
+    []
+  );
 
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
@@ -665,12 +743,15 @@ export default function ActionInspector({
                 }
 
                 try {
-                  const result = await sendRequestThroughCurlProxy({
-                    url: endpoint,
+                  const generatedCurl = buildCurlCommand(
+                    endpoint,
                     method,
-                    header: headers,
-                    body,
-                  });
+                    headers,
+                    body
+                  );
+                  setCurlText(node.id, generatedCurl);
+
+                  const result = await sendRequestThroughCurlProxy(generatedCurl);
 
                   updateResponse(node.id, {
                     status: result.status,
