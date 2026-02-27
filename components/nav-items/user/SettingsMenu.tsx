@@ -48,8 +48,7 @@ const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
   };
 };
 
-const phoneRegex = /^(\+2519\d{8}|09\d{8})$/;
-
+const phoneRegex = /^(\+251[79]\d{8}|0[79]\d{8})$/;
 const settingsSchema = z.object({
   baseUrl: z
     .string()
