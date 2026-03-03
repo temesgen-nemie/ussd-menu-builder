@@ -797,7 +797,6 @@ export default function ActionInspector({
                         value: row.value,
                         description: row.description,
                       })),
-                      apiBodyRaw: parsed.body,
                     });
                     setApiBodyError(null);
                     return;
@@ -1020,14 +1019,12 @@ export default function ActionInspector({
                           ? formRows
                           : [{ id: generateId(), key: "", value: "", description: "" }];
                       setFormRows(normalizedRows);
-                      const encoded = encodeFormRows(normalizedRows);
                       updateNodeData(node.id, {
                         apiBodyForm: normalizedRows.map((row) => ({
                           key: row.key,
                           value: row.value,
                           description: row.description,
                         })),
-                        apiBodyRaw: encoded,
                       });
                       setApiBodyError(null);
                       return;
@@ -1068,14 +1065,12 @@ export default function ActionInspector({
                       { id: generateId(), key: "", value: "", description: "" },
                     ];
                     setFormRows(next);
-                    const encoded = encodeFormRows(next);
                     updateNodeData(node.id, {
                       apiBodyForm: next.map((row) => ({
                         key: row.key,
                         value: row.value,
                         description: row.description,
                       })),
-                      apiBodyRaw: encoded,
                       bodyMode: "x-www-form-urlencoded",
                     });
                   }}
@@ -1086,14 +1081,12 @@ export default function ActionInspector({
                         ? next
                         : [{ id: generateId(), key: "", value: "", description: "" }];
                     setFormRows(normalized);
-                    const encoded = encodeFormRows(normalized);
                     updateNodeData(node.id, {
                       apiBodyForm: normalized.map((row) => ({
                         key: row.key,
                         value: row.value,
                         description: row.description,
                       })),
-                      apiBodyRaw: encoded,
                       bodyMode: "x-www-form-urlencoded",
                     });
                   }}
@@ -1102,14 +1095,12 @@ export default function ActionInspector({
                       row.id === id ? { ...row, [field]: value } : row
                     );
                     setFormRows(next);
-                    const encoded = encodeFormRows(next);
                     updateNodeData(node.id, {
                       apiBodyForm: next.map((row) => ({
                         key: row.key,
                         value: row.value,
                         description: row.description,
                       })),
-                      apiBodyRaw: encoded,
                       bodyMode: "x-www-form-urlencoded",
                     });
                   }}

@@ -550,8 +550,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
               ? undefined
               : (data.apiBody as Record<string, unknown>) || undefined,
           apiBodyRaw:
-            (bodyMode === "soap" || bodyMode === "x-www-form-urlencoded") &&
-            apiBodyRaw.trim()
+            bodyMode === "soap" && apiBodyRaw.trim()
               ? apiBodyRaw
               : undefined,
           apiBodyForm:
