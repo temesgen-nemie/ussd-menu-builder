@@ -29,7 +29,7 @@ export default function ActionInspector({
   updateNodeData,
 }: ActionInspectorProps) {
   const { nodes } = useFlowStore();
-  const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
+  const bodyMode = (node.data.bodyMode as "json" | "soap" | "x-www-form-urlencoded") ?? "json";
   const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
     if (bodyMode === "soap") {
       return String(node.data.apiBodyRaw ?? "");
@@ -176,6 +176,26 @@ export default function ActionInspector({
   });
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
+  const [formRows, setFormRows] = React.useState<
+    Array<{ id: string; key: string; value: string; description: string }>
+  >(() => {
+    const rowsRaw =
+      (node.data.apiBodyForm as Array<{
+        key?: unknown;
+        value?: unknown;
+        description?: unknown;
+      }>) || [];
+
+    if (rowsRaw.length > 0) {
+      return rowsRaw.map((row) => ({
+        id: generateId(),
+        key: String(row.key ?? ""),
+        value: String(row.value ?? ""),
+        description: String(row.description ?? ""),
+      }));
+    }
+    return [{ id: generateId(), key: "", value: "", description: "" }];
+  });
 
   const localFieldPairs = React.useMemo(() => {
     const fieldsRaw = Array.isArray(node.data.fields)
@@ -282,15 +302,69 @@ export default function ActionInspector({
     }
   }, [storedResponse.body, buildResponseOptions, buildXmlResponseOptions]);
 
+  const normalizeFormRows = React.useCallback(
+    (rows: Array<{ key: string; value: string; description: string }>) =>
+      rows.map((row) => ({
+        key: String(row.key ?? ""),
+        value: String(row.value ?? ""),
+        description: String(row.description ?? ""),
+      })),
+    []
+  );
+
   React.useEffect(() => {
     if (bodyMode === "soap") {
       setApiBodyText(String(node.data.apiBodyRaw ?? ""));
       setApiBodyError(null);
       return;
     }
+    if (bodyMode === "x-www-form-urlencoded") {
+      const rowsRaw =
+        (node.data.apiBodyForm as Array<{
+          key?: unknown;
+          value?: unknown;
+          description?: unknown;
+        }>) || [];
+      if (rowsRaw.length > 0) {
+        const incoming = normalizeFormRows(
+          rowsRaw.map((row) => ({
+            key: String(row.key ?? ""),
+            value: String(row.value ?? ""),
+            description: String(row.description ?? ""),
+          }))
+        );
+        setFormRows((prev) => {
+          const current = normalizeFormRows(prev);
+          if (JSON.stringify(current) === JSON.stringify(incoming)) {
+            return prev;
+          }
+          return incoming.map((row, idx) => ({
+            id: prev[idx]?.id ?? generateId(),
+            key: row.key,
+            value: row.value,
+            description: row.description,
+          }));
+        });
+      } else {
+        setFormRows((prev) =>
+          prev.length > 0
+            ? prev
+            : [{ id: generateId(), key: "", value: "", description: "" }]
+        );
+      }
+      setApiBodyError(null);
+      return;
+    }
     setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
     setApiBodyError(null);
-  }, [bodyMode, node.data.apiBody, node.data.apiBodyRaw, node.id]);
+  }, [
+    bodyMode,
+    node.data.apiBody,
+    node.data.apiBodyRaw,
+    node.data.apiBodyForm,
+    node.id,
+    normalizeFormRows,
+  ]);
 
   const availablePersistedFields = React.useMemo(() => {
     // Helper to find the outermost parent group ID
@@ -468,6 +542,14 @@ export default function ActionInspector({
       }
     }
 
+    const formUrlEncodedRows = formUrlEncodedParts.map((part) => {
+      const [rawKey, ...rest] = part.split("=");
+      return {
+        key: decodeURIComponent(rawKey ?? ""),
+        value: decodeURIComponent(rest.join("=") ?? ""),
+        description: "",
+      };
+    });
     if (formUrlEncodedParts.length > 0) {
       body = formUrlEncodedParts.join("&");
     }
@@ -476,7 +558,7 @@ export default function ActionInspector({
       method = body || formUrlEncodedParts.length > 0 ? "POST" : "GET";
     }
 
-    return { method, url, headers, body };
+    return { method, url, headers, body, formUrlEncodedRows };
   }, []);
 
   const syncHeaders = React.useCallback(
@@ -528,6 +610,20 @@ export default function ActionInspector({
       }
     } catch {}
   };
+
+  const encodeFormRows = React.useCallback(
+    (rows: Array<{ key: string; value: string; description: string }>) =>
+      rows
+        .filter((row) => row.key.trim().length > 0)
+        .map(
+          (row) =>
+            `${encodeURIComponent(row.key.trim())}=${encodeURIComponent(
+              row.value ?? ""
+            )}`
+        )
+        .join("&"),
+    []
+  );
 
   const toCurlQuoted = (value: string) => {
     const escaped = value.replace(/'/g, `'\"'\"'`);
@@ -686,6 +782,26 @@ export default function ActionInspector({
                 syncHeaders(pairs);
 
                 if (parsed.body) {
+                  if (parsed.formUrlEncodedRows.length > 0) {
+                    const nextRows = parsed.formUrlEncodedRows.map((row) => ({
+                      id: generateId(),
+                      key: row.key,
+                      value: row.value,
+                      description: "",
+                    }));
+                    setFormRows(nextRows.length > 0 ? nextRows : [{ id: generateId(), key: "", value: "", description: "" }]);
+                    updateNodeData(node.id, {
+                      bodyMode: "x-www-form-urlencoded",
+                      apiBodyForm: nextRows.map((row) => ({
+                        key: row.key,
+                        value: row.value,
+                        description: row.description,
+                      })),
+                      apiBodyRaw: parsed.body,
+                    });
+                    setApiBodyError(null);
+                    return;
+                  }
                   const trimmed = parsed.body.trim();
                   const looksXml = trimmed.startsWith("<")
                   if (looksXml) {
@@ -736,10 +852,23 @@ export default function ActionInspector({
                     headers[pair.key] = pair.value;
                   }
                 });
+                if (
+                  bodyMode === "x-www-form-urlencoded" &&
+                  !Object.keys(headers).some(
+                    (key) => key.toLowerCase() === "content-type"
+                  )
+                ) {
+                  headers["Content-Type"] = "application/x-www-form-urlencoded";
+                }
 
                 let body: string | undefined;
                 if (method !== "GET" && method !== "HEAD") {
-                  body = apiBodyText ? apiBodyText : undefined;
+                  if (bodyMode === "x-www-form-urlencoded") {
+                    const encoded = encodeFormRows(formRows);
+                    body = encoded || undefined;
+                  } else {
+                    body = apiBodyText ? apiBodyText : undefined;
+                  }
                 }
 
                 try {
@@ -877,10 +1006,29 @@ export default function ActionInspector({
                   apiBodyText={apiBodyText}
                   apiBodyError={apiBodyError}
                   bodyMode={bodyMode}
+                  formRows={formRows}
                   onBodyModeChange={(value) => {
                     updateNodeData(node.id, { bodyMode: value });
                     if (value === "soap") {
                       updateNodeData(node.id, { apiBodyRaw: apiBodyText });
+                      setApiBodyError(null);
+                      return;
+                    }
+                    if (value === "x-www-form-urlencoded") {
+                      const normalizedRows =
+                        formRows.length > 0
+                          ? formRows
+                          : [{ id: generateId(), key: "", value: "", description: "" }];
+                      setFormRows(normalizedRows);
+                      const encoded = encodeFormRows(normalizedRows);
+                      updateNodeData(node.id, {
+                        apiBodyForm: normalizedRows.map((row) => ({
+                          key: row.key,
+                          value: row.value,
+                          description: row.description,
+                        })),
+                        apiBodyRaw: encoded,
+                      });
                       setApiBodyError(null);
                       return;
                     }
@@ -901,6 +1049,9 @@ export default function ActionInspector({
                       setApiBodyError(null);
                       return;
                     }
+                    if (bodyMode === "x-www-form-urlencoded") {
+                      return;
+                    }
                     try {
                       const parsed = JSON.parse(value || "{}");
                       setApiBodyError(null);
@@ -910,6 +1061,57 @@ export default function ActionInspector({
                         err instanceof Error ? err.message : "Invalid JSON"
                       );
                     }
+                  }}
+                  onAddFormRow={() => {
+                    const next = [
+                      ...formRows,
+                      { id: generateId(), key: "", value: "", description: "" },
+                    ];
+                    setFormRows(next);
+                    const encoded = encodeFormRows(next);
+                    updateNodeData(node.id, {
+                      apiBodyForm: next.map((row) => ({
+                        key: row.key,
+                        value: row.value,
+                        description: row.description,
+                      })),
+                      apiBodyRaw: encoded,
+                      bodyMode: "x-www-form-urlencoded",
+                    });
+                  }}
+                  onRemoveFormRow={(id) => {
+                    const next = formRows.filter((row) => row.id !== id);
+                    const normalized =
+                      next.length > 0
+                        ? next
+                        : [{ id: generateId(), key: "", value: "", description: "" }];
+                    setFormRows(normalized);
+                    const encoded = encodeFormRows(normalized);
+                    updateNodeData(node.id, {
+                      apiBodyForm: normalized.map((row) => ({
+                        key: row.key,
+                        value: row.value,
+                        description: row.description,
+                      })),
+                      apiBodyRaw: encoded,
+                      bodyMode: "x-www-form-urlencoded",
+                    });
+                  }}
+                  onUpdateFormRow={(id, field, value) => {
+                    const next = formRows.map((row) =>
+                      row.id === id ? { ...row, [field]: value } : row
+                    );
+                    setFormRows(next);
+                    const encoded = encodeFormRows(next);
+                    updateNodeData(node.id, {
+                      apiBodyForm: next.map((row) => ({
+                        key: row.key,
+                        value: row.value,
+                        description: row.description,
+                      })),
+                      apiBodyRaw: encoded,
+                      bodyMode: "x-www-form-urlencoded",
+                    });
                   }}
                 />
               )}
