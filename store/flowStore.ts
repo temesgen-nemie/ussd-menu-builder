@@ -48,6 +48,8 @@ export type FlowNode = {
   format?: "indexedList" | "singleValue";
   headers?: Record<string, unknown>;
   apiBody?: Record<string, unknown>;
+  apiBodyRaw?: string;
+  bodyMode?: "json" | "soap";
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
   encryptInput?: boolean;
@@ -515,6 +517,9 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           ? data.nextNode
           : (data.nextNode && typeof data.nextNode === "object" ? (data.nextNode as any).default : "");
         const defaultResolved = resolveTarget(nextNodeRaw || "");
+        const bodyMode =
+          (data.bodyMode as "json" | "soap" | undefined) ?? "json";
+        const apiBodyRaw = String(data.apiBodyRaw ?? "");
 
         return {
           ...base,
@@ -525,7 +530,15 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           outputVars: outputVars.length > 0 ? outputVars : undefined,
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
-          apiBody: (data.apiBody as Record<string, unknown>) || undefined,
+          bodyMode,
+          apiBody:
+            bodyMode === "soap"
+              ? undefined
+              : (data.apiBody as Record<string, unknown>) || undefined,
+          apiBodyRaw:
+            bodyMode === "soap" && apiBodyRaw.trim()
+              ? apiBodyRaw
+              : undefined,
           responseMapping: data.responseMapping
             ? Object.fromEntries(
               Object.entries(data.responseMapping as Record<string, string>).map(
