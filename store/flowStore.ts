@@ -49,7 +49,12 @@ export type FlowNode = {
   headers?: Record<string, unknown>;
   apiBody?: Record<string, unknown>;
   apiBodyRaw?: string;
-  bodyMode?: "json" | "soap";
+  apiBodyForm?: Array<{
+    key: string;
+    value: string;
+    description?: string;
+  }>;
+  bodyMode?: "json" | "soap" | "x-www-form-urlencoded";
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
   encryptInput?: boolean;
@@ -518,8 +523,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           : (data.nextNode && typeof data.nextNode === "object" ? (data.nextNode as any).default : "");
         const defaultResolved = resolveTarget(nextNodeRaw || "");
         const bodyMode =
-          (data.bodyMode as "json" | "soap" | undefined) ?? "json";
+          (data.bodyMode as "json" | "soap" | "x-www-form-urlencoded" | undefined) ?? "json";
         const apiBodyRaw = String(data.apiBodyRaw ?? "");
+        const formRowsRaw =
+          (data.apiBodyForm as Array<{ key?: unknown; value?: unknown; description?: unknown }>) || [];
+        const apiBodyForm = formRowsRaw
+          .map((row) => ({
+            key: String(row.key ?? "").trim(),
+            value: String(row.value ?? ""),
+            description: String(row.description ?? ""),
+          }))
+          .filter((row) => row.key.length > 0);
 
         return {
           ...base,
@@ -532,12 +546,17 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           headers: (data.headers as Record<string, unknown>) || undefined,
           bodyMode,
           apiBody:
-            bodyMode === "soap"
+            bodyMode === "soap" || bodyMode === "x-www-form-urlencoded"
               ? undefined
               : (data.apiBody as Record<string, unknown>) || undefined,
           apiBodyRaw:
-            bodyMode === "soap" && apiBodyRaw.trim()
+            (bodyMode === "soap" || bodyMode === "x-www-form-urlencoded") &&
+            apiBodyRaw.trim()
               ? apiBodyRaw
+              : undefined,
+          apiBodyForm:
+            bodyMode === "x-www-form-urlencoded" && apiBodyForm.length > 0
+              ? apiBodyForm
               : undefined,
           responseMapping: data.responseMapping
             ? Object.fromEntries(
