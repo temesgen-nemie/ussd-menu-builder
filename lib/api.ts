@@ -430,34 +430,35 @@ export type UssdResponse =
     | { ok: false; error: string; status?: number };
 
 export const sendUssdRequest = async (
-    xmlRequest: string
+  xmlRequest: string
 ): Promise<UssdResponse> => {
-    try {
-        const response = await api.post(
-            "/teleussd/api/v1/ussdRequest",
-            xmlRequest,
-            {
-                headers: { "Content-Type": "application/xml" },
-                responseType: "text",
-            }
-        );
-        return { ok: true, data: response.data };
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            const axiosError = error as AxiosError<{ error?: string }>;
-            return {
-                ok: false,
-                error:
-                    axiosError.response?.data?.error ||
-                    `HTTP error! status: ${axiosError.response?.status ?? "unknown"}`,
-                status: axiosError.response?.status,
-            };
-        }
-        if (error instanceof Error) {
-            return { ok: false, error: error.message };
-        }
-        return { ok: false, error: "An unknown error occurred" };
+  // Use ENV variable or fallback
+  const ussdUrl =
+    process.env.NEXT_PUBLIC_USSD_REQUEST_URL || "/teleussd/api/v1/ussdRequest";
+
+  try {
+    const response = await api.post(ussdUrl, xmlRequest, {
+      headers: { "Content-Type": "application/xml" },
+      responseType: "text",
+    });
+
+    return { ok: true, data: response.data };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      return {
+        ok: false,
+        error:
+          axiosError.response?.data?.error ||
+          `HTTP error! status: ${axiosError.response?.status ?? "unknown"}`,
+        status: axiosError.response?.status,
+      };
     }
+    if (error instanceof Error) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "An unknown error occurred" };
+  }
 };
 
 export type CurlProxyResult = {
