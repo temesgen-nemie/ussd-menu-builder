@@ -46,44 +46,48 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
 
 useEffect(() => {
-  const socketUrl = new URL("admin/logs/stream", API_BASE_URL);
+  let socketUrl = API_BASE_URL + "/admin/logs/stream";
 
-  socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
+  socketUrl = socketUrl
+    .replace("https://", "wss://")
+    .replace("http://", "ws://");
 
-  const socket = new WebSocket(socketUrl.toString());
+  const socket = new WebSocket(socketUrl);
 
   socket.addEventListener("open", () => {
-      setIsLiveConnected(true);
+    setIsLiveConnected(true);
+  });
+
+  socket.addEventListener("close", () => {
+    setIsLiveConnected(false);
+  });
+
+  socket.addEventListener("error", () => {
+    setIsLiveConnected(false);
+  });
+
+  socket.addEventListener("message", (event) => {
+    setLiveRaw((prev) => {
+      const next = [event.data, ...prev];
+      return next.slice(0, 500);
     });
 
-    socket.addEventListener("close", () => {
-      setIsLiveConnected(false);
-    });
+    try {
+      const parsed = JSON.parse(event.data) as LogEntry;
 
-    socket.addEventListener("error", () => {
-      setIsLiveConnected(false);
-    });
-
-    socket.addEventListener("message", (event) => {
-      setLiveRaw((prev) => {
-        const next = [event.data, ...prev];
+      setLiveLogs((prev) => {
+        const next = [parsed, ...prev];
         return next.slice(0, 500);
       });
-      try {
-        const parsed = JSON.parse(event.data) as LogEntry;
-        setLiveLogs((prev) => {
-          const next = [parsed, ...prev];
-          return next.slice(0, 500);
-        });
-      } catch {
-        // Ignore malformed messages.
-      }
-    });
+    } catch {
+      // ignore malformed messages
+    }
+  });
 
-    return () => {
-      socket.close();
-    };
-  }, []);
+  return () => {
+    socket.close();
+  };
+}, []);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
