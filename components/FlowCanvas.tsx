@@ -843,7 +843,14 @@ export default function FlowCanvas() {
     currentSubflowId,
     setSelectedNodeId,
   ]);
-
+  
+  // Auto-load flows on mount
+  useEffect(() => {
+    if (_hasHydrated) {
+      loadAllFlows();
+    }
+  }, [loadAllFlows, _hasHydrated]);
+  
   // Auto-center/fit view when navigating subflows
   useEffect(() => {
     if (_hasHydrated && rfInstanceRef.current) {
