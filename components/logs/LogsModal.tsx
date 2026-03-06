@@ -53,9 +53,8 @@ useEffect(() => {
   const socket = new WebSocket(socketUrl.toString());
 
   socket.addEventListener("open", () => {
-    setIsLiveConnected(true);
-  });
-}, []);
+      setIsLiveConnected(true);
+    });
 
     socket.addEventListener("close", () => {
       setIsLiveConnected(false);
