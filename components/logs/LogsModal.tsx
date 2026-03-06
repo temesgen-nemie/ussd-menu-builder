@@ -45,14 +45,17 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const socketUrl = new URL("/admin/logs/stream", API_BASE_URL);
-    socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(socketUrl.toString());
+useEffect(() => {
+  const socketUrl = new URL("admin/logs/stream", API_BASE_URL);
 
-    socket.addEventListener("open", () => {
-      setIsLiveConnected(true);
-    });
+  socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
+
+  const socket = new WebSocket(socketUrl.toString());
+
+  socket.addEventListener("open", () => {
+    setIsLiveConnected(true);
+  });
+}, []);
 
     socket.addEventListener("close", () => {
       setIsLiveConnected(false);
