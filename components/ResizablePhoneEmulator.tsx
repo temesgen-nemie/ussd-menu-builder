@@ -3,18 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Smartphone, Wifi, Signal, Battery } from "lucide-react";
 import { toast } from "sonner";
-import { sendUssdRequest } from "../lib/api";
 import Draggable from "react-draggable";
-import { useSettingsStore } from "@/store/settingsStore";
-
-type Message = {
-  content: string;
-  type: "user" | "system";
-  timestamp: Date;
-  isOverLimit?: boolean;
-  originalLength?: number;
-  serviceType?: string;
-};
+import { useUssdSimulator } from "@/hooks/useUssdSimulator";
 
 type ResizablePhoneProps = {
   isOpen: boolean;
@@ -25,181 +15,33 @@ export default function ResizablePhoneEmulator({
   isOpen,
   onClose,
 }: ResizablePhoneProps) {
-  const initialPhone = "+251979458662";
-  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
-  const [shortCode, setShortCode] = useState("*675#");
   const [viewMode, setViewMode] = useState<'classic' | 'real'>('real');
-  const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const defaultPhone = useSettingsStore(
-    (s) => s.defaultPhoneNumberByFlow["global"] ?? ""
-  );
 
   const nodeRef = useRef(null);
+  const {
+    phoneNumber,
+    setPhoneNumber,
+    messageInput,
+    setMessageInput,
+    messages,
+    sequenceNumber,
+    isLoading,
+    handleSend,
+    resetSession: resetSessionFromHook,
+  } = useUssdSimulator({
+    initialPhone: "+251979458662",
+    initialShortCode: "*675#",
+    onError: (message) => toast.error(message),
+    onReset: () => toast.success("Session reset"),
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    // Always reflect store immediately:
-    // - if default exists: force it
-    // - if cleared: fall back
-    setPhoneNumber(defaultPhone || initialPhone);
-  }, [defaultPhone]);
-
   const handlePhoneNumberChange = (value: string) => setPhoneNumber(value);
-
-  const generateSequenceNumber = () => {
-    return Math.floor(Math.random() * 1000000);
-  };
-
-  const isUssdCode = (message: string) => {
-    return message.trim().startsWith("*") && message.trim().endsWith("#");
-  };
-
-  const getServiceType = (message: string): "BR" | "CA" => {
-    if (!sequenceNumber) return "BR";
-    if (isUssdCode(message)) return "BR";
-    return "CA";
-  };
-
-  const handleSend = async () => {
-    if (!messageInput.trim()) {
-      toast.error("Please enter a message");
-      return;
-    }
-
-    if (!sequenceNumber && !isUssdCode(messageInput)) {
-      toast.error("Please start with a USSD code (e.g., *123#)");
-      return;
-    }
-
-    setIsLoading(true);
-
-    const userMessage: Message = {
-      content: messageInput,
-      type: "user",
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    const serviceType = getServiceType(messageInput);
-    let effectiveShortCode = shortCode;
-    if (serviceType === "BR" && isUssdCode(messageInput)) {
-      effectiveShortCode = messageInput.trim();
-      setShortCode(effectiveShortCode);
-    }
-
-    let currentSequence: number;
-    if (serviceType === "BR") {
-      currentSequence = generateSequenceNumber();
-      setSequenceNumber(currentSequence);
-    } else {
-      currentSequence = sequenceNumber || generateSequenceNumber();
-      if (!sequenceNumber) setSequenceNumber(currentSequence);
-    }
-
-    const timestamp = new Date()
-      .toISOString()
-      .replace("T", " ")
-      .substring(0, 19)
-      .replace(/-/g, "/");
-
-    // Dynamic XML Generation based on Phone Number
-    const isSafaricomFormat = phoneNumber.startsWith("+2517");
-    let xmlRequest: string;
-
-    if (isSafaricomFormat) {
-      // Format for +2517... numbers
-      const numericType = serviceType === "BR" ? "1" : "2";
-      xmlRequest = `<ussd>
-    <msisdn>${phoneNumber}</msisdn>
-    <sessionid>${currentSequence}</sessionid>
-    <type>${numericType}</type>
-    <msg>${messageInput}</msg>
-</ussd>`;
-    } else {
-      // Default format for +2519... numbers
-      // Strip trailing # for dest_addr
-      const xmlShortCode = effectiveShortCode.endsWith("#") 
-        ? effectiveShortCode.slice(0, -1) 
-        : effectiveShortCode;
-
-      xmlRequest = `<cps-message>
-    <sequence_number>${currentSequence}</sequence_number>
-    <version>32</version>  
-    <service_type>${serviceType}</service_type> 
-    <source_addr>${phoneNumber}</source_addr>
-    <dest_addr>${xmlShortCode}</dest_addr>
-    <timestamp>${timestamp}</timestamp>
-    <command_status>0</command_status>
-    <data_coding>0</data_coding>
-    <msg_len>${messageInput.length}</msg_len> 
-    <IMSI>1234</IMSI>
-    <msg_content>${messageInput}</msg_content>
-</cps-message>`;
-    }
-
-    try {
-      const response = await sendUssdRequest(xmlRequest);
-      if (!response.ok) {
-        toast.error(response.error || "Failed to send USSD request.");
-        return;
-      }
-      
-      let responseContent = "No response content";
-      let responseServiceType = "CA";
-
-      if (isSafaricomFormat) {
-        // Parse USSD format
-        const msgMatch = response.data.match(/<msg>([\s\S]*?)<\/msg>/);
-        const typeMatch = response.data.match(/<type>([\s\S]*?)<\/type>/);
-        
-        if (msgMatch) responseContent = msgMatch[1].trim();
-        
-        if (typeMatch) {
-          const typeValue = typeMatch[1].trim();
-          // Map back to string types: 1=BR, 2=CA/CR, 3=EF
-          if (typeValue === "3") responseServiceType = "EF";
-          else if (typeValue === "1") responseServiceType = "BR";
-          else responseServiceType = "CA";
-        }
-      } else {
-        // Parse CPS format
-        const msgContentMatch = response.data.match(
-          /<msg_content>([\s\S]*?)<\/msg_content>/
-        );
-        responseContent = msgContentMatch
-          ? msgContentMatch[1].trim()
-          : "No response content";
-
-        const serviceTypeMatch = response.data.match(
-          /<service_type>([\s\S]*?)<\/service_type>/
-        );
-        responseServiceType = serviceTypeMatch
-          ? serviceTypeMatch[1].trim()
-          : "CA";
-      }
-
-      const systemMessage: Message = {
-        content: responseContent,
-        type: "system",
-        timestamp: new Date(),
-        isOverLimit: responseContent.length > 172,
-        originalLength: responseContent.length,
-        serviceType: responseServiceType
-      };
-      setMessages((prev) => [...prev, systemMessage]);
-      setMessageInput("");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -208,12 +50,7 @@ export default function ResizablePhoneEmulator({
     }
   };
 
-  const resetSession = () => {
-    setMessages([]);
-    setSequenceNumber(null);
-    setMessageInput("");
-    toast.success("Session reset");
-  };
+  const resetSession = () => resetSessionFromHook();
 
   if (!isOpen) return null;
 

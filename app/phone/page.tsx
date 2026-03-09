@@ -1,155 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { sendUssdRequest } from "@/lib/api";
-import { useSettingsStore } from "@/store/settingsStore";
-
-type Message = {
-  content: string;
-  type: "user" | "system";
-  timestamp: Date;
-  isOverLimit?: boolean;
-  originalLength?: number;
-  serviceType?: string;
-};
+import { useUssdSimulator } from "@/hooks/useUssdSimulator";
 
 export default function PhoneSessionPage() {
-  const initialPhone = "+251910899167";
-  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
-  const [shortCode, setShortCode] = useState("*675#");
-  const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [requestError, setRequestError] = useState<string | null>(null);
-  const defaultPhone = useSettingsStore(
-    (s) => s.defaultPhoneNumberByFlow["global"] ?? ""
-  );
-
-  useEffect(() => {
-    // Always reflect store immediately:
-    // - if default exists: force it
-    // - if cleared: fall back
-    setPhoneNumber(defaultPhone || initialPhone);
-  }, [defaultPhone]);
-
-  const generateSequenceNumber = () => Math.floor(Math.random() * 1000000);
-
-  const isUssdCode = (message: string) =>
-    message.trim().startsWith("*") && message.trim().endsWith("#");
-
-  const getServiceType = (message: string): "BR" | "CA" => {
-    if (!sequenceNumber) return "BR";
-    if (isUssdCode(message)) return "BR";
-    return "CA";
-  };
-
-  const handleSend = async () => {
-    if (isLoading) return;
-    if (!messageInput.trim()) {
-      setRequestError("Please enter a message.");
-      return;
-    }
-
-    if (!sequenceNumber && !isUssdCode(messageInput)) {
-      setRequestError("Please start with a USSD code (e.g., *123#).");
-      return;
-    }
-
-    setIsLoading(true);
-    setRequestError(null);
-
-    const userMessage: Message = {
-      content: messageInput,
-      type: "user",
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    const serviceType = getServiceType(messageInput);
-    let effectiveShortCode = shortCode;
-    if (serviceType === "BR" && isUssdCode(messageInput)) {
-      effectiveShortCode = messageInput.trim();
-      setShortCode(effectiveShortCode);
-    }
-
-    let currentSequence: number;
-    if (serviceType === "BR") {
-      currentSequence = generateSequenceNumber();
-      setSequenceNumber(currentSequence);
-    } else {
-      currentSequence = sequenceNumber || generateSequenceNumber();
-      if (!sequenceNumber) setSequenceNumber(currentSequence);
-    }
-
-    const timestamp = new Date()
-      .toISOString()
-      .replace("T", " ")
-      .substring(0, 19)
-      .replace(/-/g, "/");
-
-    const xmlRequest = `<cps-message>
-    <sequence_number>${currentSequence}</sequence_number>
-    <version>32</version>
-    <service_type>${serviceType}</service_type>
-    <source_addr>${phoneNumber}</source_addr>
-    <dest_addr>${effectiveShortCode}</dest_addr>
-    <timestamp>${timestamp}</timestamp>
-    <command_status>0</command_status>
-    <data_coding>0</data_coding>
-    <msg_len>${messageInput.length}</msg_len>
-    <IMSI>1234</IMSI>
-    <msg_content>${messageInput}</msg_content>
-</cps-message>`;
-
-    try {
-      const response = await sendUssdRequest(xmlRequest);
-      if (!response.ok) {
-        setRequestError(response.error || "Request failed.");
-        return;
-      }
-
-      const msgContentMatch = response.data.match(
-        /<msg_content>([\s\S]*?)<\/msg_content>/
-      );
-      const responseContent = msgContentMatch
-        ? msgContentMatch[1].trim()
-        : "No response content";
-
-      const serviceTypeMatch = response.data.match(
-        /<service_type>([\s\S]*?)<\/service_type>/
-      );
-      const responseServiceType = serviceTypeMatch
-        ? serviceTypeMatch[1].trim()
-        : "CA";
-
-      const systemMessage: Message = {
-        content: responseContent,
-        type: "system",
-        timestamp: new Date(),
-        isOverLimit: responseContent.length > 172,
-        originalLength: responseContent.length,
-        serviceType: responseServiceType,
-      };
-      setMessages((prev) => [...prev, systemMessage]);
-      setMessageInput("");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    phoneNumber,
+    setPhoneNumber,
+    messageInput,
+    setMessageInput,
+    messages,
+    sequenceNumber,
+    isLoading,
+    requestError,
+    handleSend,
+    resetSession,
+  } = useUssdSimulator({
+    initialPhone: "+251979458662",
+    initialShortCode: "*675#",
+  });
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSend();
     }
-  };
-
-  const resetSession = () => {
-    setMessages([]);
-    setSequenceNumber(null);
-    setMessageInput("");
-    setRequestError(null);
   };
 
   return (
