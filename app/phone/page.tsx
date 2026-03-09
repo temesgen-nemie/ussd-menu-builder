@@ -12,14 +12,26 @@ export default function PhoneSessionPage() {
     sequenceNumber,
     isLoading,
     requestError,
+    hasReplayData,
+    replayTrailCount,
+    replayState,
     handleSend,
     resetSession,
+    startReplay,
+    pauseReplay,
+    resumeReplay,
+    stopReplay,
+    clearReplayTrail,
   } = useUssdSimulator({
     initialPhone: "+251979458662",
     initialShortCode: "*675#",
   });
+  const isReplayRunning = replayState.status === "running";
+  const isReplayPaused = replayState.status === "paused";
+  const isReplayActive = isReplayRunning || isReplayPaused;
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isReplayRunning) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSend();
@@ -58,6 +70,42 @@ export default function PhoneSessionPage() {
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
           />
+          <div className="mt-3 rounded-lg bg-white/5 px-2 py-1.5 text-[10px] text-white/80">
+            <div className="mb-1 flex items-center justify-between">
+              <span>Steps: {replayTrailCount}</span>
+              <span className="uppercase">{replayState.status}</span>
+            </div>
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <button
+                onClick={startReplay}
+                disabled={!hasReplayData || isReplayActive || isLoading}
+                className="rounded bg-emerald-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-white/10"
+              >
+                Auto Replay
+              </button>
+              <button
+                onClick={isReplayPaused ? resumeReplay : pauseReplay}
+                disabled={!isReplayActive || isLoading}
+                className="rounded bg-amber-500 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-white/10"
+              >
+                {isReplayPaused ? "Resume" : "Pause"}
+              </button>
+              <button
+                onClick={stopReplay}
+                disabled={!isReplayActive}
+                className="rounded bg-white/10 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Stop
+              </button>
+              <button
+                onClick={clearReplayTrail}
+                disabled={!hasReplayData || isReplayActive || isLoading}
+                className="rounded bg-white/10 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -130,7 +178,7 @@ export default function PhoneSessionPage() {
                       </button>
                       <button
                         onClick={handleSend}
-                        disabled={isLoading || !messageInput.trim()}
+                        disabled={isLoading || !messageInput.trim() || isReplayActive}
                         className="inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold text-emerald-400"
                       >
                         Send

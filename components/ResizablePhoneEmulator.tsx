@@ -27,8 +27,16 @@ export default function ResizablePhoneEmulator({
     messages,
     sequenceNumber,
     isLoading,
+    hasReplayData,
+    replayTrailCount,
+    replayState,
     handleSend,
     resetSession: resetSessionFromHook,
+    startReplay,
+    pauseReplay,
+    resumeReplay,
+    stopReplay,
+    clearReplayTrail,
   } = useUssdSimulator({
     initialPhone: "+251979458662",
     initialShortCode: "*675#",
@@ -44,6 +52,7 @@ export default function ResizablePhoneEmulator({
   const handlePhoneNumberChange = (value: string) => setPhoneNumber(value);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (replayState.status === "running") return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -51,6 +60,9 @@ export default function ResizablePhoneEmulator({
   };
 
   const resetSession = () => resetSessionFromHook();
+  const isReplayRunning = replayState.status === "running";
+  const isReplayPaused = replayState.status === "paused";
+  const isReplayActive = isReplayRunning || isReplayPaused;
 
   if (!isOpen) return null;
 
@@ -163,6 +175,42 @@ export default function ResizablePhoneEmulator({
                   >
                     Reset Session
                   </button>
+                  <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[10px] text-gray-600">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span>Steps: {replayTrailCount}</span>
+                      <span className="uppercase">{replayState.status}</span>
+                    </div>
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={startReplay}
+                        disabled={!hasReplayData || isReplayActive || isLoading}
+                        className="rounded bg-indigo-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Auto Replay
+                      </button>
+                      <button
+                        onClick={isReplayPaused ? resumeReplay : pauseReplay}
+                        disabled={!isReplayActive || isLoading}
+                        className="rounded bg-amber-500 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        {isReplayPaused ? "Resume" : "Pause"}
+                      </button>
+                      <button
+                        onClick={stopReplay}
+                        disabled={!isReplayActive}
+                        className="rounded bg-gray-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Stop
+                      </button>
+                      <button
+                        onClick={clearReplayTrail}
+                        disabled={!hasReplayData || isReplayActive || isLoading}
+                        className="rounded bg-gray-100 px-2 py-1 text-gray-700 whitespace-nowrap disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Classic UI: Messages Area */}
@@ -238,7 +286,7 @@ export default function ResizablePhoneEmulator({
                     />
                     <button
                       onClick={handleSend}
-                      disabled={isLoading || !messageInput.trim()}
+                      disabled={isLoading || !messageInput.trim() || isReplayActive}
                       className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition-all font-medium text-sm shadow-md"
                     >
                       {isLoading ? "..." : "Send"}
@@ -319,6 +367,42 @@ export default function ResizablePhoneEmulator({
                   >
                     Reset Session
                   </button>
+                  <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[10px] text-gray-600">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span>Steps: {replayTrailCount}</span>
+                      <span className="uppercase">{replayState.status}</span>
+                    </div>
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={startReplay}
+                        disabled={!hasReplayData || isReplayActive || isLoading}
+                        className="rounded bg-indigo-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Auto Replay
+                      </button>
+                      <button
+                        onClick={isReplayPaused ? resumeReplay : pauseReplay}
+                        disabled={!isReplayActive || isLoading}
+                        className="rounded bg-amber-500 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        {isReplayPaused ? "Resume" : "Pause"}
+                      </button>
+                      <button
+                        onClick={stopReplay}
+                        disabled={!isReplayActive}
+                        className="rounded bg-gray-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Stop
+                      </button>
+                      <button
+                        onClick={clearReplayTrail}
+                        disabled={!hasReplayData || isReplayActive || isLoading}
+                        className="rounded bg-gray-100 px-2 py-1 text-gray-700 whitespace-nowrap disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Real Mode: Popup Container */}
@@ -412,7 +496,7 @@ export default function ResizablePhoneEmulator({
                             </button>
                             <button 
                               onClick={handleSend}
-                              disabled={!messageInput.trim()}
+                              disabled={!messageInput.trim() || isReplayActive}
                               className="py-4 text-[17px] font-semibold text-white hover:bg-white/5 transition-colors active:opacity-50 disabled:opacity-30 disabled:hover:bg-transparent"
                             >
                               Send
