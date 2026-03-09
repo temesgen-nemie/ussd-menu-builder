@@ -44,6 +44,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   });
   const modalRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const liveLogSeqRef = useRef(0);
 
 useEffect(() => {
   let socketUrl = API_BASE_URL + "/admin/logs/stream";
@@ -74,9 +75,13 @@ useEffect(() => {
 
     try {
       const parsed = JSON.parse(event.data) as LogEntry;
+      const liveLog = {
+        ...parsed,
+        __logId: `live-${Date.now()}-${liveLogSeqRef.current++}`,
+      } as LogEntry;
 
       setLiveLogs((prev) => {
-        const next = [parsed, ...prev];
+        const next = [liveLog, ...prev];
         return next.slice(0, 500);
       });
     } catch {

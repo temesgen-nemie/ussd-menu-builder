@@ -8,6 +8,11 @@ import {
 } from "@/components/ui/accordion";
 
 export type LogEntry = {
+  __logId?: string;
+  id?: string | number;
+  _id?: string | number;
+  log_id?: string | number;
+  request_id?: string | number;
   timestamp?: string;
   level?: string;
   method?: string;
@@ -133,6 +138,20 @@ const durationStyle = (value: unknown) => {
   return "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200";
 };
 
+const getLogId = (log: LogEntry, index: number) => {
+  if (typeof log.__logId === "string" && log.__logId.length > 0) {
+    return log.__logId;
+  }
+
+  const candidates = [log.id, log._id, log.log_id, log.request_id];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) return candidate;
+    if (typeof candidate === "number") return String(candidate);
+  }
+
+  return `${log.timestamp ?? "no-timestamp"}-${index}`;
+};
+
 export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
   return (
     <div className="rounded-2xl border border-border bg-slate-50/80 text-card-foreground shadow-sm dark:bg-slate-900/40">
@@ -153,6 +172,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
             </div>
           ) : (
             logs.map((log, index) => {
+              const logId = getLogId(log, index);
               const status = log.status ?? log.statusCode ?? "--";
               const ip = log.ip ?? log.ip_address ?? "--";
               const duration =
@@ -203,7 +223,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
               ];
 
               return (
-                <AccordionItem key={`${log.timestamp}-${index}`} value={`${index}`}>
+                <AccordionItem key={logId} value={logId}>
                   <AccordionTrigger className="px-4 py-0 hover:no-underline cursor-pointer">
                     <div className="grid w-full grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 py-3 text-sm text-foreground">
                       <div className="font-medium">{formatTime(log.timestamp)}</div>
