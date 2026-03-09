@@ -201,7 +201,7 @@ export default function PromptInspector({
       .filter((s) => !!s);
 
     return intro
-      ? `${intro}\n\n${routingLines.join("\n")}`
+      ? `${intro}\n${routingLines.join("\n")}`
       : routingLines.join("\n");
   };
 
