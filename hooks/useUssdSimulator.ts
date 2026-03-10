@@ -42,6 +42,7 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
   const initialPhone = options.initialPhone ?? DEFAULT_PHONE;
   const initialShortCode = options.initialShortCode ?? DEFAULT_SHORT_CODE;
   const replayDelayMs = options.replayDelayMs ?? 500;
+  const replayPreviewDelayMs = 700;
 
   const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [shortCode, setShortCode] = useState(initialShortCode);
@@ -418,6 +419,10 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
       }));
 
       const step = steps[index];
+      setMessageInput(step.input);
+      if (replayPreviewDelayMs > 0) {
+        await wait(replayPreviewDelayMs);
+      }
       const sendResult = await sendInput(step.input, { recordTrail: false });
       if (!sendResult.ok || !sendResult.systemMessage) {
         setReplayState((prev) => ({
