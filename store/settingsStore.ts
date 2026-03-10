@@ -9,6 +9,11 @@ type SettingsState = {
   setDefaultPhoneNumber: (flowName: string, phoneNumber: string) => void;
   clearDefaultPhoneNumber: (flowName: string) => void;
   getDefaultPhoneNumber: (flowName: string) => string;
+  defaultFlowName: string;
+  defaultFlowShortcodes: { tele: string; safari: string };
+  setDefaultFlowName: (flowName: string) => void;
+  clearDefaultFlowName: () => void;
+  setDefaultFlowShortcodes: (shortcodes: { tele: string; safari: string }) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -31,12 +36,25 @@ export const useSettingsStore = create<SettingsState>()(
         }),
       getDefaultPhoneNumber: (flowName) =>
         get().defaultPhoneNumberByFlow[flowName] ?? "",
+      defaultFlowName: "",
+      defaultFlowShortcodes: { tele: "", safari: "" },
+      setDefaultFlowName: (flowName) => set({ defaultFlowName: flowName }),
+      clearDefaultFlowName: () => set({ defaultFlowName: "" }),
+      setDefaultFlowShortcodes: (shortcodes) =>
+        set({
+          defaultFlowShortcodes: {
+            tele: shortcodes.tele ?? "",
+            safari: shortcodes.safari ?? "",
+          },
+        }),
     }),
     {
       name: "ussd-settings",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         defaultPhoneNumberByFlow: state.defaultPhoneNumberByFlow,
+        defaultFlowName: state.defaultFlowName,
+        defaultFlowShortcodes: state.defaultFlowShortcodes,
       }),
     }
   )

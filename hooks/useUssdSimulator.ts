@@ -18,6 +18,31 @@ export type Message = {
   serviceType?: string;
 };
 
+export type UseUssdSimulatorReturn = {
+  phoneNumber: string;
+  setPhoneNumber: React.Dispatch<React.SetStateAction<string>>;
+  shortCode: string;
+  setShortCode: React.Dispatch<React.SetStateAction<string>>;
+  messageInput: string;
+  setMessageInput: React.Dispatch<React.SetStateAction<string>>;
+  messages: Message[];
+  sequenceNumber: number | null;
+  isLoading: boolean;
+  requestError: string | null;
+  replayTrailCount: number;
+  hasReplayData: boolean;
+  replayState: ReplayState;
+  hasDefaultDial: boolean;
+  handleSend: () => Promise<void>;
+  resetSession: () => void;
+  startReplay: () => Promise<void>;
+  pauseReplay: () => void;
+  resumeReplay: () => void;
+  stopReplay: () => void;
+  clearReplayTrail: () => void;
+  dialDefaultFlow: () => Promise<void>;
+};
+
 type UseUssdSimulatorOptions = {
   initialPhone?: string;
   initialShortCode?: string;
@@ -38,11 +63,14 @@ type ReplayState = {
   error: string | null;
 };
 
-export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
+export function useUssdSimulator(
+  options: UseUssdSimulatorOptions = {}
+): UseUssdSimulatorReturn {
   const initialPhone = options.initialPhone ?? DEFAULT_PHONE;
   const initialShortCode = options.initialShortCode ?? DEFAULT_SHORT_CODE;
   const replayDelayMs = options.replayDelayMs ?? 500;
   const replayPreviewDelayMs = 700;
+  const dialPreviewDelayMs = 600;
 
   const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [shortCode, setShortCode] = useState(initialShortCode);
@@ -62,6 +90,8 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
   const defaultPhone = useSettingsStore(
     (s) => s.defaultPhoneNumberByFlow["global"] ?? "",
   );
+  const defaultFlowName = useSettingsStore((s) => s.defaultFlowName);
+  const defaultFlowShortcodes = useSettingsStore((s) => s.defaultFlowShortcodes);
   const lastSession = useSimulatorStore((s) => s.lastSession);
   const hasHydratedSession = useSimulatorStore((s) => s.hasHydrated);
   const saveSession = useSimulatorStore((s) => s.saveSession);
@@ -138,6 +168,13 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
     if (!sequenceRef.current) return "BR";
     if (isUssdCode(message)) return "BR";
     return "CA";
+  };
+
+  const getCarrierFromPhone = (value: string): "tele" | "safari" | null => {
+    const normalized = value.replace(/\s+/g, "").trim();
+    if (normalized.startsWith("+2517") || normalized.startsWith("07")) return "safari";
+    if (normalized.startsWith("+2519") || normalized.startsWith("09")) return "tele";
+    return null;
   };
 
   const toPersistedMessages = (data: Message[]): PersistedSimulatorMessage[] =>
@@ -366,6 +403,41 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
     await sendInput(messageInput.trim(), { recordTrail: true });
   };
 
+  const dialDefaultFlow = async () => {
+    if (isLoading) return;
+    if (!defaultFlowName) {
+      const message = "No default flow selected in settings.";
+      setRequestError(message);
+      options.onError?.(message);
+      return;
+    }
+    const carrier = getCarrierFromPhone(phoneRef.current);
+    if (!carrier) {
+      const message = "Phone number must start with +2519/09 or +2517/07.";
+      setRequestError(message);
+      options.onError?.(message);
+      return;
+    }
+    const shortcode =
+      carrier === "safari"
+        ? defaultFlowShortcodes.safari
+        : defaultFlowShortcodes.tele;
+    if (!shortcode) {
+      const message =
+        carrier === "safari"
+          ? "Default flow is missing Safaricom shortcode."
+          : "Default flow is missing EthioTelecom shortcode.";
+      setRequestError(message);
+      options.onError?.(message);
+      return;
+    }
+    setMessageInput(shortcode);
+    if (dialPreviewDelayMs > 0) {
+      await wait(dialPreviewDelayMs);
+    }
+    await sendInput(shortcode, { recordTrail: true });
+  };
+
   const startReplay = async () => {
     if (isLoading || replayState.status === "running") return;
     const steps = [...replayTrailRef.current];
@@ -519,6 +591,9 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
     replayTrailCount: replayTrail.length,
     hasReplayData: replayTrail.length > 0,
     replayState,
+    hasDefaultDial: Boolean(
+      defaultFlowName && (defaultFlowShortcodes.tele || defaultFlowShortcodes.safari)
+    ),
     handleSend,
     resetSession,
     startReplay,
@@ -526,5 +601,6 @@ export function useUssdSimulator(options: UseUssdSimulatorOptions = {}) {
     resumeReplay,
     stopReplay,
     clearReplayTrail,
+    dialDefaultFlow,
   };
 }

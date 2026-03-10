@@ -38,6 +38,7 @@ const parseSettingsResponse = (data: FlowSettingsResponse | undefined) => {
   const payload = data;
   return {
     baseUrl: payload?.data?.baseUrl ?? "",
+    isDefault: Boolean(payload?.data?.isDefault),
     shortcodes: {
       tele: payload?.data?.shortcodes?.tele ?? "",
       safari: payload?.data?.shortcodes?.safari ?? "",
@@ -87,8 +88,15 @@ const settingsSchema = z.object({
 export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) {
   const nodes = useFlowStore((state) => state.nodes);
   const publishedGroupIds = useFlowStore((state) => state.publishedGroupIds);
-  const { setDefaultPhoneNumber, clearDefaultPhoneNumber, getDefaultPhoneNumber } =
-    useSettingsStore();
+  const {
+    setDefaultPhoneNumber,
+    clearDefaultPhoneNumber,
+    getDefaultPhoneNumber,
+    defaultFlowName,
+    setDefaultFlowName,
+    clearDefaultFlowName,
+    setDefaultFlowShortcodes,
+  } = useSettingsStore();
   const [selectedFlow, setSelectedFlow] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [shortcodes, setShortcodes] = useState({ tele: "", safari: "" });
@@ -103,6 +111,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [defaultFlowDirty, setDefaultFlowDirty] = useState(false);
 
   const flowOptions = useMemo(() => {
     const groups = nodes.filter(
@@ -132,6 +141,10 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
   }, [flowOptions, open, selectedFlow]);
 
   useEffect(() => {
+    if (!open) {
+      setDefaultFlowDirty(false);
+      return;
+    }
     if (!open || !selectedFlow) return;
     let isActive = true;
     const loadSettings = async () => {
@@ -151,6 +164,13 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
             .map((phone) => String(phone ?? "").trim())
             .filter(Boolean)
         );
+        if (!defaultFlowDirty && parsed.isDefault) {
+          setDefaultFlowName(selectedFlow);
+          setDefaultFlowShortcodes({
+            tele: String(parsed.shortcodes.tele ?? ""),
+            safari: String(parsed.shortcodes.safari ?? ""),
+          });
+        }
         // Ensure default exists in the whitelist; if not, clear it.
         const currentDefault = getDefaultPhoneNumber(selectedFlow);
         if (currentDefault && !parsed.whiteListedPhones.includes(currentDefault)) {
@@ -179,7 +199,17 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
     return () => {
       isActive = false;
     };
-  }, [open, selectedFlow, clearDefaultPhoneNumber, getDefaultPhoneNumber]);
+  }, [
+    open,
+    selectedFlow,
+    clearDefaultPhoneNumber,
+    getDefaultPhoneNumber,
+    defaultFlowName,
+    clearDefaultFlowName,
+    setDefaultFlowName,
+    setDefaultFlowShortcodes,
+    defaultFlowDirty,
+  ]);
 
   const handleSave = async () => {
     if (!selectedFlow) {
@@ -229,6 +259,7 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
         settings: {
           baseUrl: result.data.baseUrl,
         },
+        isDefault: selectedFlow === defaultFlowName,
         shortcodes: {
           tele: result.data.shortcodes.tele,
           safari: result.data.shortcodes.safari,
@@ -237,6 +268,13 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
       };
       await updateFlowSettings(payload);
       toast.success("Settings updated.");
+      setDefaultFlowDirty(false);
+      if (selectedFlow === defaultFlowName) {
+        setDefaultFlowShortcodes({
+          tele: result.data.shortcodes.tele,
+          safari: result.data.shortcodes.safari,
+        });
+      }
       onOpenChange(false);
     } catch (err) {
       const message =
@@ -318,6 +356,34 @@ export default function SettingsMenu({ open, onOpenChange }: SettingsMenuProps) 
                 ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                id="default-flow-checkbox"
+                type="checkbox"
+                className="h-3.5 w-3.5 cursor-pointer"
+                checked={Boolean(selectedFlow && selectedFlow === defaultFlowName)}
+                disabled={Boolean(defaultFlowName && selectedFlow !== defaultFlowName)}
+                onChange={(event) => {
+                  if (!selectedFlow) return;
+                  setDefaultFlowDirty(true);
+                  if (event.target.checked) {
+                    setDefaultFlowName(selectedFlow);
+                    setDefaultFlowShortcodes(shortcodes);
+                  } else {
+                    clearDefaultFlowName();
+                    setDefaultFlowShortcodes({ tele: "", safari: "" });
+                  }
+                }}
+              />
+              <label htmlFor="default-flow-checkbox" className="cursor-pointer">
+                Set as default flow
+              </label>
+              {defaultFlowName && defaultFlowName !== selectedFlow && (
+                <span className="text-[10px] text-amber-600">
+                  Default is {defaultFlowName}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
