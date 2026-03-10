@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Smartphone, Wifi, Signal, Battery } from "lucide-react";
 import { toast } from "sonner";
 import Draggable from "react-draggable";
-import { useUssdSimulator } from "@/hooks/useUssdSimulator";
+import { useUssdSimulator, type UseUssdSimulatorReturn } from "@/hooks/useUssdSimulator";
 
 type ResizablePhoneProps = {
   isOpen: boolean;
@@ -19,6 +19,12 @@ export default function ResizablePhoneEmulator({
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const nodeRef = useRef(null);
+  const simulator: UseUssdSimulatorReturn = useUssdSimulator({
+    initialPhone: "+251979458662",
+    initialShortCode: "*675#",
+    onError: (message) => toast.error(message),
+    onReset: () => toast.success("Session reset"),
+  });
   const {
     phoneNumber,
     setPhoneNumber,
@@ -30,6 +36,7 @@ export default function ResizablePhoneEmulator({
     hasReplayData,
     replayTrailCount,
     replayState,
+    hasDefaultDial,
     handleSend,
     resetSession: resetSessionFromHook,
     startReplay,
@@ -37,12 +44,8 @@ export default function ResizablePhoneEmulator({
     resumeReplay,
     stopReplay,
     clearReplayTrail,
-  } = useUssdSimulator({
-    initialPhone: "+251979458662",
-    initialShortCode: "*675#",
-    onError: (message) => toast.error(message),
-    onReset: () => toast.success("Session reset"),
-  });
+    dialDefaultFlow,
+  } = simulator;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -181,6 +184,13 @@ export default function ResizablePhoneEmulator({
                       <span className="uppercase">{replayState.status}</span>
                     </div>
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={dialDefaultFlow}
+                        disabled={!hasDefaultDial || isReplayActive || isLoading}
+                        className="rounded bg-emerald-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Dial
+                      </button>
                       <button
                         onClick={startReplay}
                         disabled={!hasReplayData || isReplayActive || isLoading}
@@ -373,6 +383,13 @@ export default function ResizablePhoneEmulator({
                       <span className="uppercase">{replayState.status}</span>
                     </div>
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={dialDefaultFlow}
+                        disabled={!hasDefaultDial || isReplayActive || isLoading}
+                        className="rounded bg-emerald-600 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        Dial
+                      </button>
                       <button
                         onClick={startReplay}
                         disabled={!hasReplayData || isReplayActive || isLoading}

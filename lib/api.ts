@@ -588,14 +588,15 @@ export const sendRequestThroughCurlProxy = async (
 };
 
 export type FlowSettingsResponse = {
-    data?: {
-        flowName?: string;
-        baseUrl?: string;
-        shortcodes?: {
-            tele?: string;
-            safari?: string;
-        };
-        whiteListedPhones?: string[] | null;
+  data?: {
+    flowName?: string;
+    baseUrl?: string;
+    isDefault?: boolean;
+    shortcodes?: {
+      tele?: string;
+      safari?: string;
+    };
+    whiteListedPhones?: string[] | null;
     };
     shortcodes?: {
         tele?: string;
@@ -629,15 +630,16 @@ export const fetchFlowSettings = async (
 };
 
 export interface FlowSettingsPayload {
-    flowName: string;
-    settings: {
-        baseUrl?: string;
-    };
-    shortcodes?: {
-        tele?: string;
-        safari?: string;
-    };
-    whiteListedPhones?: string[];
+  flowName: string;
+  settings: {
+    baseUrl?: string;
+  };
+  isDefault?: boolean;
+  shortcodes?: {
+    tele?: string;
+    safari?: string;
+  };
+  whiteListedPhones?: string[];
 }
 
 export const updateFlowSettings = async (payload: FlowSettingsPayload) => {

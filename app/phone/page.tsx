@@ -1,8 +1,12 @@
 "use client";
 
-import { useUssdSimulator } from "@/hooks/useUssdSimulator";
+import { useUssdSimulator, type UseUssdSimulatorReturn } from "@/hooks/useUssdSimulator";
 
 export default function PhoneSessionPage() {
+  const simulator: UseUssdSimulatorReturn = useUssdSimulator({
+    initialPhone: "+251979458662",
+    initialShortCode: "*675#",
+  });
   const {
     phoneNumber,
     setPhoneNumber,
@@ -15,6 +19,7 @@ export default function PhoneSessionPage() {
     hasReplayData,
     replayTrailCount,
     replayState,
+    hasDefaultDial,
     handleSend,
     resetSession,
     startReplay,
@@ -22,10 +27,8 @@ export default function PhoneSessionPage() {
     resumeReplay,
     stopReplay,
     clearReplayTrail,
-  } = useUssdSimulator({
-    initialPhone: "+251979458662",
-    initialShortCode: "*675#",
-  });
+    dialDefaultFlow,
+  } = simulator;
   const isReplayRunning = replayState.status === "running";
   const isReplayPaused = replayState.status === "paused";
   const isReplayActive = isReplayRunning || isReplayPaused;
@@ -76,6 +79,13 @@ export default function PhoneSessionPage() {
               <span className="uppercase">{replayState.status}</span>
             </div>
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <button
+                onClick={dialDefaultFlow}
+                disabled={!hasDefaultDial || isReplayActive || isLoading}
+                className="rounded bg-emerald-700 px-2 py-1 text-white whitespace-nowrap disabled:cursor-not-allowed disabled:bg-white/10"
+              >
+                Dial
+              </button>
               <button
                 onClick={startReplay}
                 disabled={!hasReplayData || isReplayActive || isLoading}

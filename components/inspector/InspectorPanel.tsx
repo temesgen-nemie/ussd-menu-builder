@@ -78,22 +78,50 @@ export default function InspectorPanel() {
   const [resizeStart, setResizeStart] = React.useState({ x: 0, y: 0, width: 0, height: 0 });
   const panelRef = React.useRef<HTMLDivElement>(null);
 
-  // Initialize size based on node type if not set
+  const defaultWidth = node
+    ? node.type === "action" ||
+      node.type === "prompt" ||
+      node.type === "condition" ||
+      node.type === "funnel" ||
+      node.type === "script"
+        ? 720
+        : 350
+    : 350;
+  const effectiveWidth = size.width > 0 ? size.width : defaultWidth;
+  const effectiveHeight = size.height > 0 ? size.height : undefined;
+
+  // Global mouse handlers for drag/resize
   useEffect(() => {
-    if (size.width === 0 && node) {
-      setSize({
-        width:
-          node.type === "action" ||
-          node.type === "prompt" ||
-          node.type === "condition" ||
-          node.type === "funnel" ||
-          node.type === "script"
-            ? 720
-            : 350,
-        height: 0 // allow auto height
-      });
-    }
-  }, [node?.type]);
+    if (!isDragging && !isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setOffset({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      } else if (isResizing) {
+        const deltaX = e.clientX - resizeStart.x;
+        const deltaY = e.clientY - resizeStart.y;
+        setSize({
+          width: Math.max(300, resizeStart.width + deltaX),
+          height: Math.max(200, resizeStart.height + deltaY)
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, isResizing, dragStart, resizeStart]);
 
   if (!node) {
     return (
@@ -123,8 +151,8 @@ export default function InspectorPanel() {
             ? "translate(-50%, 0)"
             : "translate(-50%, -50%)",
         zIndex: 100000,
-        width: size.width > 0 ? size.width : undefined,
-        height: size.height > 0 ? size.height : undefined,
+        width: effectiveWidth,
+        height: effectiveHeight,
         maxHeight: "90vh",
       }
     : {
@@ -133,8 +161,8 @@ export default function InspectorPanel() {
         top: `calc(50% + ${offset.y}px)`,
         transform: "translate(-50%, -50%)",
         zIndex: 100000,
-        width: size.width > 0 ? size.width : undefined,
-        height: size.height > 0 ? size.height : undefined,
+        width: effectiveWidth,
+        height: effectiveHeight,
         maxHeight: "90vh",
       };
       
@@ -210,39 +238,6 @@ export default function InspectorPanel() {
       setIsResizing(true);
     }
   };
-
-  // Global mouse handlers for drag/resize
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        setOffset({
-          x: e.clientX - dragStart.x,
-          y: e.clientY - dragStart.y
-        });
-      } else if (isResizing) {
-        const deltaX = e.clientX - resizeStart.x;
-        const deltaY = e.clientY - resizeStart.y;
-        setSize({
-          width: Math.max(300, resizeStart.width + deltaX),
-          height: Math.max(200, resizeStart.height + deltaY)
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setIsResizing(false);
-    };
-
-    if (isDragging || isResizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing, dragStart, resizeStart]);
 
   return (
     <div className="pointer-events-none" onClick={(e) => e.stopPropagation()}>
