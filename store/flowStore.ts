@@ -1248,7 +1248,7 @@ export const useFlowStore = create<FlowState>()(
             const local = currentNodeMap.get(bn.id);
             return {
               ...bn,
-              data: { ...freshLogicalData, ...bn.data },
+              data: { ...bn.data, ...freshLogicalData },
               selected: local?.selected ?? false,
             } as Node;
           });
@@ -1373,7 +1373,7 @@ export const useFlowStore = create<FlowState>()(
               const parentNode = bn.parentNode || groupId;
               return {
                 ...bn,
-                data: { ...freshLogicalData, ...bn.data },
+                data: { ...bn.data, ...freshLogicalData },
                 parentNode,
                 selected: false,
                 extent: parentNode ? ("parent" as const) : undefined,
