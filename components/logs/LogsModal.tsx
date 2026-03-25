@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
+import BackendLogsTable from "@/components/logs/BackendLogsTable";
 import LogsTable from "@/components/logs/LogsTable";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -10,6 +11,7 @@ type LogsModalProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+type LogsCategory = "flow" | "backend";
 type TabKey = "fetch" | "live";
 
 type LogsModalContentProps = {
@@ -25,11 +27,60 @@ const getInitialSize = () => {
   return { width, height };
 };
 
+const BACKEND_LIVE_LOGS_URL =
+  "wss://sau.eaglelionsystems.com/v1.0/superappussd/cps/logs/live";
+
+type BackendLiveMessage = {
+  type?: string;
+  timestamp?: string;
+  data?: {
+    timestamp?: string;
+    level?: string;
+    message?: string;
+    raw?: string;
+    service?: string;
+    endpoint?: string;
+    method?: string;
+    statusCode?: number | string;
+    networkLog?: unknown;
+    [key: string]: unknown;
+  };
+};
+
+const normalizeBackendLiveLog = (
+  payload: BackendLiveMessage,
+  sequence: number
+): LogEntry | null => {
+  if (payload.type === "heartbeat") return null;
+
+  const entry = payload.data;
+  if (!entry) return null;
+
+  return {
+    __logId: `backend-live-${Date.now()}-${sequence}`,
+    timestamp: entry.timestamp ?? payload.timestamp,
+    level: entry.level,
+    method: entry.method,
+    path: typeof entry.endpoint === "string" ? entry.endpoint : undefined,
+    statusCode: entry.statusCode,
+    message: entry.message,
+    service_name: typeof entry.service === "string" ? entry.service : undefined,
+    Response: entry.networkLog,
+    raw: entry.raw,
+    sourceType: payload.type,
+    ...entry,
+  };
+};
+
 function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("fetch");
+  const [activeCategory, setActiveCategory] = useState<LogsCategory>("flow");
+  const [activeFlowTab, setActiveFlowTab] = useState<TabKey>("fetch");
+  const [activeBackendTab, setActiveBackendTab] = useState<TabKey>("fetch");
   const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
   const [liveRaw, setLiveRaw] = useState<string[]>([]);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [backendLiveLogs, setBackendLiveLogs] = useState<LogEntry[]>([]);
+  const [isBackendLiveConnected, setIsBackendLiveConnected] = useState(false);
   const [isTerminalMode, setIsTerminalMode] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState(getInitialSize);
@@ -45,6 +96,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const liveLogSeqRef = useRef(0);
+  const backendLiveLogSeqRef = useRef(0);
 
 useEffect(() => {
   let socketUrl = API_BASE_URL + "/admin/logs/stream";
@@ -95,6 +147,47 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
+    if (activeCategory !== "backend" || activeBackendTab !== "live") return;
+
+    const socket = new WebSocket(BACKEND_LIVE_LOGS_URL);
+
+    socket.addEventListener("open", () => {
+      setIsBackendLiveConnected(true);
+    });
+
+    socket.addEventListener("close", () => {
+      setIsBackendLiveConnected(false);
+    });
+
+    socket.addEventListener("error", () => {
+      setIsBackendLiveConnected(false);
+    });
+
+    socket.addEventListener("message", (event) => {
+      try {
+        const parsed = JSON.parse(event.data) as BackendLiveMessage;
+        const normalized = normalizeBackendLiveLog(
+          parsed,
+          backendLiveLogSeqRef.current++
+        );
+
+        if (!normalized) return;
+
+        setBackendLiveLogs((prev) => {
+          const next = [normalized, ...prev];
+          return next.slice(0, 500);
+        });
+      } catch {
+        // ignore malformed messages
+      }
+    });
+
+    return () => {
+      socket.close();
+    };
+  }, [activeBackendTab, activeCategory]);
+
+  useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (isDragging) {
         setOffset({
@@ -127,11 +220,11 @@ useEffect(() => {
   }, [dragStart, isDragging, isResizing, resizeStart]);
 
   useEffect(() => {
-    if (activeTab !== "live" || !isTerminalMode) return;
+    if (activeFlowTab !== "live" || !isTerminalMode) return;
     const node = terminalRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, [activeTab, isTerminalMode, liveRaw]);
+  }, [activeFlowTab, isTerminalMode, liveRaw]);
 
   const parseNestedJson = (value: unknown, depth = 0): unknown => {
     if (depth > 4) return value;
@@ -206,7 +299,7 @@ useEffect(() => {
         >
           <div>
             <div className="text-lg font-bold text-foreground">USSD Logs</div>
-            {activeTab === "live" ? (
+            {activeCategory === "flow" && activeFlowTab === "live" ? (
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -218,35 +311,47 @@ useEffect(() => {
                   {isLiveConnected ? "Connected" : "Disconnected"}
                 </span>
               </div>
+            ) : activeCategory === "backend" && activeBackendTab === "live" ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    isBackendLiveConnected
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+                      : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+                  }`}
+                >
+                  {isBackendLiveConnected ? "Connected" : "Disconnected"}
+                </span>
+              </div>
             ) : null}
           </div>
           <div className="pointer-events-none absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab("fetch")}
+              onClick={() => setActiveCategory("flow")}
               className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                activeTab === "fetch"
+                activeCategory === "flow"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Fetch Logs
+              Flow Logs
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("live")}
+              onClick={() => setActiveCategory("backend")}
               className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                activeTab === "live"
+                activeCategory === "backend"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Live Logs
+              Backend Logs
             </button>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              {activeTab === "live" ? (
+              {activeCategory === "flow" && activeFlowTab === "live" ? (
                 <button
                   type="button"
                   onClick={() => setIsTerminalMode((prev) => !prev)}
@@ -285,41 +390,112 @@ useEffect(() => {
         </div>
 
         <div className="flex-1 overflow-hidden p-6">
-          {activeTab === "fetch" ? (
-            <LogsTable />
-          ) : (
-            <div className="h-full overflow-auto">
-              {isTerminalMode ? (
-                <div className="rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
-                  <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-                    Live Stream
-                  </div>
-                  <div
-                    ref={terminalRef}
-                    className="max-h-[60vh] overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
-                  >
-                    {liveRaw.length === 0 ? (
-                      <div className="text-slate-500 dark:text-slate-400">
-                        Waiting for logs...
+          {activeCategory === "flow" ? (
+            <div className="flex h-full flex-col gap-4 overflow-hidden">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveFlowTab("fetch")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeFlowTab === "fetch"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fetch Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFlowTab("live")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeFlowTab === "live"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Live Logs
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-hidden">
+                {activeFlowTab === "fetch" ? (
+                  <LogsTable />
+                ) : (
+                  <div className="h-full overflow-auto">
+                    {isTerminalMode ? (
+                      <div className="rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
+                        <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                          Live Stream
+                        </div>
+                        <div
+                          ref={terminalRef}
+                          className="max-h-[60vh] overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
+                        >
+                          {liveRaw.length === 0 ? (
+                            <div className="text-slate-500 dark:text-slate-400">
+                              Waiting for logs...
+                            </div>
+                          ) : (
+                            liveRaw
+                              .slice()
+                              .reverse()
+                              .map((line, index) => (
+                                <pre
+                                  key={`${index}-${line.slice(0, 24)}`}
+                                  className="mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border border-border/60 bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60"
+                                >
+                                  {formatTerminalLine(line)}
+                                </pre>
+                              ))
+                          )}
+                        </div>
                       </div>
                     ) : (
-                      liveRaw
-                        .slice()
-                        .reverse()
-                        .map((line, index) => (
-                          <pre
-                            key={`${index}-${line.slice(0, 24)}`}
-                            className="mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border border-border/60 bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60"
-                          >
-                            {formatTerminalLine(line)}
-                          </pre>
-                        ))
+                      <LogsAccordion logs={liveLogs} isLoading={!isLiveConnected} />
                     )}
                   </div>
-                </div>
-              ) : (
-                <LogsAccordion logs={liveLogs} isLoading={!isLiveConnected} />
-              )}
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col gap-4 overflow-hidden">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveBackendTab("fetch")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeBackendTab === "fetch"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fetch Backend Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveBackendTab("live")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeBackendTab === "live"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Live Backend Logs
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-hidden">
+                {activeBackendTab === "fetch" ? (
+                  <BackendLogsTable />
+                ) : (
+                  <div className="h-full overflow-auto">
+                    <LogsAccordion
+                      logs={backendLiveLogs}
+                      isLoading={!isBackendLiveConnected}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

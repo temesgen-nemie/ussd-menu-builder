@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { FlowJson, FlowNode } from "../store/flowStore";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://ussdtool.profilesage.com";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://sau.eaglelionsystems.com";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -746,6 +746,63 @@ export const searchLogs = async (params: {
             throw new Error(
                 axiosError.response?.data?.error ||
                 `Failed to search logs (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export type BackendLogEntry = {
+    timestamp?: string;
+    level?: string;
+    message?: string;
+    raw?: string;
+    service?: string;
+    endpoint?: string;
+    method?: string;
+    statusCode?: number;
+    networkLog?: Record<string, unknown>;
+    [key: string]: unknown;
+};
+
+export type FetchBackendLogsResponse = {
+    status: number;
+    message?: string;
+    data?: {
+        logDir?: string;
+        total?: number;
+        returned?: number;
+        limit?: number;
+        filters?: Record<string, unknown>;
+        items?: BackendLogEntry[];
+    };
+};
+
+export const fetchBackendLogs = async (payload: {
+    from: string;
+    to: string;
+    limit: number;
+}): Promise<FetchBackendLogsResponse> => {
+    try {
+        const response = await api.post<FetchBackendLogsResponse>(
+            "/v1.0/superappussd/cps/logs/fetch",
+            {
+                from: payload.from,
+                to: payload.to,
+                limit: payload.limit,
+            }
+        );
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+            throw new Error(
+                axiosError.response?.data?.message ||
+                axiosError.response?.data?.error ||
+                `Failed to fetch backend logs (${axiosError.response?.status})`
             );
         } else if (error instanceof Error) {
             throw new Error(error.message);
