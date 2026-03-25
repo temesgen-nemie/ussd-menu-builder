@@ -788,7 +788,7 @@ export const fetchBackendLogs = async (payload: {
 }): Promise<FetchBackendLogsResponse> => {
     try {
         const response = await api.post<FetchBackendLogsResponse>(
-            "/v1.0/superappussd/cps/logs/fetch",
+            "/superappussd/cps/logs/fetch",
             {
                 from: payload.from,
                 to: payload.to,
