@@ -80,6 +80,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const [liveRaw, setLiveRaw] = useState<string[]>([]);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [backendLiveLogs, setBackendLiveLogs] = useState<LogEntry[]>([]);
+  const [backendLiveRaw, setBackendLiveRaw] = useState<string[]>([]);
   const [isBackendLiveConnected, setIsBackendLiveConnected] = useState(false);
   const [isTerminalMode, setIsTerminalMode] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -166,6 +167,13 @@ useEffect(() => {
     socket.addEventListener("message", (event) => {
       try {
         const parsed = JSON.parse(event.data) as BackendLiveMessage;
+        if (parsed.type === "heartbeat") return;
+
+        setBackendLiveRaw((prev) => {
+          const next = [event.data, ...prev];
+          return next.slice(0, 500);
+        });
+
         const normalized = normalizeBackendLiveLog(
           parsed,
           backendLiveLogSeqRef.current++
@@ -220,11 +228,19 @@ useEffect(() => {
   }, [dragStart, isDragging, isResizing, resizeStart]);
 
   useEffect(() => {
-    if (activeFlowTab !== "live" || !isTerminalMode) return;
+    const isFlowTerminalActive =
+      activeCategory === "flow" && activeFlowTab === "live";
+    const isBackendTerminalActive =
+      activeCategory === "backend" && activeBackendTab === "live";
+
+    if ((!isFlowTerminalActive && !isBackendTerminalActive) || !isTerminalMode) {
+      return;
+    }
+
     const node = terminalRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, [activeFlowTab, isTerminalMode, liveRaw]);
+  }, [activeBackendTab, activeCategory, activeFlowTab, backendLiveRaw, isTerminalMode, liveRaw]);
 
   const parseNestedJson = (value: unknown, depth = 0): unknown => {
     if (depth > 4) return value;
@@ -351,7 +367,8 @@ useEffect(() => {
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              {activeCategory === "flow" && activeFlowTab === "live" ? (
+              {(activeCategory === "flow" && activeFlowTab === "live") ||
+              (activeCategory === "backend" && activeBackendTab === "live") ? (
                 <button
                   type="button"
                   onClick={() => setIsTerminalMode((prev) => !prev)}
@@ -421,15 +438,15 @@ useEffect(() => {
                 {activeFlowTab === "fetch" ? (
                   <LogsTable />
                 ) : (
-                  <div className="h-full overflow-auto">
+                  <div className="h-full overflow-hidden">
                     {isTerminalMode ? (
-                      <div className="rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
+                      <div className="flex h-full flex-col rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
                         <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
                           Live Stream
                         </div>
                         <div
                           ref={terminalRef}
-                          className="max-h-[60vh] overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
+                          className="min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
                         >
                           {liveRaw.length === 0 ? (
                             <div className="text-slate-500 dark:text-slate-400">
@@ -439,10 +456,14 @@ useEffect(() => {
                             liveRaw
                               .slice()
                               .reverse()
-                              .map((line, index) => (
+                              .map((line, index, lines) => (
                                 <pre
                                   key={`${index}-${line.slice(0, 24)}`}
-                                  className="mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border border-border/60 bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60"
+                                  className={`mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60 ${
+                                    index === lines.length - 1
+                                      ? "border-blue-400 ring-1 ring-blue-400/60 dark:border-blue-300 dark:ring-blue-300/50"
+                                      : "border-border/60"
+                                  }`}
                                 >
                                   {formatTerminalLine(line)}
                                 </pre>
@@ -488,11 +509,45 @@ useEffect(() => {
                 {activeBackendTab === "fetch" ? (
                   <BackendLogsTable />
                 ) : (
-                  <div className="h-full overflow-auto">
-                    <LogsAccordion
-                      logs={backendLiveLogs}
-                      isLoading={!isBackendLiveConnected}
-                    />
+                  <div className="h-full overflow-hidden">
+                    {isTerminalMode ? (
+                      <div className="flex h-full flex-col rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
+                        <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                          Live Stream
+                        </div>
+                        <div
+                          ref={terminalRef}
+                          className="min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
+                        >
+                          {backendLiveRaw.length === 0 ? (
+                            <div className="text-slate-500 dark:text-slate-400">
+                              Waiting for logs...
+                            </div>
+                          ) : (
+                            backendLiveRaw
+                              .slice()
+                              .reverse()
+                              .map((line, index, lines) => (
+                                <pre
+                                  key={`${index}-${line.slice(0, 24)}`}
+                                  className={`mb-3 whitespace-pre-wrap wrap-break-word rounded-lg border bg-white/80 p-3 shadow-sm last:mb-0 dark:bg-slate-900/60 ${
+                                    index === lines.length - 1
+                                      ? "border-blue-400 ring-1 ring-blue-400/60 dark:border-blue-300 dark:ring-blue-300/50"
+                                      : "border-border/60"
+                                  }`}
+                                >
+                                  {formatTerminalLine(line)}
+                                </pre>
+                              ))
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <LogsAccordion
+                        logs={backendLiveLogs}
+                        isLoading={!isBackendLiveConnected}
+                      />
+                    )}
                   </div>
                 )}
               </div>
