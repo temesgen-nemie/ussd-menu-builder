@@ -787,12 +787,17 @@ export const fetchBackendLogs = async (payload: {
     limit: number;
 }): Promise<FetchBackendLogsResponse> => {
     try {
-        const response = await api.post<FetchBackendLogsResponse>(
-            "/superappussd/cps/logs/fetch",
+        const response = await axios.post<FetchBackendLogsResponse>(
+            "https://sau.eaglelionsystems.com/v1.0/superappussd/cps/logs/fetch",
             {
                 from: payload.from,
                 to: payload.to,
                 limit: payload.limit,
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                },
             }
         );
         return response.data;
