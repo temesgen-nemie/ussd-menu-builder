@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { FlowJson, FlowNode } from "../store/flowStore";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://sau.eaglelionsystems.com";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://ussdtool.profilesage.com";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
