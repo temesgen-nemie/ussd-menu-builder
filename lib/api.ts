@@ -524,22 +524,7 @@ const normalizeCurlProxyResult = (
         toHeaderRecord(obj.responseHeaders),
     ].find((entry) => Object.keys(entry).length > 0);
 
-    const bodyCandidate =
-        obj.body ??
-        obj.responseBody ??
-        obj.data ??
-        obj.response ??
-        obj.result ??
-        obj.payload;
-
-    let body = "";
-    if (typeof bodyCandidate === "string") {
-        body = bodyCandidate;
-    } else if (bodyCandidate !== undefined) {
-        body = JSON.stringify(bodyCandidate, null, 2);
-    } else {
-        body = JSON.stringify(obj, null, 2);
-    }
+    const body = JSON.stringify(obj, null, 2);
 
     return {
         status,
