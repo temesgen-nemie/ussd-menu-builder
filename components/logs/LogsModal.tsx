@@ -438,7 +438,7 @@ useEffect(() => {
                 {activeFlowTab === "fetch" ? (
                   <LogsTable />
                 ) : (
-                  <div className="h-full overflow-hidden">
+                  <div className="flex h-full min-h-0 flex-col overflow-hidden">
                     {isTerminalMode ? (
                       <div className="flex h-full flex-col rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
                         <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
@@ -472,7 +472,9 @@ useEffect(() => {
                         </div>
                       </div>
                     ) : (
-                      <LogsAccordion logs={liveLogs} isLoading={!isLiveConnected} />
+                      <div className="flex-1 min-h-0 overflow-auto">
+                        <LogsAccordion logs={liveLogs} isLoading={!isLiveConnected} />
+                      </div>
                     )}
                   </div>
                 )}
@@ -509,7 +511,7 @@ useEffect(() => {
                 {activeBackendTab === "fetch" ? (
                   <BackendLogsTable />
                 ) : (
-                  <div className="h-full overflow-hidden">
+                  <div className="flex h-full min-h-0 flex-col overflow-hidden">
                     {isTerminalMode ? (
                       <div className="flex h-full flex-col rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
                         <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
@@ -543,10 +545,12 @@ useEffect(() => {
                         </div>
                       </div>
                     ) : (
-                      <LogsAccordion
-                        logs={backendLiveLogs}
-                        isLoading={!isBackendLiveConnected}
-                      />
+                      <div className="flex-1 min-h-0 overflow-auto">
+                        <LogsAccordion
+                          logs={backendLiveLogs}
+                          isLoading={!isBackendLiveConnected}
+                        />
+                      </div>
                     )}
                   </div>
                 )}
