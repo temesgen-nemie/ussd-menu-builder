@@ -22,8 +22,9 @@ const getInitialSize = () => {
   if (typeof window === "undefined") {
     return { width: 1100, height: 760 };
   }
-  const width = Math.min(window.innerWidth * 0.9, 1100);
-  const height = Math.min(window.innerHeight * 0.85, 760);
+  const isCompact = window.innerWidth < 768;
+  const width = Math.min(window.innerWidth * (isCompact ? 0.98 : 0.9), 1100);
+  const height = Math.min(window.innerHeight * (isCompact ? 0.94 : 0.85), 760);
   return { width, height };
 };
 
@@ -73,6 +74,10 @@ const normalizeBackendLiveLog = (
 };
 
 function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window === "undefined" ? 1440 : window.innerWidth,
+    height: typeof window === "undefined" ? 900 : window.innerHeight,
+  }));
   const [activeCategory, setActiveCategory] = useState<LogsCategory>("flow");
   const [activeFlowTab, setActiveFlowTab] = useState<TabKey>("fetch");
   const [activeBackendTab, setActiveBackendTab] = useState<TabKey>("fetch");
@@ -98,9 +103,23 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const liveLogSeqRef = useRef(0);
   const backendLiveLogSeqRef = useRef(0);
+  const isCompactViewport = viewport.width < 640;
 
-useEffect(() => {
-  let socketUrl = API_BASE_URL + "/admin/logs/stream";
+  useEffect(() => {
+    const handleResize = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    let socketUrl = API_BASE_URL + "/admin/logs/stream";
 
   socketUrl = socketUrl
     .replace("https://", "wss://")
@@ -286,13 +305,25 @@ useEffect(() => {
 
   const modalStyle: CSSProperties = {
     position: "fixed",
-    left: `calc(50% + ${offset.x}px + clamp(80px, 12vw, 300px))`,
-    top: `calc(50% + ${offset.y}px + clamp(450px, 18vh, 450px))`,
-    transform: "translate(-50%, -50%)",
-    width: size.width > 0 ? size.width : undefined,
-    height: size.height > 0 ? size.height : undefined,
-    maxHeight: "90vh",
-    maxWidth: "95vw",
+    left: isCompactViewport
+      ? "1vw"
+      : `calc(50% + ${offset.x}px + clamp(80px, 12vw, 300px))`,
+    top: isCompactViewport
+      ? "2vh"
+      : `calc(50% + ${offset.y}px + clamp(450px, 18vh, 450px))`,
+    transform: isCompactViewport ? undefined : "translate(-50%, -50%)",
+    width: isCompactViewport
+      ? "98vw"
+      : size.width > 0
+        ? Math.min(size.width, viewport.width * 0.95)
+        : undefined,
+    height: isCompactViewport
+      ? "96vh"
+      : size.height > 0
+        ? Math.min(size.height, viewport.height * 0.9)
+        : undefined,
+    maxHeight: isCompactViewport ? "96vh" : "90vh",
+    maxWidth: isCompactViewport ? "98vw" : "95vw",
   };
 
   return (
@@ -304,6 +335,7 @@ useEffect(() => {
       >
         <div
           onMouseDown={(event) => {
+            if (isCompactViewport) return;
             if ((event.target as HTMLElement).closest("button")) return;
             setDragStart({
               x: event.clientX - offset.x,
@@ -311,9 +343,12 @@ useEffect(() => {
             });
             setIsDragging(true);
           }}
-          className="relative flex items-start justify-between gap-4 border-b border-border bg-card/95 px-6 py-4 cursor-grab active:cursor-grabbing"
+          className={`relative flex flex-col gap-4 border-b border-border bg-card/95 px-4 py-4 md:px-6 ${
+            isCompactViewport ? "" : "cursor-grab active:cursor-grabbing"
+          }`}
         >
-          <div>
+          <div className="flex items-start justify-between gap-3 md:justify-start">
+            <div>
             <div className="text-lg font-bold text-foreground">USSD Logs</div>
             {activeCategory === "flow" && activeFlowTab === "live" ? (
               <div className="mt-2 flex items-center gap-2">
@@ -340,12 +375,34 @@ useEffect(() => {
                 </span>
               </div>
             ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground md:hidden"
+              aria-label="Close logs"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
-          <div className="pointer-events-none absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:pointer-events-none md:absolute md:left-1/2 md:top-4 md:-translate-x-1/2">
             <button
               type="button"
               onClick={() => setActiveCategory("flow")}
-              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all md:pointer-events-auto ${
                 activeCategory === "flow"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -356,7 +413,7 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => setActiveCategory("backend")}
-              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all md:pointer-events-auto ${
                 activeCategory === "backend"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -365,7 +422,7 @@ useEffect(() => {
               Backend Logs
             </button>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="hidden flex-col items-end gap-2 md:flex">
             <div className="flex items-center gap-2">
               {(activeCategory === "flow" && activeFlowTab === "live") ||
               (activeCategory === "backend" && activeBackendTab === "live") ? (
@@ -406,10 +463,18 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden p-6">
+        <div
+          className={`flex-1 p-3 md:p-6 ${
+            isCompactViewport ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden"
+          }`}
+        >
           {activeCategory === "flow" ? (
-            <div className="flex h-full flex-col gap-4 overflow-hidden">
-              <div className="flex items-center gap-2">
+            <div
+              className={`flex flex-col gap-4 ${
+                isCompactViewport ? "min-h-full" : "h-full overflow-hidden"
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveFlowTab("fetch")}
@@ -434,7 +499,7 @@ useEffect(() => {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-hidden">
+              <div className={isCompactViewport ? "" : "flex-1 overflow-hidden"}>
                 {activeFlowTab === "fetch" ? (
                   <LogsTable />
                 ) : (
@@ -481,8 +546,12 @@ useEffect(() => {
               </div>
             </div>
           ) : (
-            <div className="flex h-full flex-col gap-4 overflow-hidden">
-              <div className="flex items-center gap-2">
+            <div
+              className={`flex flex-col gap-4 ${
+                isCompactViewport ? "min-h-full" : "h-full overflow-hidden"
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveBackendTab("fetch")}
@@ -507,7 +576,7 @@ useEffect(() => {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-hidden">
+              <div className={isCompactViewport ? "" : "flex-1 overflow-hidden"}>
                 {activeBackendTab === "fetch" ? (
                   <BackendLogsTable />
                 ) : (
@@ -559,21 +628,23 @@ useEffect(() => {
           )}
         </div>
 
-        <div
-          onMouseDown={(event) => {
-            event.stopPropagation();
-            setResizeStart({
-              x: event.clientX,
-              y: event.clientY,
-              width: modalRef.current?.offsetWidth || size.width,
-              height: modalRef.current?.offsetHeight || size.height,
-            });
-            setIsResizing(true);
-          }}
-          className="absolute bottom-2 right-2 h-4 w-4 cursor-nwse-resize"
-        >
-          <div className="h-full w-full border-b-2 border-r-2 border-muted-foreground/40" />
-        </div>
+        {!isCompactViewport ? (
+          <div
+            onMouseDown={(event) => {
+              event.stopPropagation();
+              setResizeStart({
+                x: event.clientX,
+                y: event.clientY,
+                width: modalRef.current?.offsetWidth || size.width,
+                height: modalRef.current?.offsetHeight || size.height,
+              });
+              setIsResizing(true);
+            }}
+            className="absolute bottom-2 right-2 h-4 w-4 cursor-nwse-resize"
+          >
+            <div className="h-full w-full border-b-2 border-r-2 border-muted-foreground/40" />
+          </div>
+        ) : null}
       </div>
     </div>
   );
