@@ -155,7 +155,7 @@ const getLogId = (log: LogEntry, index: number) => {
 export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
   return (
     <div className="rounded-2xl border border-border bg-slate-50/80 text-card-foreground shadow-sm dark:bg-slate-900/40">
-      <div className="min-w-225">
+      <div className="hidden min-w-225 md:block">
         <div className="grid grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 border-b border-border px-4 py-3 text-xs font-medium uppercase text-left bg-linear-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40">
           <div>Time</div>
           <div>Level</div>
@@ -203,15 +203,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 .filter(([key, value]) => !knownKeys.has(key) && value !== undefined)
                 .map<[string, unknown]>(([key, value]) => [key, value]);
 
-              const details: Array<[string, unknown]> = [
-                ["Timestamp", formatTimestamp(log.timestamp)],
-                ["Level", log.level],
-                ["Method", log.method],
-                ["Endpoint", log.path],
-                ["Status", log.status],
-                ["Status Code", log.statusCode],
-                ["Duration (ms)", log.durationMs],
-                ["IP", log.ip ?? log.ip_address],
+              const details = [
                 ["Message", log.message ?? log.Message],
                 ["Action", log.action],
                 ["Service", log.service_name],
@@ -220,7 +212,10 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                 ["Request", log.Request],
                 ["Response", log.Response],
                 ...extraDetails,
-              ];
+              ].filter(
+                (entry): entry is [string, unknown] =>
+                  entry[1] !== undefined && entry[1] !== null && entry[1] !== ""
+              );
 
               return (
                 <AccordionItem key={logId} value={logId}>
@@ -314,6 +309,146 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                               {formatValue(value)}
                             </pre>
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })
+          )}
+        </Accordion>
+      </div>
+
+      <div className="overflow-x-hidden md:hidden">
+        <Accordion type="single" collapsible>
+          {logs.length === 0 && !isLoading ? (
+            <div className="py-10 text-center text-muted-foreground">
+              No logs found.
+            </div>
+          ) : (
+            logs.map((log, index) => {
+              const logId = getLogId(log, index);
+              const status = log.status ?? log.statusCode ?? "--";
+              const ip = log.ip ?? log.ip_address ?? "--";
+              const duration =
+                typeof log.durationMs === "number"
+                  ? `${log.durationMs}ms`
+                  : "--";
+
+              const knownKeys = new Set([
+                "timestamp",
+                "level",
+                "method",
+                "path",
+                "status",
+                "statusCode",
+                "durationMs",
+                "ip",
+                "ip_address",
+                "message",
+                "Message",
+                "action",
+                "service_name",
+                "environment",
+                "session_id",
+                "Request",
+                "Response",
+              ]);
+              const extraDetails = Object.entries(log)
+                .filter(([key, value]) => !knownKeys.has(key) && value !== undefined)
+                .map<[string, unknown]>(([key, value]) => [key, value]);
+
+              const details: Array<[string, unknown]> = [
+                ["Timestamp", formatTimestamp(log.timestamp)],
+                ["Level", log.level],
+                ["Method", log.method],
+                ["Endpoint", log.path],
+                ["Status", log.status],
+                ["Status Code", log.statusCode],
+                ["Duration (ms)", log.durationMs],
+                ["IP", log.ip ?? log.ip_address],
+                ["Message", log.message ?? log.Message],
+                ["Action", log.action],
+                ["Service", log.service_name],
+                ["Environment", log.environment],
+                ["Session ID", log.session_id],
+                ["Request", log.Request],
+                ["Response", log.Response],
+                ...extraDetails,
+              ];
+
+              return (
+                <AccordionItem
+                  key={logId}
+                  value={logId}
+                  className="min-w-0 overflow-hidden border-b border-border/70"
+                >
+                  <AccordionTrigger className="px-3 py-3 hover:no-underline cursor-pointer">
+                    <div className="flex w-full min-w-0 flex-col gap-3 text-left">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-foreground">
+                            {formatTime(log.timestamp)}
+                          </div>
+                          <div className="mt-1 text-xs uppercase text-muted-foreground">
+                            {log.level ?? "--"}
+                          </div>
+                        </div>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle(
+                            status
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${methodStyle(
+                            log.method
+                          )}`}
+                        >
+                          {log.method ?? "--"}
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${durationStyle(
+                            log.durationMs
+                          )}`}
+                        >
+                          {duration}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground break-all">
+                        {log.path ?? "--"}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        IP: {ip}
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="min-w-0 overflow-hidden px-3 pb-3">
+                    <div className="grid min-w-0 gap-3">
+                      {details.map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="min-w-0 overflow-hidden rounded-lg border border-border bg-slate-100/70 p-3 dark:bg-slate-800/50"
+                        >
+                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            {label}
+                          </div>
+                          <pre
+                            className={`mt-2 min-w-0 whitespace-pre-wrap break-all text-xs leading-5 text-foreground [overflow-wrap:anywhere] ${
+                              ["Request", "Response", "Device Info"].includes(label)
+                                ? "max-h-56 overflow-auto overflow-x-hidden"
+                                : ""
+                            }`}
+                          >
+                            {formatValue(value)}
+                          </pre>
                         </div>
                       ))}
                     </div>

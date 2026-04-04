@@ -149,7 +149,7 @@ export default function BackendLogsTable() {
   }, [handleFetch, limit]);
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex flex-col gap-4 md:h-full">
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
           <div className="flex flex-col gap-3">
@@ -256,7 +256,7 @@ export default function BackendLogsTable() {
 
       {error ? <div className="text-sm text-destructive">{error}</div> : null}
 
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="md:flex-1 md:min-h-0 md:overflow-auto">
         {isLoading ? <BackendLogsSkeleton /> : <LogsAccordion logs={logs} isLoading={isLoading} />}
       </div>
     </div>
