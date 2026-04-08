@@ -21,6 +21,8 @@ type ConditionRow = {
   valueText: string;
 };
 
+const UNARY_OPERATORS = new Set(["exists", "hasText"]);
+
 export default function ActionRoutes({
   routes,
   options,
@@ -35,6 +37,8 @@ export default function ActionRoutes({
     { value: "eq", label: "Equals" },
     { value: "ne", label: "Not Equals" },
     { value: "like", label: "Like" },
+    { value: "exists", label: "Has Value" },
+    { value: "hasText", label: "Has Text" },
   ];
 
   const coerceValue = (raw: string) => {
@@ -105,6 +109,9 @@ export default function ActionRoutes({
     
     const mapped = conditions.map(c => {
       const left = `{{${c.source}.${c.path}}}`;
+      if (UNARY_OPERATORS.has(c.operator)) {
+        return { [c.operator]: [left] };
+      }
       const right = coerceValue(c.valueText);
       return { [c.operator]: [left, right] };
     });
@@ -191,7 +198,14 @@ export default function ActionRoutes({
                       </div>
                     )}
                     {conditions.map((c, cIdx) => (
-                      <div key={c.id} className="grid grid-cols-[36px_1.5fr_0.8fr_1fr_24px] gap-2 items-center min-w-0">
+                      <div
+                        key={c.id}
+                        className={`grid gap-2 items-center min-w-0 ${
+                          UNARY_OPERATORS.has(c.operator)
+                            ? "grid-cols-[36px_1.5fr_0.8fr_24px]"
+                            : "grid-cols-[36px_1.5fr_0.8fr_1fr_24px]"
+                        }`}
+                      >
                         <span className="text-[10px] font-bold text-gray-500 uppercase bg-white px-1 border rounded text-center py-1 truncate">
                           {cIdx === 0 ? "If" : (mode === "and" ? "And" : "Or")}
                         </span>
@@ -283,17 +297,19 @@ export default function ActionRoutes({
                           ))}
                         </select>
 
-                        <input
-                          className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="Value"
-                          value={c.valueText}
-                          onChange={(e) => {
-                            const newConditions = [...conditions];
-                            newConditions[cIdx] = { ...c, valueText: e.target.value };
-                            const condition = buildCondition(mode, newConditions);
-                            onUpdateRoute(idx, { ...route, condition });
-                          }}
-                        />
+                        {!UNARY_OPERATORS.has(c.operator) && (
+                          <input
+                            className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 shadow-sm outline-none focus:ring-1 focus:ring-purple-500"
+                            placeholder="Value"
+                            value={c.valueText}
+                            onChange={(e) => {
+                              const newConditions = [...conditions];
+                              newConditions[cIdx] = { ...c, valueText: e.target.value };
+                              const condition = buildCondition(mode, newConditions);
+                              onUpdateRoute(idx, { ...route, condition });
+                            }}
+                          />
+                        )}
 
                         <button
                           onClick={() => {

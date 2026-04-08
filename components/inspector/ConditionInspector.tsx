@@ -9,9 +9,11 @@ type ConditionInspectorProps = {
 };
 
 type ConditionRoute = {
-  when?: Record<string, [string, string | number]>;
+  when?: Record<string, unknown[]>;
   goto?: string;
 };
+
+const UNARY_OPERATORS = new Set(["exists", "hasText"]);
 
 export default function ConditionInspector({
   node,
@@ -48,19 +50,26 @@ export default function ConditionInspector({
       const newRoutes = [...routes];
       const currentWhen = newRoutes[idx].when || {};
       const currentOp = Object.keys(currentWhen)[0] || "eq";
-      const currentArgs = currentWhen[currentOp] || ["", ""];
+      const currentArgs = Array.isArray(currentWhen[currentOp])
+        ? (currentWhen[currentOp] as unknown[])
+        : ["", ""];
 
       
       if (field === "operator") {
-          // Change operator key but keep values
+          const nextArgs = UNARY_OPERATORS.has(String(value))
+            ? [currentArgs[0] ?? ""]
+            : [currentArgs[0] ?? "", currentArgs[1] ?? ""];
           newRoutes[idx] = {
               ...newRoutes[idx],
-              when: { [value]: currentArgs }
+              when: { [value]: nextArgs }
           };
       } else if (field === "left") {
+          const nextArgs = UNARY_OPERATORS.has(currentOp)
+            ? [value]
+            : [value, currentArgs[1] ?? ""];
           newRoutes[idx] = {
               ...newRoutes[idx],
-             when: { [currentOp]: [value, currentArgs[1]] }
+             when: { [currentOp]: nextArgs }
           };
       } else if (field === "right") {
            newRoutes[idx] = {
@@ -124,9 +133,13 @@ export default function ConditionInspector({
             <div className="space-y-3">
                 {routes.map((route, idx) => {
                      const operator = route.when ? Object.keys(route.when)[0] : "eq";
-                     const args = route.when ? route.when[operator] : ["", ""];
-                     const leftValue = args?.[0] || "";
-                     const rightValue = args?.[1] || "";
+                     const args =
+                       route.when && Array.isArray(route.when[operator])
+                         ? (route.when[operator] as unknown[])
+                         : ["", ""];
+                     const leftValue = String(args?.[0] ?? "");
+                     const rightValue = String(args?.[1] ?? "");
+                     const isUnaryOperator = UNARY_OPERATORS.has(operator);
 
                     return (
                         <div key={idx} className="p-4 bg-gradient-to-br from-white to-gray-50/50 border-2 border-gray-200 rounded-xl relative group transition-all hover:border-pink-300 hover:shadow-lg">
@@ -177,19 +190,22 @@ export default function ConditionInspector({
                                              <option value="matches">MATCHES (regex)</option>
                                              <option value="like">LIKE (wildcard)</option>
                                              <option value="exists">EXISTS (has value)</option>
+                                             <option value="hasText">HAS TEXT (not blank)</option>
                                          </select>
                                     </div>
 
                                     {/* Right Side */}
-                                    <div className="flex-1">
-                                        <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Right operand</div>
-                                        <input 
-                                            className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all"
-                                            placeholder="1000 or {{vars.max}}"
-                                            value={rightValue}
-                                            onChange={(e) => updateRouteLogic(idx, "right", e.target.value)}
-                                        />
-                                    </div>
+                                    {!isUnaryOperator && (
+                                      <div className="flex-1">
+                                          <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Right operand</div>
+                                          <input 
+                                              className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all"
+                                              placeholder="1000 or {{vars.max}}"
+                                              value={rightValue}
+                                              onChange={(e) => updateRouteLogic(idx, "right", e.target.value)}
+                                          />
+                                      </div>
+                                    )}
                                 </div>
                             </div>
 
