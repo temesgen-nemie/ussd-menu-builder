@@ -156,6 +156,12 @@ export default function ActionInspector({
   );
   const [fieldSearchQuery, setFieldSearchQuery] = React.useState("");
   const curlText = curlTextByNodeId[node.id] ?? "";
+  const localDataSource =
+    (node.data.dataSource as "inputManager" | "redis" | "commonManager" | undefined) ??
+    "inputManager";
+  const commonManagerFetchMode =
+    (node.data.commonManagerFetchMode as "session" | "search" | undefined) ??
+    "session";
 
   const [paramPairs, setParamPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
@@ -1190,15 +1196,98 @@ export default function ActionInspector({
               <label className="text-xs font-medium text-gray-600">
                 Data Source
               </label>
-              <input
+              <select
                 className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                placeholder="source"
-                value={String(node.data.dataSource ?? "")}
+                value={localDataSource}
                 onChange={(e) =>
-                  updateNodeData(node.id, { dataSource: e.target.value })
+                  updateNodeData(node.id, {
+                    dataSource: e.target.value as
+                      | "inputManager"
+                      | "redis"
+                      | "commonManager",
+                  })
                 }
-              />
+              >
+                <option value="inputManager">inputManager</option>
+                <option value="redis">redis</option>
+                <option value="commonManager">commonManager</option>
+              </select>
             </div>
+
+            {localDataSource === "commonManager" && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">
+                    Fetch Mode
+                  </label>
+                  <select
+                    className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                    value={commonManagerFetchMode}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        commonManagerFetchMode: e.target.value as
+                          | "session"
+                          | "search",
+                      })
+                    }
+                  >
+                    <option value="session">By session id</option>
+                    <option value="search">By field search</option>
+                  </select>
+                </div>
+
+                {commonManagerFetchMode === "session" ? (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">
+                      Session ID
+                    </label>
+                    <input
+                      className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                      placeholder="{{vars.sessionId}}"
+                      value={String(node.data.commonManagerFetchSessionId ?? "")}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          commonManagerFetchSessionId: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">
+                        Search Field
+                      </label>
+                      <input
+                        className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                        placeholder="sessionId"
+                        value={String(node.data.commonManagerSearchField ?? "")}
+                        onChange={(e) =>
+                          updateNodeData(node.id, {
+                            commonManagerSearchField: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">
+                        Search Value
+                      </label>
+                      <input
+                        className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                        placeholder="{{vars.sessionId}}"
+                        value={String(node.data.commonManagerSearchValue ?? "")}
+                        onChange={(e) =>
+                          updateNodeData(node.id, {
+                            commonManagerSearchValue: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">

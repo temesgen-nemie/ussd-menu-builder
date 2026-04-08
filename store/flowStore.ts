@@ -41,6 +41,10 @@ export type FlowNode = {
   url?: string;
   method?: string;
   dataSource?: string;
+  commonManagerFetchMode?: "session" | "search";
+  commonManagerFetchSessionId?: string;
+  commonManagerSearchField?: string;
+  commonManagerSearchValue?: string;
   field?: string;
   outputVar?: string;
   fields?: string[];
@@ -540,6 +544,29 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           endpoint: String(data.endpoint ?? ""),
           method: String(data.method ?? ""),
           dataSource: String(data.dataSource ?? ""),
+          commonManagerFetchMode:
+            data.dataSource === "commonManager"
+              ? ((data.commonManagerFetchMode as "session" | "search" | undefined) ??
+                "session")
+              : undefined,
+          commonManagerFetchSessionId:
+            data.dataSource === "commonManager" &&
+            typeof data.commonManagerFetchSessionId === "string" &&
+            data.commonManagerFetchSessionId.trim()
+              ? String(data.commonManagerFetchSessionId)
+              : undefined,
+          commonManagerSearchField:
+            data.dataSource === "commonManager" &&
+            typeof data.commonManagerSearchField === "string" &&
+            data.commonManagerSearchField.trim()
+              ? String(data.commonManagerSearchField)
+              : undefined,
+          commonManagerSearchValue:
+            data.dataSource === "commonManager" &&
+            typeof data.commonManagerSearchValue === "string" &&
+            data.commonManagerSearchValue.trim()
+              ? String(data.commonManagerSearchValue)
+              : undefined,
           fields: fields.length > 0 ? fields : undefined,
           outputVars: outputVars.length > 0 ? outputVars : undefined,
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,

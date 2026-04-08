@@ -10,7 +10,11 @@ export type ActionNodeData = {
   name?: string;
   endpoint?: string;
   method?: string;
-  dataSource?: string;
+  dataSource?: "inputManager" | "redis" | "commonManager";
+  commonManagerFetchMode?: "session" | "search";
+  commonManagerFetchSessionId?: string;
+  commonManagerSearchField?: string;
+  commonManagerSearchValue?: string;
   field?: string;
   outputVar?: string;
   fields?: string[];
