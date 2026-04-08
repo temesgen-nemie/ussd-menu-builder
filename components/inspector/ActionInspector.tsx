@@ -498,6 +498,7 @@ export default function ActionInspector({
     const headers: Record<string, string> = {};
     let body = "";
     const formUrlEncodedParts: string[] = [];
+    let ignoreTlsCertificateVerification = false;
 
     for (let i = 0; i < tokens.length; i += 1) {
       const token = tokens[i];
@@ -506,6 +507,11 @@ export default function ActionInspector({
       if (token === "-X" || token === "--request") {
         method = tokens[i + 1] || method;
         i += 1;
+        continue;
+      }
+
+      if (token === "-k" || token === "--insecure") {
+        ignoreTlsCertificateVerification = true;
         continue;
       }
 
@@ -564,7 +570,14 @@ export default function ActionInspector({
       method = body || formUrlEncodedParts.length > 0 ? "POST" : "GET";
     }
 
-    return { method, url, headers, body, formUrlEncodedRows };
+    return {
+      method,
+      url,
+      headers,
+      body,
+      formUrlEncodedRows,
+      ignoreTlsCertificateVerification,
+    };
   }, []);
 
   const syncHeaders = React.useCallback(
@@ -641,7 +654,8 @@ export default function ActionInspector({
       endpoint: string,
       method: string,
       headers: Record<string, string>,
-      body?: string
+      body?: string,
+      ignoreTlsCertificateVerification?: boolean
     ) => {
       const normalizedHeaderEntries = Object.entries(headers).map(([key, value]) => [
         key.trim(),
@@ -658,7 +672,12 @@ export default function ActionInspector({
       const effectiveMethod =
         hasBody && (method === "GET" || method === "HEAD") ? "POST" : method;
 
-      const lines: string[] = [`curl --location ${toCurlQuoted(endpoint)} \\`];
+      const curlFlags = [
+        "--location",
+        ...(ignoreTlsCertificateVerification ? ["--insecure"] : []),
+        toCurlQuoted(endpoint),
+      ];
+      const lines: string[] = [`curl ${curlFlags.join(" ")} \\`];
       if (effectiveMethod !== "GET") {
         lines.push(`--request ${effectiveMethod} \\`);
       }
@@ -746,6 +765,9 @@ export default function ActionInspector({
               endpoint={String(node.data.endpoint ?? "")}
               curlText={curlText}
               isSending={isSending}
+              ignoreTlsCertificateVerification={Boolean(
+                node.data.ignoreTlsCertificateVerification
+              )}
               baseUrlToken={baseUrl ? "baseUrl" : undefined}
               baseUrlValue={baseUrl || undefined}
               onClearBaseUrl={() => {
@@ -765,6 +787,11 @@ export default function ActionInspector({
                 updateNodeData(node.id, { endpoint: value })
               }
               onCurlChange={(value) => setCurlText(node.id, value)}
+              onIgnoreTlsCertificateVerificationChange={(checked) =>
+                updateNodeData(node.id, {
+                  ignoreTlsCertificateVerification: checked,
+                })
+              }
               onImportCurl={() => {
                 const parsed = parseCurl(curlText);
                 if (!parsed) {
@@ -775,8 +802,12 @@ export default function ActionInspector({
                   return;
                 }
 
-                updateNodeData(node.id, { method: parsed.method });
-                updateNodeData(node.id, { endpoint: parsed.url });
+                updateNodeData(node.id, {
+                  method: parsed.method,
+                  endpoint: parsed.url,
+                  ignoreTlsCertificateVerification:
+                    parsed.ignoreTlsCertificateVerification,
+                });
                 syncUrlToParams(parsed.url);
 
                 const pairs = Object.entries(parsed.headers).map(([key, value]) => ({
@@ -881,11 +912,20 @@ export default function ActionInspector({
                     endpoint,
                     method,
                     headers,
-                    body
+                    body,
+                    Boolean(node.data.ignoreTlsCertificateVerification)
                   );
                   setCurlText(node.id, generatedCurl);
 
-                  const result = await sendRequestThroughCurlProxy(generatedCurl);
+                  const result = await sendRequestThroughCurlProxy({
+                    url: endpoint,
+                    method,
+                    headers,
+                    body,
+                    ignoreTlsCertificateVerification: Boolean(
+                      node.data.ignoreTlsCertificateVerification
+                    ),
+                  });
 
                   updateResponse(node.id, {
                     status: result.status,

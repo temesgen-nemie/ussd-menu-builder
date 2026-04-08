@@ -5,12 +5,14 @@ type RequestBarProps = {
   endpoint: string;
   curlText: string;
   isSending: boolean;
+  ignoreTlsCertificateVerification: boolean;
   baseUrlToken?: string;
   baseUrlValue?: string;
   onClearBaseUrl?: () => void;
   onMethodChange: (value: string) => void;
   onEndpointChange: (value: string) => void;
   onCurlChange: (value: string) => void;
+  onIgnoreTlsCertificateVerificationChange: (checked: boolean) => void;
   onImportCurl: () => void;
   onSend: () => void;
 };
@@ -20,12 +22,14 @@ export default function RequestBar({
   endpoint,
   curlText,
   isSending,
+  ignoreTlsCertificateVerification,
   baseUrlToken,
   baseUrlValue,
   onClearBaseUrl,
   onMethodChange,
   onEndpointChange,
   onCurlChange,
+  onIgnoreTlsCertificateVerificationChange,
   onImportCurl,
   onSend,
 }: RequestBarProps) {
@@ -232,7 +236,17 @@ export default function RequestBar({
           </span>
         </button>
       </div>
-   
+      <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          checked={ignoreTlsCertificateVerification}
+          onChange={(e) =>
+            onIgnoreTlsCertificateVerificationChange(e.target.checked)
+          }
+        />
+        Ignore TLS certificate verification for proxy send
+      </label>
     </div>
   );
 }

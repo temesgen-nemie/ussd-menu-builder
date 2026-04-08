@@ -468,6 +468,15 @@ export type CurlProxyResult = {
     body: string;
 };
 
+export type CurlProxyRequest = {
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    timeoutMs?: number;
+    ignoreTlsCertificateVerification?: boolean;
+};
+
 const toHeaderRecord = (raw: unknown): Record<string, string> => {
     if (!raw || typeof raw !== "object") return {};
     const record: Record<string, string> = {};
@@ -535,16 +544,19 @@ const normalizeCurlProxyResult = (
 };
 
 export const sendRequestThroughCurlProxy = async (
-    curlText: string
+    payload: string | CurlProxyRequest
 ): Promise<CurlProxyResult> => {
-    try {
-        const response = await api.post(
-            "/admin/flows/curlProxyController",
-            curlText,
-            {
-                headers: { "Content-Type": "text/plain" },
-            }
-        );
+      try {
+          const isRawCurl = typeof payload === "string";
+          const response = await api.post(
+              "/admin/flows/curlProxyController",
+              payload,
+              {
+                  headers: {
+                      "Content-Type": isRawCurl ? "text/plain" : "application/json",
+                  },
+              }
+          );
 
         const responseHeaders = toHeaderRecord(response.headers ?? {});
 

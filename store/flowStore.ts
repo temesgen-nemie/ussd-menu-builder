@@ -40,6 +40,7 @@ export type FlowNode = {
   endpoint?: string;
   url?: string;
   method?: string;
+  ignoreTlsCertificateVerification?: boolean;
   dataSource?: string;
   commonManagerFetchMode?: "session" | "search";
   commonManagerFetchSessionId?: string;
@@ -539,11 +540,13 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           }))
           .filter((row) => row.key.length > 0);
 
-        return {
-          ...base,
-          endpoint: String(data.endpoint ?? ""),
-          method: String(data.method ?? ""),
-          dataSource: String(data.dataSource ?? ""),
+          return {
+            ...base,
+            endpoint: String(data.endpoint ?? ""),
+            method: String(data.method ?? ""),
+            ignoreTlsCertificateVerification:
+              data.ignoreTlsCertificateVerification === true ? true : undefined,
+            dataSource: String(data.dataSource ?? ""),
           commonManagerFetchMode:
             data.dataSource === "commonManager"
               ? ((data.commonManagerFetchMode as "session" | "search" | undefined) ??

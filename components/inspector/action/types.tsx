@@ -10,6 +10,7 @@ export type ActionNodeData = {
   name?: string;
   endpoint?: string;
   method?: string;
+  ignoreTlsCertificateVerification?: boolean;
   dataSource?: "inputManager" | "redis" | "commonManager";
   commonManagerFetchMode?: "session" | "search";
   commonManagerFetchSessionId?: string;
