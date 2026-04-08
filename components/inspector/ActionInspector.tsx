@@ -157,7 +157,7 @@ export default function ActionInspector({
   const [fieldSearchQuery, setFieldSearchQuery] = React.useState("");
   const curlText = curlTextByNodeId[node.id] ?? "";
   const localDataSource =
-    (node.data.dataSource as "inputManager" | "redis" | "commonManager" | undefined) ??
+    (node.data.dataSource as "inputManager" | "commonManager" | undefined) ??
     "inputManager";
   const commonManagerFetchMode =
     (node.data.commonManagerFetchMode as "session" | "search" | undefined) ??
@@ -1203,13 +1203,11 @@ export default function ActionInspector({
                   updateNodeData(node.id, {
                     dataSource: e.target.value as
                       | "inputManager"
-                      | "redis"
                       | "commonManager",
                   })
                 }
               >
                 <option value="inputManager">inputManager</option>
-                <option value="redis">redis</option>
                 <option value="commonManager">commonManager</option>
               </select>
             </div>

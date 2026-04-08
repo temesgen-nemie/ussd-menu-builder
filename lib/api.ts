@@ -740,6 +740,100 @@ export const searchLogs = async (params: {
     }
 };
 
+export type RedisInspectorIndex = {
+    name: string;
+    db: number;
+};
+
+export type RedisInspectorEntry = {
+    key: string;
+    type: string;
+    ttl: number;
+    value: unknown;
+};
+
+export type FetchRedisIndexesResponse = {
+    data: RedisInspectorIndex[];
+};
+
+export type FetchRedisEntriesResponse = {
+    data: {
+        db: number;
+        name: string;
+        items: RedisInspectorEntry[];
+        nextCursor: string;
+        hasMore: boolean;
+    };
+};
+
+export const fetchRedisIndexes = async (): Promise<FetchRedisIndexesResponse> => {
+    try {
+        const response = await api.get<FetchRedisIndexesResponse>("/admin/redis/indexes");
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to fetch Redis indexes (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const fetchRedisEntries = async (params: {
+    db: number;
+    pattern?: string;
+    cursor?: string;
+    limit?: number;
+}): Promise<FetchRedisEntriesResponse> => {
+    try {
+        const response = await api.get<FetchRedisEntriesResponse>(
+            "/admin/redis/entries",
+            { params }
+        );
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to fetch Redis entries (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
+export const deleteRedisEntry = async (params: {
+    db: number;
+    key: string;
+}) => {
+    try {
+        const response = await api.delete("/admin/redis/entry", { params });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<{ error?: string }>;
+            throw new Error(
+                axiosError.response?.data?.error ||
+                `Failed to delete Redis entry (${axiosError.response?.status})`
+            );
+        } else if (error instanceof Error) {
+            throw new Error(error.message);
+        } else {
+            throw new Error("An unknown error occurred");
+        }
+    }
+};
+
 export type BackendLogEntry = {
     timestamp?: string;
     level?: string;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import BackendLogsTable from "@/components/logs/BackendLogsTable";
 import LogsTable from "@/components/logs/LogsTable";
+import RedisInspector from "@/components/logs/RedisInspector";
 import { API_BASE_URL } from "@/lib/api";
 
 type LogsModalProps = {
@@ -11,7 +12,7 @@ type LogsModalProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type LogsCategory = "flow" | "backend";
+type LogsCategory = "flow" | "backend" | "redis";
 type TabKey = "fetch" | "live";
 
 type LogsModalContentProps = {
@@ -421,6 +422,17 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
             >
               Backend Logs
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveCategory("redis")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all md:pointer-events-auto ${
+                activeCategory === "redis"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Redis
+            </button>
           </div>
           <div className="hidden flex-col items-end gap-2 md:flex">
             <div className="flex items-center gap-2">
@@ -545,7 +557,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
                 )}
               </div>
             </div>
-          ) : (
+          ) : activeCategory === "backend" ? (
             <div
               className={`flex flex-col gap-4 ${
                 isCompactViewport ? "min-h-full" : "h-full overflow-hidden"
@@ -623,6 +635,16 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`flex flex-col gap-4 ${
+                isCompactViewport ? "min-h-full" : "h-full overflow-hidden"
+              }`}
+            >
+              <div className={isCompactViewport ? "" : "flex-1 overflow-hidden"}>
+                <RedisInspector />
               </div>
             </div>
           )}
