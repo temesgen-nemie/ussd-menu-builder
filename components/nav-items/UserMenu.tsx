@@ -115,7 +115,12 @@ export default function UserMenu() {
           }}
         >
           <LogOut className="h-4 w-4 text-red-500" />
-          Logout
+          <div className="flex flex-col leading-tight">
+            <span>Logout</span>
+            <span className="text-[10px] font-normal text-muted-foreground">
+              1.1.1
+            </span>
+          </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
 
