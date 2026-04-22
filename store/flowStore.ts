@@ -28,6 +28,7 @@ export type FlowNode = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  allowEmptyInput?: boolean;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   inputLength?: number;
   invalidInputTypeMessage?: string;
@@ -285,6 +286,10 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           ""
         );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
+        const allowEmptyInput =
+          typeof data.allowEmptyInput === "boolean"
+            ? data.allowEmptyInput
+            : undefined;
         const inputType = String(
           data.inputType ??
           (data.inputValidationEnabled ? "STRING" : "")
@@ -310,6 +315,7 @@ const buildFlowJson = (nodes: Node[], edges: Edge[], allNodes: Node[] = nodes): 
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
+          allowEmptyInput,
           inputType: (inputType || undefined) as FlowNode["inputType"],
           inputLength:
             typeof data.inputLength === "number" && data.inputLength > 0

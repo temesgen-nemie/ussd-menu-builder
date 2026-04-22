@@ -41,6 +41,7 @@ type PromptNodeData = {
   indexedListVar?: string;
   invalidInputMessage?: string;
   emptyInputMessage?: string;
+  allowEmptyInput?: boolean;
   persistInput?: boolean;
   persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
@@ -1178,6 +1179,17 @@ export default function PromptInspector({
                     placeholder={`Enter ${languages.find(l => l.code === selectedLanguage)?.name} invalid input message...`}
                   />
                 </div>
+                <label className="flex items-center gap-2 text-xs text-gray-600 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(node.data.allowEmptyInput)}
+                    onChange={(e) =>
+                      updateNodeData(node.id, { allowEmptyInput: e.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all border-2 checked:bg-emerald-600"
+                  />
+                  <span>Allow Empty Input</span>
+                </label>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block -mt-2">Input Length</label>
                   <input
